@@ -27,11 +27,3 @@ for a clearer subject. Unlike the earlier Performance profile, Native AA does
 not reconstruct the character from an approximately 1920x1080 source image.
 This clarity-first profile is substantially more GPU-intensive. The script backs
 up every changed file and does not alter the Sky Vulkan patch or save data.
-
-The verified YYB GPTK 4.0 beta 2 build rejects six Stellar Blade compute
-shaders at startup (`MetalIRConverter UnsupportedInstruction` / `error:7`). If
-the Mac already has CrossOver's signed GPTK 2.1 set, the repair transaction can
-use it only when every source SHA-256 and the YYB target build match the pinned
-values. Unknown or incomplete builds are left untouched. The repository does
-not include or download Apple or CrossOver binaries, and every replaced local
-file is included in the normal restore backup.

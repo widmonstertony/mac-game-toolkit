@@ -56,7 +56,6 @@ python3 stellar_blade_fix.py
 
 这里不再是“1080p 重建成 4K”：Native AA 保持 100% 内部渲染比例，帧插值用来提高最终显示帧率。这个模式优先人物清晰度，对 GPU 的要求明显高于 FSR 性能模式；实际帧率仍随芯片、场景、温度和后台负载变化。运行前会停止应用宝 Wine 会话并备份配置；光遇的 Vulkan 补丁和存档不会被修改。
 
-已验证的应用宝 GPTK 4.0 beta 2 会在《剑星》启动时连续拒绝六个 Compute shader（`MetalIRConverter UnsupportedInstruction` / `error:7`）。若本机已安装含签名 GPTK 2.1 组件的 CrossOver，脚本会在所有源文件 SHA-256 和应用宝目标版本都精确匹配时，事务式备份并替换 D3D12 所需组件。未安装 CrossOver、版本未知或任一哈希不匹配时都不会复制二进制；仓库本身不包含苹果或 CrossOver 文件。
 
 ## Intel Mac 一键使用
 

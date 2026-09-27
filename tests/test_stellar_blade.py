@@ -85,36 +85,5 @@ class StellarBladeFixTests(unittest.TestCase):
             self.assertIn("r.SceneColorFringe.Max=0", engine_settings)
             self.assertIn("t.MaxFPS=120", engine_settings)
 
-    def test_d3dmetal_fallback_is_hash_pinned_backed_up_and_idempotent(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            yyb = root / "yyb"
-            crossover = root / "crossover"
-            relative = "external/D3DMetal.framework/Versions/A/D3DMetal"
-            target = yyb / relative
-            source = crossover / relative
-            target.parent.mkdir(parents=True)
-            source.parent.mkdir(parents=True)
-            target.write_bytes(b"buggy-beta")
-            source.write_bytes(b"stable")
-            stable_hash = fix.file_sha256(source)
-            backups = FakeBackups()
-
-            with (
-                mock.patch.object(fix, "YYB_GPTK", yyb),
-                mock.patch.object(fix, "CROSSOVER_GPTK", crossover),
-                mock.patch.object(fix, "D3DMETAL_MAIN", relative),
-                mock.patch.object(fix, "D3DMETAL_4_BETA2_SHA256", fix.file_sha256(target)),
-                mock.patch.object(fix, "D3DMETAL_2_1_FILES", {relative: stable_hash}),
-            ):
-                status = fix.patch_d3dmetal_compat(backups)
-                second = fix.patch_d3dmetal_compat(backups)
-
-            self.assertIn("compatibility", status)
-            self.assertIn("already active", second)
-            self.assertEqual(target.read_bytes(), b"stable")
-            self.assertEqual(backups.paths, [target])
-
-
 if __name__ == "__main__":
     unittest.main()
