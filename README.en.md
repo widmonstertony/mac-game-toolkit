@@ -18,12 +18,14 @@ This project is not affiliated with Tencent, NetEase, or thatgamecompany. It doe
 
 If Stellar Blade is already installed through the Windows Steam client inside
 YYB, run `python3 stellar_blade_fix.py`. This applies 3840x2160 output and
-internal rendering, 2x Retina backing, FSR 3 Native AA and frame interpolation,
+internal rendering, 2x Retina backing and native Gen4 TAA,
 with a 120 FPS cap. Character textures, material quality and skeletal-mesh LOD
 are prioritized while expensive environment settings are reduced. Used textures
 stay resident and the artificial 8 GiB UE streaming-pool limit is removed. Depth
 of field, motion blur, chromatic aberration, and film grain are force-disabled
-for a clearer subject. Unlike the earlier Performance profile, Native AA does
-not reconstruct the character from an approximately 1920x1080 source image.
+for a clearer subject. Unlike the earlier profiles, neither Performance
+upscaling nor FSR Native AA temporally reconstructs the character. Stellar
+Blade forces frame interpolation off when FSR is disabled, so this
+clarity-first profile does not claim frame generation.
 This clarity-first profile is substantially more GPU-intensive. The script backs
 up every changed file and does not alter the Sky Vulkan patch or save data.

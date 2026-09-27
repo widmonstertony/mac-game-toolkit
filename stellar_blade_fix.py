@@ -69,6 +69,21 @@ def set_ini_values(text: str, section: str, values: dict[str, str]) -> str:
     return text[:match.start()] + block + text[end:]
 
 
+def remove_ini_values(text: str, section: str, keys: tuple[str, ...]) -> str:
+    """Remove stale overrides from one INI section without touching others."""
+    header = re.compile(rf"(?mi)^\[{re.escape(section)}\]\s*$")
+    match = header.search(text)
+    if not match:
+        return text
+    end = text.find("\n[", match.end())
+    if end < 0:
+        end = len(text)
+    block = text[match.start():end]
+    for key in keys:
+        block = re.sub(rf"(?mi)^{re.escape(key)}=.*\n?", "", block)
+    return text[:match.start()] + block + text[end:]
+
+
 def patch_game_settings(backups: BackupSet) -> None:
     if not USER_SETTINGS.exists():
         raise RepairError(f"未找到剑星配置：{USER_SETTINGS}")
@@ -78,8 +93,8 @@ def patch_game_settings(backups: BackupSet) -> None:
         text,
         "/Script/SB.SBGameUserSettings",
         {
-            "Sharpen": "0.800000",
-            "SharpenFSR3": "0.750000",
+            "Sharpen": "1.000000",
+            "SharpenFSR3": "0.000000",
             "bFirstRun": "False",
             "bHDDMode": "False",
             "FrameLimit": "FrameLimit_120",
@@ -88,34 +103,33 @@ def patch_game_settings(backups: BackupSet) -> None:
             "EnviromentTextures": "SB_GAMEUSERSETTINGS_LOW",
             "CharacterTextures": "SB_GAMEUSERSETTINGS_VERYHIGH",
             "VolumetricFog": "SB_GAMEUSERSETTINGS_OFF",
-            "ShadowQuality": "SB_GAMEUSERSETTINGS_LOW",
+            "ShadowQuality": "SB_GAMEUSERSETTINGS_MEDIUM",
             "EffectQuality": "SB_GAMEUSERSETTINGS_LOW",
             "EnvironmentQuality": "SB_GAMEUSERSETTINGS_LOW",
-            "Lighting": "SB_GAMEUSERSETTINGS_LOW",
+            "Lighting": "SB_GAMEUSERSETTINGS_HIGH",
             "FoliageQuality": "SB_GAMEUSERSETTINGS_LOW",
-            "AmbientOcclusion": "SB_GAMEUSERSETTINGS_OFF",
+            "AmbientOcclusion": "SB_GAMEUSERSETTINGS_HIGH",
             "DepthOfField": "SB_GAMEUSERSETTINGS_OFF",
             "ScreenSpaceReflection": "SB_GAMEUSERSETTINGS_OFF",
             "SceneColorFringeQuality": "SB_GAMEUSERSETTINGS_OFF",
             "GrainQuality": "SB_GAMEUSERSETTINGS_OFF",
-            "MaterialQuality": "SB_GAMEUSERSETTINGS_HIGH",
-            "AntiAliasing": "SB_GAMEUSERSETTINGS_LOW",
+            "MaterialQuality": "SB_GAMEUSERSETTINGS_VERYHIGH",
+            "AntiAliasing": "SB_GAMEUSERSETTINGS_MEDIUM",
             "NvidiaDLSS": "SB_GAMEUSERSETTINGS_OFF",
             "NvidiaFrameGeneration": "SB_GAMEUSERSETTINGS_OFF",
             "NvidiaReflexLowLatency": "SB_GAMEUSERSETTINGS_OFF",
-            # EXTENSION1 is the game's FSR 3 Native AA preset.  Unlike the
-            # Performance preset it keeps a 100% internal render percentage,
-            # which avoids reconstructing Eve from a 1080p source image.
-            "AmdFSR3": "SB_GAMEUSERSETTINGS_EXTENSION1",
-            "AmdFrameInterpolation": "SB_GAMEUSERSETTINGS_LOW",
+            # Stellar Blade's FSR 3 temporal pass noticeably softens Eve even
+            # in Native AA.  Use the native Gen4 TAA path instead.
+            "AmdFSR3": "SB_GAMEUSERSETTINGS_OFF",
+            "AmdFrameInterpolation": "SB_GAMEUSERSETTINGS_OFF",
             "IntelXeSS": "SB_GAMEUSERSETTINGS_OFF",
             "AnimationQuality": "SB_GAMEUSERSETTINGS_HIGH",
             "CharacterViewDistance": "1.000000",
             "EnviromentObjectViewDistance": "0.000000",
-            "UpscalerType": "SB_GAMEUSERSETTINGS_MEDIUM",
+            "UpscalerType": "SB_GAMEUSERSETTINGS_LOW",
             "SavedNvidiaFrameGeneration": "SB_GAMEUSERSETTINGS_OFF",
             "SavedNvidiaReflexLowLatency": "SB_GAMEUSERSETTINGS_OFF",
-            "SavedAmdFrameInterpolation": "SB_GAMEUSERSETTINGS_LOW",
+            "SavedAmdFrameInterpolation": "SB_GAMEUSERSETTINGS_OFF",
             "bVSync": "False",
             "bUseVSync": "False",
             "bUseDynamicResolution": "False",
@@ -147,6 +161,17 @@ def patch_movie_settings(backups: BackupSet) -> None:
             "bMoviesAreSkippable": "True",
         },
     )
+    text = remove_ini_values(
+        text,
+        "SystemSettings",
+        (
+            "r.FidelityFX.FSR3.Enabled",
+            "r.FidelityFX.FSR3.QualityMode",
+            "r.FidelityFX.FSR3.AdjustMipBias",
+            "r.FidelityFX.FSR3.Sharpness",
+            "r.FidelityFX.FSR3.DeDither",
+        ),
+    )
     text = set_ini_values(
         text,
         "SystemSettings",
@@ -161,14 +186,9 @@ def patch_movie_settings(backups: BackupSet) -> None:
             "r.SceneColorFringeQuality": "0",
             "r.SceneColorFringe.Max": "0",
             "r.Tonemapper.GrainQuantization": "0",
-            "r.FidelityFX.FSR3.Enabled": "1",
-            "r.FidelityFX.FSR3.QualityMode": "0",
-            "r.FidelityFX.FSR3.AdjustMipBias": "1",
-            "r.FidelityFX.FSR3.Sharpness": "0.800000",
-            "r.FidelityFX.FSR3.DeDither": "2",
             "r.ScreenPercentage": "100",
             "r.Velocity.EnableVertexDeformation": "1",
-            "r.FidelityFX.FI.Enabled": "1",
+            "r.FidelityFX.FI.Enabled": "0",
             "r.VSync": "0",
             "t.MaxFPS": "120",
             # Zero means an unlimited UE texture-streaming pool.  YYB reports
@@ -179,14 +199,28 @@ def patch_movie_settings(backups: BackupSet) -> None:
             "r.Streaming.MipBias": "0",
             "r.Streaming.Boost": "2",
             "r.Streaming.FullyLoadUsedTextures": "1",
+            "r.MipMapLODBias": "-3",
+            "r.MaxAnisotropy": "16",
+            "r.SubsurfaceScattering": "1",
+            "r.SSS.Quality": "1",
+            "r.SSS.HalfRes": "0",
+            "r.SSS.Checkerboard": "0",
+            "r.ContactShadows": "1",
+            "r.AmbientOcclusionLevels": "2",
+            "r.AmbientOcclusionMaxQuality": "100",
             # Keep the player skeletal mesh at its highest authored LOD while
             # allowing the environment quality controls above to remain low.
             "r.SkeletalMeshLODBias": "-3",
-            # Reduce temporal smearing without disabling the temporal history
-            # required by FSR 3 Native AA and frame interpolation.
-            "r.TemporalAA.Algorithm": "1",
-            "r.TemporalAACurrentFrameWeight": "0.500000",
-            "r.TemporalAASamples": "4",
+            # Gen4 TAA with a sharper Catmull-Rom resolve cleans up dithered
+            # hair coverage without the soft FSR Native AA reconstruction.
+            "r.TemporalAA.Algorithm": "0",
+            "r.TemporalAA.Upsampling": "0",
+            "r.PostProcessAAQuality": "4",
+            "r.TemporalAACurrentFrameWeight": "0.350000",
+            "r.TemporalAASamples": "8",
+            "r.TemporalAAFilterSize": "0.600000",
+            "r.TemporalAACatmullRom": "1",
+            "r.Tonemapper.Sharpen": "1.500000",
         },
     )
     atomic_write(ENGINE_INI, text.encode("utf-8"), 0o600)
@@ -337,8 +371,8 @@ def main() -> int:
         backup = apply()
         print("剑星修复完成：")
         print("  ✓ 应用宝子入口 Retina 2×")
-        print(f"  ✓ 输出与内部渲染 {WIDTH}×{HEIGHT}，FSR 3 Native AA")
-        print("  ✓ FSR 3 插帧开启，目标上限 120 FPS（不锁 60）")
+        print(f"  ✓ 输出与内部渲染 {WIDTH}×{HEIGHT}，原生 Gen4 TAA（不做 FSR 重建）")
+        print("  ✓ 帧插值关闭；《剑星》会在 FSR 关闭时强制关闭它")
         print("  ✓ 人物最高纹理/骨骼 LOD 并常驻已用贴图，环境画质保持低档")
         print("  ✓ 跳过启动影片等待，并启用启动日志")
         print("  ✓ 剑星进程 High-DPI 感知与 8 GB 显存预算")
