@@ -128,6 +128,21 @@ class FixTests(unittest.TestCase):
         self.assertEqual(self.module.PREFERENCES.read_bytes(), original_preferences)
         self.assertNotIn(b"autoRun=1", self.shortcut.read_bytes())
 
+    def test_restore_preserves_executable_mode(self):
+        executable = self.home / "tool.dylib"
+        executable.write_bytes(b"original")
+        executable.chmod(0o755)
+        backups = self.module.BackupSet()
+        backups.capture(executable)
+        executable.write_bytes(b"changed")
+        executable.chmod(0o600)
+        backups.finish()
+
+        self.module.restore_from(backups.root, announce=False)
+
+        self.assertEqual(executable.read_bytes(), b"original")
+        self.assertEqual(executable.stat().st_mode & 0o777, 0o755)
+
     def test_unknown_preferences_are_rejected(self):
         self.module.PREFERENCES.write_bytes(b"not-a-preference-file")
         with self.assertRaises(self.module.FixError):

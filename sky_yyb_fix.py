@@ -320,7 +320,7 @@ class BackupSet:
         stamp = time.strftime("%Y%m%d-%H%M%S")
         self.root = STATE_ROOT / "backups" / stamp
         ensure_private_dir(self.root)
-        self.manifest: list[dict[str, str | bool]] = []
+        self.manifest: list[dict[str, str | bool | int]] = []
 
     def capture(self, path: Path) -> None:
         if any(item["path"] == str(path) for item in self.manifest):
@@ -331,9 +331,17 @@ class BackupSet:
         if existed:
             shutil.copy2(path, target)
             target.chmod(0o600)
-        self.manifest.append(
-            {"path": str(path), "backup": relative, "existed": existed}
-        )
+        item: dict[str, str | bool | int] = {
+            "path": str(path),
+            "backup": relative,
+            "existed": existed,
+        }
+        if existed:
+            # Backups themselves stay private (0600), but remember the source
+            # mode so restoring a Mach-O/dylib does not silently remove its
+            # executable bit.
+            item["mode"] = path.stat().st_mode & 0o777
+        self.manifest.append(item)
 
         # Keep the manifest crash-safe as each item is captured, so a failed
         # write later in the transaction can still be rolled back immediately.
@@ -1167,6 +1175,8 @@ def restore_from(root: Path, announce: bool = True) -> None:
             source = root / item["backup"]
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
+            if isinstance(item.get("mode"), int):
+                target.chmod(item["mode"])
         elif target.exists():
             target.unlink()
     if announce:

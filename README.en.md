@@ -17,11 +17,21 @@ This project is not affiliated with Tencent, NetEase, or thatgamecompany. It doe
 ## Extra: Stellar Blade on Apple M4
 
 If Stellar Blade is already installed through the Windows Steam client inside
-YYB, run `python3 stellar_blade_fix.py`. This applies 3840x2160 output, 2x
-Retina backing, FSR 3 Performance upscaling and frame interpolation, with a 120
-FPS cap. Character detail and textures are prioritized while expensive environment
-settings are reduced for a 16 GB unified-memory Mac. Depth of field, motion
-blur, chromatic aberration, and film grain are disabled for a clearer subject.
-The output remains physical 4K; FSR reconstructs it from an approximately
-1920x1080 internal image to create headroom for 60 FPS or better. The script backs
+YYB, run `python3 stellar_blade_fix.py`. This applies 3840x2160 output and
+internal rendering, 2x Retina backing, FSR 3 Native AA and frame interpolation,
+with a 120 FPS cap. Character textures, material quality and skeletal-mesh LOD
+are prioritized while expensive environment settings are reduced. Used textures
+stay resident and the artificial 8 GiB UE streaming-pool limit is removed. Depth
+of field, motion blur, chromatic aberration, and film grain are force-disabled
+for a clearer subject. Unlike the earlier Performance profile, Native AA does
+not reconstruct the character from an approximately 1920x1080 source image.
+This clarity-first profile is substantially more GPU-intensive. The script backs
 up every changed file and does not alter the Sky Vulkan patch or save data.
+
+The verified YYB GPTK 4.0 beta 2 build rejects six Stellar Blade compute
+shaders at startup (`MetalIRConverter UnsupportedInstruction` / `error:7`). If
+the Mac already has CrossOver's signed GPTK 2.1 set, the repair transaction can
+use it only when every source SHA-256 and the YYB target build match the pinned
+values. Unknown or incomplete builds are left untouched. The repository does
+not include or download Apple or CrossOver binaries, and every replaced local
+file is included in the normal restore backup.
