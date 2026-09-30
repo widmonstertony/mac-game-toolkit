@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ import struct
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import zlib
 
 
@@ -156,6 +158,48 @@ class FixTests(unittest.TestCase):
         self.assertEqual(self.module.PREFERENCES.read_bytes(), data)
         self.assertIn('"RetinaMode"="Y"', self.module.USER_REG.read_text())
 
+    def test_fever_window_fits_retina_visible_frame_without_lowering_backing_scale(self):
+        self.module.USER_REG.write_text(
+            "WINE REGISTRY Version 2\n\n"
+            "[Software\\\\FeverGames\\\\FeverGamesInstaller\\\\window] 1\n"
+            '"DefaultSize"="@Size(1280 712)"\n'
+            '"SizeChanged"="@Size(1280 712)"\n',
+            encoding="utf-8",
+        )
+
+        changes = self.module.patch_registries(self.module.BackupSet())
+
+        registry = self.module.USER_REG.read_text(encoding="utf-8")
+        self.assertIn('"DefaultSize"="@Size(1240 650)"', registry)
+        self.assertIn('"SizeChanged"="@Size(1240 650)"', registry)
+        self.assertIn('"RetinaMode"="Y"', registry)
+        self.assertTrue(any("1240×650" in item for item in changes))
+
+    def test_window_wineloader_patch_is_hash_and_offset_guarded(self):
+        original = bytearray(self.module.WINDOW_WINELOADER_PATCH_OFFSET + 64)
+        start = self.module.WINDOW_WINELOADER_PATCH_OFFSET
+        before = self.module.WINDOW_WINELOADER_ORIGINAL
+        original[start:start + len(before)] = before
+        self.module.WINDOW_WINELOADER_SHA256 = hashlib.sha256(original).hexdigest()
+
+        patched = self.module.patch_window_wineloader_image(bytes(original))
+
+        replacement = self.module.WINDOW_WINELOADER_REPLACEMENT
+        self.assertEqual(patched[start:start + len(replacement)], replacement)
+        tampered = bytearray(original)
+        tampered[start] ^= 1
+        self.module.WINDOW_WINELOADER_SHA256 = hashlib.sha256(tampered).hexdigest()
+        with self.assertRaises(self.module.FixError):
+            self.module.patch_window_wineloader_image(bytes(tampered))
+
+    def test_window_launch_agent_uses_current_home_without_shell_expansion(self):
+        payload = self.module.window_launch_agent_payload()
+
+        self.assertEqual(payload["Label"], "com.skyyybmacfix.window")
+        self.assertEqual(payload["ProgramArguments"], [str(self.module.WINDOW_WATCH)])
+        self.assertTrue(str(payload["StandardOutPath"]).startswith(str(self.home)))
+        self.assertNotIn("/Users/tonytan", plistlib.dumps(payload).decode("utf-8"))
+
     def test_fresh_mmkv_gets_missing_retina_keys_and_valid_metadata(self):
         payload = b"\x00\x03foo\x04\x03bar"
         blob = struct.pack("<I", len(payload)) + payload + b"\0" * 1024
@@ -239,6 +283,59 @@ class FixTests(unittest.TestCase):
             patched,
         )
 
+    def test_runtime_dlls_follow_the_current_engine_build(self):
+        old_original = b"a-old"
+        old_patched = b"A-old"
+        new_original = b"b-new"
+        new_patched = b"B-new"
+        self.module.WINEVULKAN_BUILDS = (
+            (
+                hashlib.sha256(old_original).hexdigest(),
+                hashlib.sha256(old_patched).hexdigest(),
+                ((0, b"a", b"A"),),
+            ),
+            (
+                hashlib.sha256(new_original).hexdigest(),
+                hashlib.sha256(new_patched).hexdigest(),
+                ((0, b"b", b"B"),),
+            ),
+        )
+        self.module.detected_chip = lambda: "Apple M2"
+        engine = self.module.YYB_DATA / self.module.M2_WINEVULKAN_RELATIVE
+        system = self.module.PREFIX / "drive_c/windows/system32/winevulkan.dll"
+        local = self.module.SKY_DIR / "winevulkan.dll"
+        for path, data in (
+            (engine, new_original),
+            (system, new_original),
+            (local, old_patched),
+        ):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+
+        changes = self.module.patch_m2_vulkan_compat(self.module.BackupSet())
+
+        self.assertIn("版本同步 1", changes[0])
+        self.assertEqual(engine.read_bytes(), new_patched)
+        self.assertEqual(system.read_bytes(), new_patched)
+        self.assertEqual(local.read_bytes(), new_patched)
+        self.assertTrue(self.module.verified_winevulkan_patch_active())
+
+    def test_yyb_package_route_avoids_generated_helper_bundle(self):
+        with mock.patch.dict(os.environ, {"SKY_YYB_TEST_HOME": ""}), mock.patch.object(
+            self.module.subprocess, "run"
+        ) as run, mock.patch.object(
+            self.module, "LSREGISTER", self.home / "missing-lsregister"
+        ):
+            self.module.open_yyb_package(self.module.PACKAGE_PARENT)
+        run.assert_called_once_with(
+            [
+                "open",
+                "androws://app/callAppAutoAdaptiveEnv?pkgname="
+                + self.module.PACKAGE_PARENT,
+            ],
+            check=True,
+        )
+
     def test_m2_vulkan_transform_rejects_unknown_binary(self):
         end = max(
             offset + len(original)
@@ -246,6 +343,19 @@ class FixTests(unittest.TestCase):
         )
         with self.assertRaises(self.module.FixError):
             self.module.patch_m2_winevulkan_image(bytes(end + 32))
+
+    def test_engine_123_transform_is_exact_and_idempotent(self):
+        patches = self.module.WINEVULKAN_123_PATCHES
+        end = max(offset + len(original) for offset, original, _ in patches)
+        image = bytearray(end + 32)
+        for offset, original, _ in patches:
+            image[offset:offset + len(original)] = original
+        patched = self.module.patch_winevulkan_image(bytes(image), patches)
+        for offset, _original, replacement in patches:
+            self.assertEqual(patched[offset:offset + len(replacement)], replacement)
+        self.assertEqual(self.module.patch_winevulkan_image(patched, patches), patched)
+        reverse = tuple((offset, replacement, original) for offset, original, replacement in patches)
+        self.assertEqual(self.module.patch_winevulkan_image(patched, reverse), bytes(image))
 
     def test_m4_uses_same_hash_pinned_vulkan_transform(self):
         os.environ["SKY_YYB_TEST_CHIP"] = "Apple M4"
@@ -264,6 +374,13 @@ class FixTests(unittest.TestCase):
         self.module.M2_WINEVULKAN_PATCHED_SHA256 = __import__("hashlib").sha256(
             transformed
         ).hexdigest()
+        self.module.WINEVULKAN_BUILDS = (
+            (
+                self.module.M2_WINEVULKAN_ORIGINAL_SHA256,
+                self.module.M2_WINEVULKAN_PATCHED_SHA256,
+                self.module.M2_WINEVULKAN_PATCHES,
+            ),
+        )
         backups = self.module.BackupSet()
         changes = self.module.patch_m2_vulkan_compat(backups)
         self.assertTrue(changes)

@@ -20,6 +20,7 @@ import struct
 import subprocess
 import sys
 import time
+import urllib.parse
 import urllib.request
 import zlib
 
@@ -42,6 +43,7 @@ def applications_root() -> Path:
 HOME = home()
 APP_SUPPORT = HOME / "Library/Application Support"
 YYB_DATA = APP_SUPPORT / "com.tencent.yybmac"
+YYB_SERVICE = YYB_DATA / "helper/YYBService"
 ENGINE_ROOT = APP_SUPPORT / "com.tencent.yybmac.wine.engine"
 PREFIX = ENGINE_ROOT / "wine"
 APPS_DB = ENGINE_ROOT / "apps/apps.db"
@@ -57,6 +59,10 @@ LATEST_FILE = STATE_ROOT / "latest-backup.txt"
 YYB_APP = applications_root() / "YYBMacApp.app"
 YYB_SHORTCUTS = applications_root() / "腾讯应用宝"
 YYB_INTERNAL_SHORTCUTS = YYB_DATA / "Applications"
+LSREGISTER = Path(
+    "/System/Library/Frameworks/CoreServices.framework/Frameworks/"
+    "LaunchServices.framework/Support/lsregister"
+)
 SCRIPT_ROOT = Path(__file__).resolve().parent
 GPU_COMPAT_SOURCE = SCRIPT_ROOT / "compat/apple_silicon_vulkan_compat.c"
 GPU_COMPAT_DIR = STATE_ROOT / "compat"
@@ -68,6 +74,37 @@ SHORTCUT_CONTROLLER = GPU_COMPAT_DIR / "shortcut-controller.sh"
 SHORTCUT_MARKER = b"SKY_YYB_SHORTCUT_WRAPPER_V1"
 SHORTCUT_ORIGINAL_NAME = "YYBPackage.skyfix-original"
 SHORTCUT_BACKUP_DIR = STATE_ROOT / "shortcut-originals"
+NATIVE_ROOT = SCRIPT_ROOT / "native"
+WINDOW_HOOK_SOURCE = NATIVE_ROOT / "yyb_wine_window_hook.m"
+WINDOW_ADDRESS_SOURCE = NATIVE_ROOT / "yyb_dlopen_address.c"
+WINDOW_WATCH_SOURCE = NATIVE_ROOT / "yyb_window_watch.sh"
+WINDOW_INJECTOR_SOURCE = NATIVE_ROOT / "yyb_window_fix_win.c"
+WINDOW_INJECTOR_BUNDLED = NATIVE_ROOT / "yyb-window-fix.exe"
+WINDOW_ENGINE_ENTITLEMENTS = NATIVE_ROOT / "yyb-engine-entitlements.plist"
+WINDOW_SUPPORT_BIN = STATE_ROOT / "bin"
+WINDOW_SUPPORT_LIB = STATE_ROOT / "lib"
+WINDOW_HOOK_DYLIB = WINDOW_SUPPORT_LIB / "libyyb-window-hook.dylib"
+WINDOW_ADDRESS_HELPER = WINDOW_SUPPORT_BIN / "yyb-dlopen-address"
+WINDOW_INJECTOR = WINDOW_SUPPORT_BIN / "yyb-window-fix.exe"
+WINDOW_WATCH = WINDOW_SUPPORT_BIN / "yyb-window-watch"
+WINDOW_WINELOADER = WINDOW_SUPPORT_BIN / "wineloader-yyb-helper"
+WINDOW_LAUNCH_AGENT = HOME / "Library/LaunchAgents/com.skyyybmacfix.window.plist"
+WINDOW_LAUNCH_LABEL = "com.skyyybmacfix.window"
+
+# Tencent YYB Wine engine 1.2.3 (Build 690) x86_64 wineloader.  The copy used
+# only by our injector crashes in build_path() when a directory argument is
+# NULL on current macOS.  Patch one exact instruction sequence in a private
+# copy; the engine's installed executable is never modified.
+WINDOW_WINELOADER_SHA256 = (
+    "695024370e93310b447b24a60ba64ba34642f2ca3b589fde2659e7005c2f2b51"
+)
+WINDOW_WINELOADER_PATCH_OFFSET = 0x2D09
+WINDOW_WINELOADER_ORIGINAL = bytes.fromhex(
+    "48 8b 7d f0 48 8b 45 f8 ff d0 48 89 45 e0 48 8b 45 e0"
+)
+WINDOW_WINELOADER_REPLACEMENT = bytes.fromhex(
+    "31 c0 48 8b 7d f0 48 85 ff 74 03 ff 55 f8 48 89 45 e0"
+)
 
 # Tencent YYB Wine engine 1.10.41, as shipped by YYB macOS 0.8.0 (Build 2140).
 # No Tencent binary is distributed by this project.  The installer recognizes
@@ -78,6 +115,12 @@ M2_WINEVULKAN_ORIGINAL_SHA256 = (
 )
 M2_WINEVULKAN_PATCHED_SHA256 = (
     "084b97a5a02dc5dfdb65a15a85d85fd0ea0b3ec14ff7c0fcea1b2c031aa69f0a"
+)
+WINEVULKAN_123_ORIGINAL_SHA256 = (
+    "a7ae56dd7a3264f91d7980002e9f4b241d795237a81b23f1f4bf46233f654366"
+)
+WINEVULKAN_123_PATCHED_SHA256 = (
+    "27f5aeb578090b2a9a681530ef193dbcc8e6ab03a963406d341b7b65dd7ac98e"
 )
 M2_WINEVULKAN_RELATIVE = Path(
     "ExeEngineDownload/wine-engine.app/Contents/SharedSupport/wine/lib/"
@@ -140,6 +183,54 @@ M2_WINEVULKAN_PATCHES = (
     ),
 )
 
+# YYB Wine engine 1.2.3 (Build 690) retains the same exported Vulkan ABI but
+# moves the relevant functions. The preimages were checked against its local PE
+# export table and disassembly. Its VkDeviceCreateInfo hook clears the same
+# feature fields as the older, working engine.
+WINEVULKAN_123_PATCHES = (
+    (
+        0x2C0B6,
+        bytes.fromhex("85 c0 75 07 48 83 c4 38 5f 5e c3 48 8d 05 e4 28 04 00 48"),
+        M2_WINEVULKAN_PATCHES[0][2],
+    ),
+    (
+        0x2C1B6,
+        bytes.fromhex("85 c0 75 07 48 83 c4 38 5f 5e c3 48 8d 05 14 28 04 00 48"),
+        M2_WINEVULKAN_PATCHES[1][2],
+    ),
+    (
+        0x2D186,
+        bytes.fromhex(
+            "85 c0 75 07 48 83 c4 38 5f 5e c3 48 8d 05 b0 1b 04 00 48 89 "
+            "44 24 20 48 8d 35 78 1b 04 00 48 8d 15"
+        ),
+        M2_WINEVULKAN_PATCHES[2][2],
+    ),
+    (
+        0x2D286,
+        bytes.fromhex(
+            "85 c0 75 07 48 83 c4 38 5f 5e c3 48 8d 05 e0 1a 04 00 48 89 "
+            "44 24 20 48 8d 35 a8 1a 04 00 48 8d 15"
+        ),
+        M2_WINEVULKAN_PATCHES[3][2],
+    ),
+    (0x1C930, bytes.fromhex("41 57 41 56 41 55"), bytes.fromhex("e9 cb a3 01 00 90")),
+    (
+        0x36D00,
+        bytes(43),
+        bytes.fromhex(
+            "41 57 41 56 41 55 48 8b 42 08 48 85 c0 74 07 c7 40 20 00 00 "
+            "00 00 48 8b 42 40 48 85 c0 74 07 c7 40 10 00 00 00 00 e9 "
+            "0b 5c fe ff"
+        ),
+    ),
+)
+
+WINEVULKAN_BUILDS = (
+    (M2_WINEVULKAN_ORIGINAL_SHA256, M2_WINEVULKAN_PATCHED_SHA256, M2_WINEVULKAN_PATCHES),
+    (WINEVULKAN_123_ORIGINAL_SHA256, WINEVULKAN_123_PATCHED_SHA256, WINEVULKAN_123_PATCHES),
+)
+
 
 class FixError(RuntimeError):
     pass
@@ -184,8 +275,13 @@ def detected_chip() -> str:
 
 def patch_m2_winevulkan_image(data: bytes) -> bytes:
     """Return the reviewed M2/M4 compatibility transform for engine 1.10.41."""
+    return patch_winevulkan_image(data, M2_WINEVULKAN_PATCHES)
+
+
+def patch_winevulkan_image(data: bytes, patches: tuple) -> bytes:
+    """Apply only byte sequences verified for one exact Wine Vulkan build."""
     patched = bytearray(data)
-    for offset, original, replacement in M2_WINEVULKAN_PATCHES:
+    for offset, original, replacement in patches:
         if len(original) != len(replacement):
             raise AssertionError("Vulkan patch must preserve the PE image layout")
         existing = bytes(patched[offset:offset + len(original)])
@@ -213,7 +309,7 @@ def winevulkan_original_backup(path: Path) -> Path:
     return WINEVULKAN_ORIGINALS_DIR / f"{identity}.winevulkan.dll"
 
 
-def find_historical_winevulkan_original(path: Path) -> bytes | None:
+def find_historical_winevulkan_original(path: Path, original_sha: str) -> bytes | None:
     backups = STATE_ROOT / "backups"
     if not backups.exists():
         return None
@@ -227,18 +323,26 @@ def find_historical_winevulkan_original(path: Path) -> bytes | None:
             if item.get("path") != str(path) or not item.get("existed"):
                 continue
             source = root / str(item.get("backup", ""))
-            if source.exists() and sha256(source) == M2_WINEVULKAN_ORIGINAL_SHA256:
+            if source.exists() and sha256(source) == original_sha:
                 return source.read_bytes()
     return None
 
 
-def preserve_winevulkan_original(path: Path, data: bytes | None = None) -> None:
+def preserve_winevulkan_original(
+    path: Path, original_sha: str, patches: tuple, data: bytes | None = None
+) -> None:
     backup = winevulkan_original_backup(path)
-    if backup.exists() and sha256(backup) == M2_WINEVULKAN_ORIGINAL_SHA256:
+    if backup.exists() and sha256(backup) == original_sha:
         return
     if data is None:
-        data = find_historical_winevulkan_original(path)
-    if data is None or hashlib.sha256(data).hexdigest() != M2_WINEVULKAN_ORIGINAL_SHA256:
+        data = find_historical_winevulkan_original(path, original_sha)
+    if data is None:
+        # A known patched image contains every original byte except the
+        # enumerated substitutions. Reconstruct and hash-check the original
+        # when old transaction backups have already been removed.
+        reverse = tuple((offset, replacement, original) for offset, original, replacement in patches)
+        data = patch_winevulkan_image(path.read_bytes(), reverse)
+    if hashlib.sha256(data).hexdigest() != original_sha:
         raise FixError(f"找不到经过校验的 Wine Vulkan 原版备份：{path}")
     ensure_private_dir(WINEVULKAN_ORIGINALS_DIR)
     atomic_write(backup, data, 0o600)
@@ -247,13 +351,16 @@ def preserve_winevulkan_original(path: Path, data: bytes | None = None) -> None:
 def restore_winevulkan_originals() -> int:
     restored = 0
     for path in winevulkan_targets():
-        if sha256(path) != M2_WINEVULKAN_PATCHED_SHA256:
+        build = next((item for item in WINEVULKAN_BUILDS if sha256(path) == item[1]), None)
+        if build is None:
             continue
+        original_sha, _patched_sha, patches = build
+        preserve_winevulkan_original(path, original_sha, patches)
         backup = winevulkan_original_backup(path)
-        if not backup.exists() or sha256(backup) != M2_WINEVULKAN_ORIGINAL_SHA256:
+        if not backup.exists() or sha256(backup) != original_sha:
             raise FixError(f"Wine Vulkan 原版恢复副本缺失或校验失败：{path}")
         atomic_write(path, backup.read_bytes())
-        if sha256(path) != M2_WINEVULKAN_ORIGINAL_SHA256:
+        if sha256(path) != original_sha:
             raise FixError(f"Wine Vulkan 原版恢复后校验失败：{path}")
         restored += 1
     return restored
@@ -273,29 +380,54 @@ def patch_m2_vulkan_compat(backups: "BackupSet") -> list[str]:
     verified = 0
     for path in targets:
         digest = sha256(path)
-        if digest == M2_WINEVULKAN_PATCHED_SHA256:
-            preserve_winevulkan_original(path)
-            verified += 1
-            continue
-        if digest != M2_WINEVULKAN_ORIGINAL_SHA256:
+        build = next((item for item in WINEVULKAN_BUILDS if digest in item[:2]), None)
+        if build is None:
             raise FixError(
                 "检测到未验证的 Wine Vulkan 版本，已停止以免损坏应用宝："
                 f"{path}（SHA-256 {digest[:16]}…）"
             )
+        original_sha, patched_sha, patches = build
+        if digest == patched_sha:
+            preserve_winevulkan_original(path, original_sha, patches)
+            verified += 1
+            continue
         original = path.read_bytes()
-        preserve_winevulkan_original(path, original)
-        transformed = patch_m2_winevulkan_image(original)
-        if hashlib.sha256(transformed).hexdigest() != M2_WINEVULKAN_PATCHED_SHA256:
+        preserve_winevulkan_original(path, original_sha, patches, original)
+        transformed = patch_winevulkan_image(original, patches)
+        if hashlib.sha256(transformed).hexdigest() != patched_sha:
             raise FixError("Apple Silicon Vulkan 修补结果校验失败，未写入。")
         backups.capture(path)
         atomic_write(path, transformed)
-        if sha256(path) != M2_WINEVULKAN_PATCHED_SHA256:
+        if sha256(path) != patched_sha:
             raise FixError("Apple Silicon Vulkan 修补写入后校验失败。")
         changed += 1
 
+    # A DLL beside Sky.exe wins Wine's normal search order over system32.
+    # YYB leaves that private copy behind when it updates the engine, which
+    # otherwise makes the game load an older Wine PE half with a newer engine.
+    # Keep every runtime copy on the exact, hash-pinned build installed by the
+    # current engine.  This is particularly important after YYB 1.2.2 -> 1.2.3.
+    engine_digest = sha256(engine_dll)
+    engine_build = next(
+        (item for item in WINEVULKAN_BUILDS if engine_digest == item[1]),
+        None,
+    )
+    if engine_build is None:
+        raise FixError("应用宝当前 Wine Vulkan 引擎没有处于已验证的修补状态。")
+    synchronized = 0
+    engine_image = engine_dll.read_bytes()
+    for path in targets:
+        if path == engine_dll or sha256(path) == engine_digest:
+            continue
+        backups.capture(path)
+        atomic_write(path, engine_image)
+        if sha256(path) != engine_digest:
+            raise FixError(f"Wine Vulkan 运行时版本同步失败：{path}")
+        synchronized += 1
+
     return [
         f"{chip} Vulkan 设备识别/geometryShader/vkCreateDevice 兼容修复"
-        f"（修改 {changed}、已存在 {verified}）"
+        f"（修改 {changed}、已存在 {verified}、版本同步 {synchronized}）"
     ]
 
 
@@ -303,10 +435,12 @@ def verified_winevulkan_patch_active() -> bool:
     if detected_chip() not in ("Apple M2", "Apple M4"):
         return False
     engine_dll = YYB_DATA / M2_WINEVULKAN_RELATIVE
-    return (
-        engine_dll.exists()
-        and sha256(engine_dll) == M2_WINEVULKAN_PATCHED_SHA256
-    )
+    if not engine_dll.exists():
+        return False
+    engine_digest = sha256(engine_dll)
+    if engine_digest not in {item[1] for item in WINEVULKAN_BUILDS}:
+        return False
+    return all(sha256(path) == engine_digest for path in winevulkan_targets())
 
 
 def ensure_private_dir(path: Path) -> None:
@@ -404,6 +538,193 @@ def find_engine_app() -> Path | None:
         if wineserver.exists() and moltenvk.exists():
             candidates.append(app)
     return max(candidates, key=lambda item: item.stat().st_mtime) if candidates else None
+
+
+def patch_window_wineloader_image(data: bytes) -> bytes:
+    """Return the verified NULL-safe image used only by the injector."""
+    digest = hashlib.sha256(data).hexdigest()
+    if digest != WINDOW_WINELOADER_SHA256:
+        raise FixError(
+            "应用宝 wineloader 版本未经验证，拒绝为窗口修复创建辅助副本"
+            f"（SHA-256 {digest[:16]}…）。"
+        )
+    start = WINDOW_WINELOADER_PATCH_OFFSET
+    end = start + len(WINDOW_WINELOADER_ORIGINAL)
+    if data[start:end] != WINDOW_WINELOADER_ORIGINAL:
+        raise FixError("应用宝 wineloader 的窗口辅助补丁位置不匹配，拒绝修改。")
+    result = bytearray(data)
+    result[start:end] = WINDOW_WINELOADER_REPLACEMENT
+    return bytes(result)
+
+
+def window_launch_agent_payload() -> dict:
+    """Build a per-user launchd job without hard-coded home-directory paths."""
+    return {
+        "Label": WINDOW_LAUNCH_LABEL,
+        "ProgramArguments": [str(WINDOW_WATCH)],
+        "RunAtLoad": True,
+        "KeepAlive": True,
+        "ThrottleInterval": 10,
+        "ProcessType": "Background",
+        "StandardOutPath": str(STATE_ROOT / "window-fix.log"),
+        "StandardErrorPath": str(STATE_ROOT / "window-fix.err"),
+    }
+
+
+def _native_build(command: list[str], description: str) -> None:
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode:
+        detail = (result.stderr or result.stdout).strip().splitlines()
+        raise FixError(
+            f"{description}失败：" + (detail[-1] if detail else f"错误码 {result.returncode}")
+        )
+
+
+def install_fever_window_fix() -> list[str]:
+    """Install the owner-scoped native geometry fix for NetEase Fever.
+
+    Fever's Wine window contains 91 points of invisible decoration. Moving
+    only its WindowServer surface makes pixels and hit testing disagree. The
+    injected hook instead updates Wine's cached frame, then exempts only the
+    real Fever WineWindow from AppKit's private menu-bar avoidance routine.
+    """
+    if os.environ.get("SKY_YYB_TEST_HOME") or detected_chip() not in ("Apple M2", "Apple M4"):
+        return []
+    required = (
+        WINDOW_HOOK_SOURCE,
+        WINDOW_ADDRESS_SOURCE,
+        WINDOW_WATCH_SOURCE,
+        WINDOW_INJECTOR_SOURCE,
+        WINDOW_INJECTOR_BUNDLED,
+        WINDOW_ENGINE_ENTITLEMENTS,
+    )
+    missing = next((path for path in required if not path.exists()), None)
+    if missing:
+        raise FixError(f"网易启动器窗口修复组件缺失：{missing}")
+    compiler = Path("/usr/bin/clang")
+    if not compiler.exists():
+        raise FixError("需要 Apple clang 编译网易启动器窗口修复；请先安装 Xcode Command Line Tools。")
+    engine = find_engine_app()
+    if not engine:
+        raise FixError("未找到应用宝 Wine 引擎，无法安装网易启动器窗口修复。")
+    engine_contents = engine / "Contents"
+    source_loader = engine_contents / "MacOS/wineloader"
+    if not source_loader.exists():
+        raise FixError(f"应用宝 Wine 加载器不存在：{source_loader}")
+
+    ensure_private_dir(WINDOW_SUPPORT_BIN)
+    ensure_private_dir(WINDOW_SUPPORT_LIB)
+    build_signature = hashlib.sha256(
+        WINDOW_HOOK_SOURCE.read_bytes()
+        + WINDOW_ADDRESS_SOURCE.read_bytes()
+        + WINDOW_WATCH_SOURCE.read_bytes()
+        + WINDOW_INJECTOR_SOURCE.read_bytes()
+        + WINDOW_INJECTOR_BUNDLED.read_bytes()
+        + WINDOW_ENGINE_ENTITLEMENTS.read_bytes()
+        + source_loader.read_bytes()
+    ).hexdigest()
+    stamp = STATE_ROOT / "window-build.json"
+    try:
+        current = json.loads(stamp.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        current = {}
+    expected_assets = (
+        WINDOW_HOOK_DYLIB,
+        WINDOW_ADDRESS_HELPER,
+        WINDOW_INJECTOR,
+        WINDOW_WATCH,
+        WINDOW_WINELOADER,
+    )
+    rebuild = current.get("signature") != build_signature or not all(
+        path.exists() for path in expected_assets
+    )
+
+    if rebuild:
+        hook_new = WINDOW_HOOK_DYLIB.with_name(WINDOW_HOOK_DYLIB.name + ".new")
+        address_new = WINDOW_ADDRESS_HELPER.with_name(WINDOW_ADDRESS_HELPER.name + ".new")
+        loader_new = WINDOW_WINELOADER.with_name(WINDOW_WINELOADER.name + ".new")
+        for temporary in (hook_new, address_new, loader_new):
+            temporary.unlink(missing_ok=True)
+        _native_build(
+            [
+                str(compiler), "-arch", "x86_64", "-Os", "-dynamiclib", "-fobjc-arc",
+                "-Wall", "-Wextra", "-Werror", "-framework", "AppKit",
+                "-framework", "Foundation", "-o", str(hook_new),
+                str(WINDOW_HOOK_SOURCE),
+            ],
+            "网易启动器窗口 Hook 编译",
+        )
+        _native_build(
+            [
+                str(compiler), "-arch", "x86_64", "-Os", "-Wall", "-Wextra",
+                "-Werror", "-o", str(address_new), str(WINDOW_ADDRESS_SOURCE),
+            ],
+            "网易启动器地址助手编译",
+        )
+        for output in (hook_new, address_new):
+            output.chmod(0o700)
+            _native_build(
+                ["/usr/bin/codesign", "--force", "--sign", "-", str(output)],
+                f"{output.name} 本机签名",
+            )
+
+        loader_new.write_bytes(patch_window_wineloader_image(source_loader.read_bytes()))
+        loader_new.chmod(0o700)
+        _native_build(
+            [
+                "/usr/bin/codesign", "--force", "--sign", "-", "--options", "runtime",
+                "--entitlements", str(WINDOW_ENGINE_ENTITLEMENTS), str(loader_new),
+            ],
+            "网易启动器注入加载器本机签名",
+        )
+        os.replace(hook_new, WINDOW_HOOK_DYLIB)
+        os.replace(address_new, WINDOW_ADDRESS_HELPER)
+        os.replace(loader_new, WINDOW_WINELOADER)
+        atomic_write(WINDOW_INJECTOR, WINDOW_INJECTOR_BUNDLED.read_bytes(), 0o700)
+        atomic_write(WINDOW_WATCH, WINDOW_WATCH_SOURCE.read_bytes(), 0o700)
+        atomic_write(
+            stamp,
+            (json.dumps({"signature": build_signature}, indent=2) + "\n").encode("utf-8"),
+            0o600,
+        )
+
+    WINDOW_LAUNCH_AGENT.parent.mkdir(parents=True, exist_ok=True)
+    agent = plistlib.dumps(
+        window_launch_agent_payload(), fmt=plistlib.FMT_XML, sort_keys=False
+    )
+    atomic_write(WINDOW_LAUNCH_AGENT, agent, 0o600)
+    domain = f"gui/{os.getuid()}"
+    subprocess.run(
+        ["/bin/launchctl", "bootout", domain, str(WINDOW_LAUNCH_AGENT)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    result = subprocess.run(
+        ["/bin/launchctl", "bootstrap", domain, str(WINDOW_LAUNCH_AGENT)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode:
+        detail = (result.stderr or result.stdout).strip()
+        raise FixError("网易启动器窗口修复服务启用失败：" + (detail or str(result.returncode)))
+    return ["网易启动器顶部空白、拖拽跳位与点击坐标同步修复"]
+
+
+def fever_window_fix_installed() -> bool:
+    if detected_chip() not in ("Apple M2", "Apple M4"):
+        return False
+    return WINDOW_LAUNCH_AGENT.exists() and all(
+        path.exists()
+        for path in (
+            WINDOW_HOOK_DYLIB,
+            WINDOW_ADDRESS_HELPER,
+            WINDOW_INJECTOR,
+            WINDOW_WATCH,
+            WINDOW_WINELOADER,
+        )
+    )
 
 
 def engine_wineserver() -> Path | None:
@@ -518,6 +839,128 @@ def stop_related_processes() -> None:
     time.sleep(1)
 
 
+def repair_yyb_signature() -> bool:
+    """Repair a locally broken YYB bundle signature on newer macOS builds.
+
+    Some YYB self-updates leave every Mach-O in the app with a stale resource
+    seal. LaunchServices then reports kLSNoExecutableErr even though the main
+    executable exists. Keep one complete local backup and ad-hoc sign strictly
+    from the deepest code objects outward. Account/game data lives outside the
+    app bundle and is not touched.
+    """
+    if os.environ.get("SKY_YYB_TEST_HOME") or sys.platform != "darwin":
+        return False
+    verify = subprocess.run(
+        ["/usr/bin/codesign", "--verify", "--deep", "--strict", str(YYB_APP)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    repair_app = verify.returncode != 0
+
+    info_path = YYB_APP / "Contents/Info.plist"
+    try:
+        with info_path.open("rb") as stream:
+            version = str(plistlib.load(stream).get("CFBundleVersion", "unknown"))
+    except (OSError, plistlib.InvalidFileException):
+        version = "unknown"
+    backup_root = STATE_ROOT / "app-backups"
+    ensure_private_dir(backup_root)
+    backup = backup_root / f"YYBMacApp-{version}-before-local-sign.app"
+
+    sign_base = [
+        "/usr/bin/codesign", "--force", "--sign", "-",
+        "--preserve-metadata=entitlements,flags,runtime",
+    ]
+    if repair_app:
+        if not backup.exists():
+            shutil.copytree(YYB_APP, backup, symlinks=True, copy_function=shutil.copy2)
+        macho_files: list[Path] = []
+        code_bundles: list[Path] = []
+        for root, directories, files in os.walk(YYB_APP, followlinks=False):
+            base = Path(root)
+            for name in directories:
+                path = base / name
+                if not path.is_symlink() and path.suffix in (".app", ".framework", ".xpc"):
+                    code_bundles.append(path)
+            for name in files:
+                path = base / name
+                probe = subprocess.run(
+                    ["/usr/bin/file", "-b", str(path)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if "Mach-O" in probe.stdout:
+                    macho_files.append(path)
+
+        for path in macho_files:
+            subprocess.run(sign_base + [str(path)], check=True)
+        for path in sorted(code_bundles, key=lambda item: len(item.parts), reverse=True):
+            subprocess.run(sign_base + [str(path)], check=True)
+        subprocess.run(sign_base + [str(YYB_APP)], check=True)
+        verified = subprocess.run(
+            ["/usr/bin/codesign", "--verify", "--deep", "--strict", str(YYB_APP)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if verified.returncode != 0:
+            raise FixError(f"应用宝本机签名修复后仍未通过验证；原包保存在 {backup}")
+
+    def team_identifier(path: Path) -> str:
+        result = subprocess.run(
+            ["/usr/bin/codesign", "-d", "--verbose=4", str(path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        match = re.search(r"(?m)^TeamIdentifier=(.*)$", result.stderr)
+        return match.group(1).strip() if match else ""
+
+    repair_service = (
+        YYB_SERVICE.exists()
+        and team_identifier(YYB_APP) != team_identifier(YYB_SERVICE)
+    )
+    if repair_service:
+        service_backup = backup_root / f"YYBService-{version}-before-local-sign"
+        if not service_backup.exists():
+            shutil.copy2(YYB_SERVICE, service_backup)
+            service_backup.chmod(0o600)
+        entitlement = backup_root / "YYBService-local-entitlements.plist"
+        with entitlement.open("wb") as stream:
+            plistlib.dump(
+                {"com.apple.security.cs.disable-library-validation": True},
+                stream,
+            )
+        entitlement.chmod(0o600)
+        subprocess.run(
+            [
+                "/usr/bin/codesign", "--force", "--sign", "-",
+                "--options", "runtime", "--entitlements", str(entitlement),
+                str(YYB_SERVICE),
+            ],
+            check=True,
+        )
+        service_verified = subprocess.run(
+            ["/usr/bin/codesign", "--verify", "--strict", str(YYB_SERVICE)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if service_verified.returncode != 0:
+            raise FixError(f"应用宝后台服务签名修复失败；原文件保存在 {service_backup}")
+
+    if (repair_app or repair_service) and LSREGISTER.exists():
+        subprocess.run(
+            [str(LSREGISTER), "-f", str(YYB_APP)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    return repair_app or repair_service
+
+
 def open_path(path: Path) -> None:
     if os.environ.get("SKY_YYB_TEST_HOME"):
         say(f"[test] open {path}")
@@ -537,6 +980,33 @@ def open_with_yyb(path: Path) -> None:
         say(f"[test] open with YYB: {path}")
         return
     subprocess.run(["open", "-a", str(YYB_APP), str(path)], check=True)
+
+
+def open_yyb_package(package: str) -> None:
+    """Ask YYB itself to open a package instead of invoking its helper app.
+
+    macOS 27 can reject YYB's generated YYBPackage bundle with
+    kLSNoExecutableErr even though the signed executable is present.  YYB's
+    public androws route goes through the same in-app package-opening path as
+    clicking the card and remains valid across generated shortcut migrations.
+    """
+    route = "androws://app/callAppAutoAdaptiveEnv?pkgname=" + urllib.parse.quote(
+        package, safe=""
+    )
+    if os.environ.get("SKY_YYB_TEST_HOME"):
+        say(f"[test] open YYB package: {route}")
+        return
+    # Refresh LaunchServices after YYB self-updates or a local signature repair,
+    # then let the registered URL handler receive the route. Using `open -a`
+    # can keep looking up YYB's stale pre-update designated requirement.
+    if LSREGISTER.exists():
+        subprocess.run(
+            [str(LSREGISTER), "-f", str(YYB_APP)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    subprocess.run(["open", route], check=True)
 
 
 def wait_for(path: Path, seconds: int, prompt: str) -> bool:
@@ -698,6 +1168,15 @@ def patch_registries(backups: BackupSet) -> list[str]:
         )
     for executable in executables:
         user = upsert_reg_value(user, layers, executable, '"~ HIGHDPIAWARE"')
+    fever_window = "Software\\\\FeverGames\\\\FeverGamesInstaller\\\\window"
+    if re.search(rf"(?m)^\[{re.escape(fever_window)}\](?: [0-9]+)?$", user):
+        # Fever stores its *client* size here, but Wine adds a 19x48-point
+        # outer frame. Its 1280x712 default therefore becomes 1299x760 on a
+        # 1280x800 Retina panel, larger than the 1280x710 macOS visible area.
+        # Keep integer Retina 2x backing and reduce only the client geometry.
+        for name in ("DefaultSize", "SizeChanged"):
+            user = upsert_reg_value(user, fever_window, name, '"@Size(1240 650)"')
+        changed.append("网易启动器窗口缩放为 1240×650，完整容纳于内置屏幕")
     atomic_write(USER_REG, user.encode("utf-8"))
     changed.append("Wine Retina 与逐进程 High-DPI 感知")
 
@@ -1098,12 +1577,15 @@ def apply_fix(fps: int) -> list[str]:
     backups = BackupSet()
     changes: list[str] = []
     try:
+        if repair_yyb_signature():
+            changes.append("修复应用宝主 App/后台服务签名与 LaunchServices 注册（原文件已备份）")
         changes.extend(patch_m2_vulkan_compat(backups))
         changes.extend(patch_registries(backups))
         changes.extend(patch_apps_db(backups))
         changes.extend(patch_fever_shortcuts(backups))
         changes.extend(patch_mmkv(backups))
         changes.extend(patch_preferences(backups, fps))
+        changes.extend(install_fever_window_fix())
         if is_apple_m4() and verified_winevulkan_patch_active():
             restored = restore_shortcut_wrappers()
             if restored:
@@ -1147,10 +1629,10 @@ def launch() -> None:
     parent = shortcut_for(PACKAGE_PARENT)
     if verified_winevulkan_patch_active() and parent:
         say("正在通过应用宝正常启动网易发烧游戏平台；请在平台里点“开始游戏”。")
-        open_new_path(parent)
+        open_yyb_package(PACKAGE_PARENT)
     elif gpu_compat and parent:
         say("正在启动网易发烧游戏平台；请在平台里点“开始游戏”。")
-        open_new_path(parent)
+        open_yyb_package(PACKAGE_PARENT)
     elif child:
         say(f"正在启动《光·遇》：{child.name}")
         open_new_path(child)
@@ -1204,9 +1686,11 @@ def status() -> int:
         "应用宝应用数据库": APPS_DB.exists(),
         "光遇偏好文件": PREFERENCES.exists(),
     }
+    if detected_chip() in ("Apple M2", "Apple M4"):
+        checks[f"{detected_chip()} Vulkan 兼容补丁"] = verified_winevulkan_patch_active()
+        checks["网易启动器原生窗口坐标"] = fever_window_fix_installed()
     if is_apple_m4():
         if detected_chip() == "Apple M4":
-            checks["Apple M4 Vulkan 兼容补丁"] = verified_winevulkan_patch_active()
             sky_package = find_sky_package()
             sky_entries = all_shortcuts_for(sky_package) if sky_package else []
             checks["启动台光遇入口"] = bool(sky_entries) and SHORTCUT_CONTROLLER.exists() and all(
@@ -1232,9 +1716,9 @@ def status() -> int:
             digest = sha256(engine_dll)
             state = (
                 "已应用"
-                if digest == M2_WINEVULKAN_PATCHED_SHA256
+                if digest in {item[1] for item in WINEVULKAN_BUILDS}
                 else "原版/待应用"
-                if digest == M2_WINEVULKAN_ORIGINAL_SHA256
+                if digest in {item[0] for item in WINEVULKAN_BUILDS}
                 else "版本未验证"
             )
             say(f"  {chip} Vulkan 兼容层：{state}（{digest[:16]}…）")
