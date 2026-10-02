@@ -181,6 +181,9 @@ class FixTests(unittest.TestCase):
         before = self.module.WINDOW_WINELOADER_ORIGINAL
         original[start:start + len(before)] = before
         self.module.WINDOW_WINELOADER_SHA256 = hashlib.sha256(original).hexdigest()
+        self.module.WINDOW_WINELOADER_BUILDS = (
+            (self.module.WINDOW_WINELOADER_SHA256, start),
+        )
 
         patched = self.module.patch_window_wineloader_image(bytes(original))
 
@@ -189,6 +192,9 @@ class FixTests(unittest.TestCase):
         tampered = bytearray(original)
         tampered[start] ^= 1
         self.module.WINDOW_WINELOADER_SHA256 = hashlib.sha256(tampered).hexdigest()
+        self.module.WINDOW_WINELOADER_BUILDS = (
+            (self.module.WINDOW_WINELOADER_SHA256, start),
+        )
         with self.assertRaises(self.module.FixError):
             self.module.patch_window_wineloader_image(bytes(tampered))
 
@@ -356,6 +362,17 @@ class FixTests(unittest.TestCase):
         self.assertEqual(self.module.patch_winevulkan_image(patched, patches), patched)
         reverse = tuple((offset, replacement, original) for offset, original, replacement in patches)
         self.assertEqual(self.module.patch_winevulkan_image(patched, reverse), bytes(image))
+
+    def test_engine_124_transform_is_exact_and_idempotent(self):
+        patches = self.module.WINEVULKAN_124_PATCHES
+        end = max(offset + len(original) for offset, original, _ in patches)
+        image = bytearray(end + 32)
+        for offset, original, _ in patches:
+            image[offset:offset + len(original)] = original
+        patched = self.module.patch_winevulkan_image(bytes(image), patches)
+        for offset, _original, replacement in patches:
+            self.assertEqual(patched[offset:offset + len(replacement)], replacement)
+        self.assertEqual(self.module.patch_winevulkan_image(patched, patches), patched)
 
     def test_m4_uses_same_hash_pinned_vulkan_transform(self):
         os.environ["SKY_YYB_TEST_CHIP"] = "Apple M4"

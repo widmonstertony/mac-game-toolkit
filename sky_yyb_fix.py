@@ -91,19 +91,27 @@ WINDOW_WINELOADER = WINDOW_SUPPORT_BIN / "wineloader-yyb-helper"
 WINDOW_LAUNCH_AGENT = HOME / "Library/LaunchAgents/com.skyyybmacfix.window.plist"
 WINDOW_LAUNCH_LABEL = "com.skyyybmacfix.window"
 
-# Tencent YYB Wine engine 1.2.3 (Build 690) x86_64 wineloader.  The copy used
-# only by our injector crashes in build_path() when a directory argument is
-# NULL on current macOS.  Patch one exact instruction sequence in a private
-# copy; the engine's installed executable is never modified.
+# Tencent YYB Wine engine x86_64 wineloader builds. The copy used only by our
+# injector crashes in build_path() when a directory argument is NULL on current
+# macOS. Patch one exact instruction sequence in a private copy; the engine's
+# installed executable is never modified.
 WINDOW_WINELOADER_SHA256 = (
     "695024370e93310b447b24a60ba64ba34642f2ca3b589fde2659e7005c2f2b51"
 )
 WINDOW_WINELOADER_PATCH_OFFSET = 0x2D09
+WINDOW_WINELOADER_124_SHA256 = (
+    "f4ba5c0491717216ccc86f4d6ec9bbd5ce5894e8c1d95e39763f4bb92c43f05d"
+)
+WINDOW_WINELOADER_124_PATCH_OFFSET = 0x2D1F
 WINDOW_WINELOADER_ORIGINAL = bytes.fromhex(
     "48 8b 7d f0 48 8b 45 f8 ff d0 48 89 45 e0 48 8b 45 e0"
 )
 WINDOW_WINELOADER_REPLACEMENT = bytes.fromhex(
     "31 c0 48 8b 7d f0 48 85 ff 74 03 ff 55 f8 48 89 45 e0"
+)
+WINDOW_WINELOADER_BUILDS = (
+    (WINDOW_WINELOADER_SHA256, WINDOW_WINELOADER_PATCH_OFFSET),
+    (WINDOW_WINELOADER_124_SHA256, WINDOW_WINELOADER_124_PATCH_OFFSET),
 )
 
 # Tencent YYB Wine engine 1.10.41, as shipped by YYB macOS 0.8.0 (Build 2140).
@@ -121,6 +129,12 @@ WINEVULKAN_123_ORIGINAL_SHA256 = (
 )
 WINEVULKAN_123_PATCHED_SHA256 = (
     "27f5aeb578090b2a9a681530ef193dbcc8e6ab03a963406d341b7b65dd7ac98e"
+)
+WINEVULKAN_124_ORIGINAL_SHA256 = (
+    "4e110bfec5683750501d499bad7d3229b2454fe5a3fbe361ae4702597c194218"
+)
+WINEVULKAN_124_PATCHED_SHA256 = (
+    "3d47fd2957cdac3f28e8539ab3eddae45540cc40ec5fd9c898f81a2e8b5f4009"
 )
 M2_WINEVULKAN_RELATIVE = Path(
     "ExeEngineDownload/wine-engine.app/Contents/SharedSupport/wine/lib/"
@@ -226,9 +240,53 @@ WINEVULKAN_123_PATCHES = (
     ),
 )
 
+# YYB Wine engine 1.2.4 (Build 713) keeps the same wrappers and compatibility
+# requirements as 1.2.3, but updates Wine and shifts the exported functions.
+# The trampoline lives in zero padding at the executable .text section tail;
+# both the complete PE hash and every preimage remain mandatory.
+WINEVULKAN_124_PATCHES = (
+    (
+        0x2CB7C,
+        bytes.fromhex("85 c0 75 07 48 83 c4 38 5f 5e c3 48 8d 05 1a 2e 04 00 48"),
+        M2_WINEVULKAN_PATCHES[0][2],
+    ),
+    (
+        0x2CC8C,
+        bytes.fromhex("85 c0 75 07 48 83 c4 38 5f 5e c3 48 8d 05 3a 2d 04 00 48"),
+        M2_WINEVULKAN_PATCHES[1][2],
+    ),
+    (
+        0x2DCCC,
+        bytes.fromhex(
+            "85 c0 75 07 48 83 c4 38 5f 5e c3 48 8d 05 66 20 04 00 48 89 "
+            "44 24 20 48 8d 35 2e 20 04 00 48 8d 15"
+        ),
+        M2_WINEVULKAN_PATCHES[2][2],
+    ),
+    (
+        0x2DDDC,
+        bytes.fromhex(
+            "85 c0 75 07 48 83 c4 38 5f 5e c3 48 8d 05 86 1f 04 00 48 89 "
+            "44 24 20 48 8d 35 4e 1f 04 00 48 8d 15"
+        ),
+        M2_WINEVULKAN_PATCHES[3][2],
+    ),
+    (0x1CF10, bytes.fromhex("41 57 41 56 41 55"), bytes.fromhex("e9 3b a8 01 00 90")),
+    (
+        0x37750,
+        bytes(43),
+        bytes.fromhex(
+            "41 57 41 56 41 55 48 8b 42 08 48 85 c0 74 07 c7 40 20 00 00 "
+            "00 00 48 8b 42 40 48 85 c0 74 07 c7 40 10 00 00 00 00 e9 "
+            "9b 57 fe ff"
+        ),
+    ),
+)
+
 WINEVULKAN_BUILDS = (
     (M2_WINEVULKAN_ORIGINAL_SHA256, M2_WINEVULKAN_PATCHED_SHA256, M2_WINEVULKAN_PATCHES),
     (WINEVULKAN_123_ORIGINAL_SHA256, WINEVULKAN_123_PATCHED_SHA256, WINEVULKAN_123_PATCHES),
+    (WINEVULKAN_124_ORIGINAL_SHA256, WINEVULKAN_124_PATCHED_SHA256, WINEVULKAN_124_PATCHES),
 )
 
 
@@ -374,7 +432,7 @@ def patch_m2_vulkan_compat(backups: "BackupSet") -> list[str]:
     targets = winevulkan_targets()
     engine_dll = YYB_DATA / M2_WINEVULKAN_RELATIVE
     if engine_dll not in targets:
-        raise FixError("未找到应用宝 1.10.41 的 Wine Vulkan 组件，无法应用 Apple Silicon 修复。")
+        raise FixError("未找到应用宝的 Wine Vulkan 组件，无法应用 Apple Silicon 修复。")
 
     changed = 0
     verified = 0
@@ -406,7 +464,7 @@ def patch_m2_vulkan_compat(backups: "BackupSet") -> list[str]:
     # YYB leaves that private copy behind when it updates the engine, which
     # otherwise makes the game load an older Wine PE half with a newer engine.
     # Keep every runtime copy on the exact, hash-pinned build installed by the
-    # current engine.  This is particularly important after YYB 1.2.2 -> 1.2.3.
+    # current engine. This is particularly important after YYB engine updates.
     engine_digest = sha256(engine_dll)
     engine_build = next(
         (item for item in WINEVULKAN_BUILDS if engine_digest == item[1]),
@@ -543,12 +601,13 @@ def find_engine_app() -> Path | None:
 def patch_window_wineloader_image(data: bytes) -> bytes:
     """Return the verified NULL-safe image used only by the injector."""
     digest = hashlib.sha256(data).hexdigest()
-    if digest != WINDOW_WINELOADER_SHA256:
+    build = next((item for item in WINDOW_WINELOADER_BUILDS if item[0] == digest), None)
+    if not build:
         raise FixError(
             "应用宝 wineloader 版本未经验证，拒绝为窗口修复创建辅助副本"
             f"（SHA-256 {digest[:16]}…）。"
         )
-    start = WINDOW_WINELOADER_PATCH_OFFSET
+    start = build[1]
     end = start + len(WINDOW_WINELOADER_ORIGINAL)
     if data[start:end] != WINDOW_WINELOADER_ORIGINAL:
         raise FixError("应用宝 wineloader 的窗口辅助补丁位置不匹配，拒绝修改。")
