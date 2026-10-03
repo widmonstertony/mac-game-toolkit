@@ -40,6 +40,8 @@ DOWNLOAD_LOCK = SUPPORT / "sky-download.lock"
 WATCH_LOCK = SUPPORT / "sky-download-watch.lock"
 SYNC = SUPPORT / "bin/sync-launchpad-apps.py"
 USER_AGENT = "sky-yyb-mac-fix-intel/1.0"
+MANIFEST_ATTEMPTS = 4
+MANIFEST_TIMEOUT = 45
 
 
 class DownloadError(RuntimeError):
@@ -180,14 +182,26 @@ def release_lock(path: Path, descriptor: int) -> None:
 
 def fetch_manifest() -> tuple[str, list[dict]]:
     request = urllib.request.Request(MANIFEST_URL, headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = json.load(response)
-        content = payload["data"]["main_content"]
-        version = content["version_code"]
-        files = content["files"]
-    except (OSError, KeyError, ValueError, json.JSONDecodeError) as exc:
-        raise DownloadError(f"无法读取网易官方文件清单：{exc}") from exc
+    last_error: Exception | None = None
+    for attempt in range(MANIFEST_ATTEMPTS):
+        try:
+            with urllib.request.urlopen(request, timeout=MANIFEST_TIMEOUT) as response:
+                payload = json.load(response)
+            content = payload["data"]["main_content"]
+            version = content["version_code"]
+            files = content["files"]
+            break
+        except (OSError, KeyError, ValueError, json.JSONDecodeError) as exc:
+            last_error = exc
+            if attempt + 1 < MANIFEST_ATTEMPTS:
+                # NetEase's overseas CDN occasionally times out during the
+                # TLS handshake. A bounded retry keeps a single explicit
+                # launcher click from getting stuck on “loading”.
+                time.sleep(2**attempt)
+    else:
+        raise DownloadError(
+            f"无法读取网易官方文件清单（已重试 {MANIFEST_ATTEMPTS} 次）：{last_error}"
+        ) from last_error
     if not isinstance(version, str) or not isinstance(files, list) or not files:
         raise DownloadError("网易官方文件清单格式异常。")
     return version, files

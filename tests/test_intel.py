@@ -188,6 +188,30 @@ class IntelFixTests(unittest.TestCase):
         with self.assertRaises(module.DownloadError):
             module.target_for("../outside.bin")
 
+    def test_manifest_retries_transient_tls_timeout(self):
+        module = load_script(
+            "intel_download_manifest_retry", REPO / "intel/download-sky.py", self.home
+        )
+        payload = (
+            b'{"data":{"main_content":{"version_code":"v3_retry",'
+            b'"files":[{"path":"Sky.exe"}]}}}'
+        )
+        responses = [TimeoutError("TLS handshake timed out"), FakeResponse(payload)]
+
+        def urlopen(*_args, **_kwargs):
+            result = responses.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        with mock.patch.object(module.urllib.request, "urlopen", side_effect=urlopen), \
+             mock.patch.object(module.time, "sleep") as sleep:
+            version, files = module.fetch_manifest()
+
+        self.assertEqual(version, "v3_retry")
+        self.assertEqual(files, [{"path": "Sky.exe"}])
+        sleep.assert_called_once_with(1)
+
     def test_official_download_commits_launcher_installed_version(self):
         module = load_script(
             "intel_download_finalize", REPO / "intel/download-sky.py", self.home
