@@ -206,6 +206,15 @@ class FixTests(unittest.TestCase):
         self.assertTrue(str(payload["StandardOutPath"]).startswith(str(self.home)))
         self.assertNotIn("/Users/tonytan", plistlib.dumps(payload).decode("utf-8"))
 
+    def test_fever_window_hook_maximizes_without_double_scaling_retina(self):
+        source = self.module.WINDOW_HOOK_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("target.size.width = screen.visibleFrame.size.width", source)
+        self.assertNotIn("screen.visibleFrame.size.width * scale", source)
+        self.assertIn("return frame;", source)
+        self.assertIn("feverSetFrameAndWineFrame", source)
+        self.assertIn("method_setImplementation", source)
+        self.assertIn("serverBounds.size.width - target.size.width", source)
+
     def test_fresh_mmkv_gets_missing_retina_keys_and_valid_metadata(self):
         payload = b"\x00\x03foo\x04\x03bar"
         blob = struct.pack("<I", len(payload)) + payload + b"\0" * 1024
@@ -364,6 +373,9 @@ class FixTests(unittest.TestCase):
 
     def test_sky_shortcut_controller_uses_exact_parent_path(self):
         source = self.module.SHORTCUT_CONTROLLER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn('/usr/bin/pgrep -f "$parent_executable"', source)
+        self.assertIn("/usr/bin/pgrep -fi 'sky[.]exe'", source)
+        self.assertIn('exec "$original" "$@"', source)
         self.assertIn('/usr/bin/open "$parent_app"', source)
         self.assertNotIn("/usr/bin/open -b com.tencent.yybmac.app", source)
 

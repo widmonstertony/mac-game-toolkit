@@ -17,6 +17,19 @@ if [[ "$mode" == "child" ]]; then
     shortcuts_root="${child_app:h}"
     parent_app="$shortcuts_root/com.tencent.macexe.com.45a7ca33.app"
     if [[ -d "$parent_app" ]]; then
+        parent_executable="$parent_app/Contents/MacOS/YYBPackage"
+        # Wine 1.2.4 asks LaunchServices to open the generated child app before
+        # it lets an already-created sky.exe process create its Cocoa
+        # application.  Only that parent+sky state is the engine handshake:
+        # executing the original child host acknowledges it.  A normal user
+        # click has no sky.exe yet and must still be routed to Fever, even when
+        # Fever happens to be open.  Routing the engine handshake back to Fever
+        # makes macdrv wait forever at "launch intercepted" while Fever reports
+        # the game as running with no window.
+        if /usr/bin/pgrep -f "$parent_executable" >/dev/null 2>&1 && \
+            /usr/bin/pgrep -fi 'sky[.]exe' >/dev/null 2>&1; then
+            exec "$original" "$@"
+        fi
         # Open the exact internal copy. YYB mirrors the same bundle id under
         # /Applications; asking LaunchServices for that id on a cold start can
         # launch the mirror and the internal original, producing two Fever

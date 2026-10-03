@@ -768,7 +768,7 @@ def install_fever_window_fix() -> list[str]:
     if result.returncode:
         detail = (result.stderr or result.stdout).strip()
         raise FixError("网易启动器窗口修复服务启用失败：" + (detail or str(result.returncode)))
-    return ["网易启动器顶部空白、拖拽跳位与点击坐标同步修复"]
+    return ["网易启动器动态最大化、顶部空白、拖拽跳位与点击坐标同步修复"]
 
 
 def fever_window_fix_installed() -> bool:
