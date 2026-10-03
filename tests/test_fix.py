@@ -342,6 +342,31 @@ class FixTests(unittest.TestCase):
             check=True,
         )
 
+    def test_launch_opens_exact_parent_path_without_duplicate_bundle_route(self):
+        parent = self.home / "internal-fever.app"
+        with mock.patch.object(
+            self.module, "verified_winevulkan_patch_active", return_value=True
+        ), mock.patch.object(
+            self.module,
+            "shortcut_for",
+            side_effect=lambda package: parent
+            if package == self.module.PACKAGE_PARENT
+            else None,
+        ), mock.patch.object(
+            self.module, "open_path"
+        ) as open_path, mock.patch.object(
+            self.module, "open_yyb_package"
+        ) as open_package:
+            self.module.launch()
+
+        open_path.assert_called_once_with(parent)
+        open_package.assert_not_called()
+
+    def test_sky_shortcut_controller_uses_exact_parent_path(self):
+        source = self.module.SHORTCUT_CONTROLLER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn('/usr/bin/open "$parent_app"', source)
+        self.assertNotIn("/usr/bin/open -b com.tencent.yybmac.app", source)
+
     def test_m2_vulkan_transform_rejects_unknown_binary(self):
         end = max(
             offset + len(original)

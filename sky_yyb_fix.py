@@ -1688,10 +1688,14 @@ def launch() -> None:
     parent = shortcut_for(PACKAGE_PARENT)
     if verified_winevulkan_patch_active() and parent:
         say("正在通过应用宝正常启动网易发烧游戏平台；请在平台里点“开始游戏”。")
-        open_yyb_package(PACKAGE_PARENT)
+        # YYB mirrors this bundle under /Applications with the same bundle id.
+        # The public package route can cold-start both copies, leaving two Dock
+        # entries and two platform windows. The repaired internal bundle is the
+        # canonical entry and `open` will focus it if it is already running.
+        open_path(parent)
     elif gpu_compat and parent:
         say("正在启动网易发烧游戏平台；请在平台里点“开始游戏”。")
-        open_yyb_package(PACKAGE_PARENT)
+        open_path(parent)
     elif child:
         say(f"正在启动《光·遇》：{child.name}")
         open_new_path(child)

@@ -17,10 +17,11 @@ if [[ "$mode" == "child" ]]; then
     shortcuts_root="${child_app:h}"
     parent_app="$shortcuts_root/com.tencent.macexe.com.45a7ca33.app"
     if [[ -d "$parent_app" ]]; then
-        # Address it by bundle id first so repeated clicks focus an already
-        # running copy even when YYB has mirrored the same app in two folders.
-        /usr/bin/open -b com.tencent.yybmac.app.com.tencent.macexe.com.45a7ca33 \
-            || /usr/bin/open "$parent_app"
+        # Open the exact internal copy. YYB mirrors the same bundle id under
+        # /Applications; asking LaunchServices for that id on a cold start can
+        # launch the mirror and the internal original, producing two Fever
+        # instances. Opening this path also focuses it when it is already up.
+        /usr/bin/open "$parent_app"
         exit 0
     fi
     exec "$original" "$@"
