@@ -115,6 +115,7 @@ class FixTests(unittest.TestCase):
         child = database[self.module.PACKAGE_SKY_PREFIX + "fixture"]
         self.assertEqual(child["entry_path"], "fevergames://mygame/?gameId=63&autoRun=1")
         self.assertIn('"RetinaMode"="Y"', self.module.USER_REG.read_text())
+        self.assertIn('"CaptureDisplaysForFullscreen"="N"', self.module.USER_REG.read_text())
         self.assertIn(
             '"C:\\\\FeverApps\\\\sky\\\\Sky.exe"="~ HIGHDPIAWARE"',
             self.module.USER_REG.read_text(),
@@ -150,13 +151,27 @@ class FixTests(unittest.TestCase):
         with self.assertRaises(self.module.FixError):
             self.module.apply_fix(60)
 
-    def test_first_session_preferences_do_not_rollback_hd(self):
+    def test_first_session_preferences_add_windowed_mode_without_rollback_hd(self):
         name = b"kUserPreference_EnableReadbackBuffer\0"
         data = b"PREF" + struct.pack("<6I", 2, 1, 0, 0, 0, 36) + struct.pack("<II", 0, 1) + name
         self.module.PREFERENCES.write_bytes(data)
         self.module.apply_fix(60)
-        self.assertEqual(self.module.PREFERENCES.read_bytes(), data)
+        prefs = self.module.PREFERENCES.read_bytes()
+        self.assertEqual(preference_u32(prefs, b"kUserPreference_EnableReadbackBuffer"), 1)
+        self.assertEqual(preference_u32(prefs, b"kUserPreference_Fullscreen"), 0)
+        self.assertEqual(struct.unpack_from("<I", prefs, 8)[0], 2)
         self.assertIn('"RetinaMode"="Y"', self.module.USER_REG.read_text())
+
+    def test_existing_preferences_gain_missing_windowed_flag(self):
+        name = b"quality_fps\0"
+        data = b"PREF" + struct.pack("<6I", 2, 0, 1, 0, 0, 36) + struct.pack("<II", 0, 30) + name
+        self.module.PREFERENCES.write_bytes(data)
+
+        self.module.apply_fix(60)
+
+        prefs = self.module.PREFERENCES.read_bytes()
+        self.assertEqual(preference_u32(prefs, b"quality_fps"), 60)
+        self.assertEqual(preference_u32(prefs, b"kUserPreference_Fullscreen"), 0)
 
     def test_fever_window_fits_retina_visible_frame_without_lowering_backing_scale(self):
         self.module.USER_REG.write_text(
@@ -205,16 +220,6 @@ class FixTests(unittest.TestCase):
         self.assertEqual(payload["ProgramArguments"], [str(self.module.WINDOW_WATCH)])
         self.assertTrue(str(payload["StandardOutPath"]).startswith(str(self.home)))
         self.assertNotIn("/Users/tonytan", plistlib.dumps(payload).decode("utf-8"))
-
-    def test_fever_window_hook_maximizes_without_double_scaling_retina(self):
-        source = self.module.WINDOW_HOOK_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("target.size.width = screen.visibleFrame.size.width", source)
-        self.assertNotIn("screen.visibleFrame.size.width * scale", source)
-        self.assertIn("return frame;", source)
-        self.assertIn("feverSetFrameAndWineFrame", source)
-        self.assertIn("method_setImplementation", source)
-        self.assertIn("if (frames_match(window.frame, target)) return;", source)
-        self.assertIn("serverBounds.size.width - target.size.width", source)
 
     def test_fresh_mmkv_gets_missing_retina_keys_and_valid_metadata(self):
         payload = b"\x00\x03foo\x04\x03bar"
@@ -374,11 +379,27 @@ class FixTests(unittest.TestCase):
 
     def test_sky_shortcut_controller_uses_exact_parent_path(self):
         source = self.module.SHORTCUT_CONTROLLER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn('internal_parent="$user_home/Library/Application Support/', source)
+        self.assertIn('public_parent="/Applications/腾讯应用宝/', source)
+        self.assertIn('(( parent_running ))', source)
         self.assertIn('/usr/bin/pgrep -f "$parent_executable"', source)
         self.assertIn("/usr/bin/pgrep -fi 'sky[.]exe'", source)
-        self.assertIn('exec "$original" "$@"', source)
+        self.assertIn('exec -a YYBPackage "$original" "$@"', source)
         self.assertIn('/usr/bin/open "$parent_app"', source)
         self.assertNotIn("/usr/bin/open -b com.tencent.yybmac.app", source)
+
+    def test_window_watch_completes_blocked_sky_child_handshake(self):
+        source = self.module.WINDOW_WATCH_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("last_sky_pid", source)
+        self.assertIn("/usr/bin/pgrep -fi 'sky[.]exe'", source)
+        self.assertIn("com.tencent.macexe.com.45a7ca33.*.app", source)
+        self.assertIn('child_executable="${child_apps[1]}/Contents/MacOS/YYBPackage"', source)
+        self.assertIn('"$child_executable" >/dev/null 2>&1 &!', source)
+
+    def test_process_cleanup_includes_renamed_child_hosts(self):
+        source = Path(self.module.__file__).read_text(encoding="utf-8")
+        self.assertIn('for root in shortcut_roots():', source)
+        self.assertIn('(\"YYBPackage\", SHORTCUT_ORIGINAL_NAME)', source)
 
     def test_m2_vulkan_transform_rejects_unknown_binary(self):
         end = max(

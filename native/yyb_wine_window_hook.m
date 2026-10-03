@@ -8,7 +8,6 @@
 static const CGFloat kFeverTopInset = 91.0;
 static NSRect (*originalConstrainFrameRect)(id, SEL, NSRect, NSScreen *);
 static NSRect (*originalEnforceMenuBarAvoidance)(id, SEL, NSRect, NSScreen *);
-static void (*originalSetFrameAndWineFrame)(id, SEL, NSRect);
 static void log_hook(NSString *message);
 
 static BOOL is_fever_window(NSWindow *window)
@@ -70,75 +69,29 @@ static BOOL is_fever_main_frame(NSRect frame)
     return frame.size.width >= 1000.0 && frame.size.height >= 600.0;
 }
 
-static BOOL frames_match(NSRect left, NSRect right)
-{
-    return fabs(left.origin.x - right.origin.x) <= 2.0 &&
-        fabs(left.origin.y - right.origin.y) <= 2.0 &&
-        fabs(left.size.width - right.size.width) <= 2.0 &&
-        fabs(left.size.height - right.size.height) <= 2.0;
-}
-
-static BOOL is_fever_owner(id object)
-{
-    NSString *title = [object respondsToSelector:@selector(title)] ? [object title] : @"";
-    NSString *process = NSProcessInfo.processInfo.processName ?: @"";
-    return [title isEqualToString:@"网易发烧游戏"] ||
-        [process containsString:@"FeverGamesInstaller"];
-}
-
-static NSRect maximized_fever_frame(NSWindow *window, NSScreen *screen)
-{
-    NSRect target = window.frame;
-    CGFloat menuBarHeight =
-        NSMaxY(screen.frame) - NSMaxY(screen.visibleFrame);
-    CGFloat offscreenTop = MAX(0.0, kFeverTopInset - menuBarHeight);
-    target.origin.x = NSMinX(screen.visibleFrame);
-    target.origin.y = NSMinY(screen.visibleFrame);
-    target.size.width = screen.visibleFrame.size.width;
-    target.size.height =
-        NSMaxY(screen.frame) + offscreenTop - target.origin.y;
-    return target;
-}
-
-static void feverSetFrameAndWineFrame(id self, SEL selector, NSRect frame)
-{
-    NSWindow *window = (NSWindow *)self;
-    if (is_fever_owner(self) && is_fever_main_frame(frame)) {
-        NSScreen *screen = window.screen ?: NSScreen.mainScreen;
-        if (screen) {
-            NSRect target = maximized_fever_frame(window, screen);
-            // Fever repeatedly reapplies its saved 1240x650 client geometry,
-            // even after the native window is already maximized. Calling the
-            // original Wine setter with the same forced target on every pass
-            // emits a resize event and makes CEF repaint continuously. Keep
-            // Wine's cached maximized rectangle and suppress only that
-            // redundant rollback; the first real resize still goes through.
-            if (frames_match(window.frame, target)) return;
-            frame = target;
-        }
-    }
-    originalSetFrameAndWineFrame(self, selector, frame);
-}
-
 static NSRect feverConstrainFrameRect(id self, SEL selector, NSRect frame, NSScreen *screen)
 {
     NSRect constrained = originalConstrainFrameRect(self, selector, frame, screen);
-    BOOL isFever = is_fever_owner(self);
-    if (!isFever || !screen || !is_fever_main_frame(frame)) return constrained;
+    NSString *title = [self respondsToSelector:@selector(title)] ? [self title] : @"";
+    NSString *process = NSProcessInfo.processInfo.processName ?: @"";
+    BOOL isFever = [title isEqualToString:@"网易发烧游戏"] ||
+        [process containsString:@"FeverGamesInstaller"];
+    if (!isFever || !screen || !is_fever_main_frame(constrained)) return constrained;
 
-    // The maximized frame intentionally includes Fever's hidden decoration
-    // above the menu bar.  AppKit would pull that rectangle back down and make
-    // the fixed-width web UI look clipped in the upper-left.  Preserve Wine's
-    // requested rectangle; setFrameAndWineFrame: keeps rendering and hit
-    // testing synchronized while Retina backing remains independent.
-    if (!NSEqualRects(frame, constrained)) {
+    CGFloat visibleTop = NSMaxY(screen.visibleFrame);
+    if (NSMaxY(frame) > visibleTop + 1.0) {
+        // AppKit normally forces the whole title bar below the menu bar.  The
+        // launcher draws 91 points of unusable decoration above its visible
+        // content, so allow Wine's *real NSWindow frame* to extend by that
+        // amount.  Returning the requested frame keeps AppKit hit testing,
+        // Wine mouse coordinates and the rendered surface in one geometry.
+        constrained.origin.y = frame.origin.y;
         log_hook([NSString stringWithFormat:
-            @"preserved requested %.0f,%.0f %.0fx%.0f instead of constrained %.0f,%.0f %.0fx%.0f",
-            frame.origin.x, frame.origin.y, frame.size.width, frame.size.height,
-            constrained.origin.x, constrained.origin.y,
-            constrained.size.width, constrained.size.height]);
+            @"allowed real %.0fx%.0f frame above visible top by %.0f points",
+            constrained.size.width, constrained.size.height,
+            NSMaxY(frame) - visibleTop]);
     }
-    return frame;
+    return constrained;
 }
 
 static BOOL move_fever_owner_window(void)
@@ -155,14 +108,11 @@ static BOOL move_fever_owner_window(void)
         NSScreen *screen = window.screen ?: NSScreen.mainScreen;
         if (!screen) continue;
 
-        NSRect target = maximized_fever_frame(window, screen);
-        CGFloat menuBarHeight =
-            NSMaxY(screen.frame) - NSMaxY(screen.visibleFrame);
+        NSRect target = before;
+        target.origin.x = 2.0;
+        CGFloat menuBarHeight = NSMaxY(screen.frame) - NSMaxY(screen.visibleFrame);
         CGFloat offscreenTop = MAX(0.0, kFeverTopInset - menuBarHeight);
-        // Maximize dynamically in AppKit/Wine logical coordinates instead of
-        // assuming the old 1280x800 M2 panel.  Retina remains enabled for a 2x
-        // backing surface.  Include the hidden Wine decoration above the
-        // visible desktop, and stop above the Dock at the bottom.
+        target.origin.y = NSMaxY(screen.frame) + offscreenTop - target.size.height;
         CGFloat expectedServerY = -offscreenTop;
         CGRect serverBounds = CGRectNull;
         CFArrayRef info = CGWindowListCopyWindowInfo(
@@ -175,11 +125,10 @@ static BOOL move_fever_owner_window(void)
         }
         if (info) CFRelease(info);
 
-        BOOL nativeFrameMatches = frames_match(before, target);
+        BOOL nativeFrameMatches = fabs(before.origin.x - target.origin.x) <= 2.0 &&
+            fabs(before.origin.y - target.origin.y) <= 2.0;
         BOOL serverFrameMatches = !CGRectIsNull(serverBounds) &&
-            fabs(serverBounds.origin.y - expectedServerY) <= 2.0 &&
-            fabs(serverBounds.size.width - target.size.width) <= 2.0 &&
-            fabs(serverBounds.size.height - target.size.height) <= 2.0;
+            fabs(serverBounds.origin.y - expectedServerY) <= 2.0;
         if (nativeFrameMatches && serverFrameMatches) {
             return YES;
         }
@@ -225,11 +174,10 @@ static BOOL move_fever_owner_window(void)
             serverBounds.origin.x, serverBounds.origin.y,
             serverBounds.size.width, serverBounds.size.height]);
         if (info) CFRelease(info);
-        found = frames_match(window.frame, target) &&
+        found = fabs(window.frame.origin.x - target.origin.x) <= 2.0 &&
+            fabs(window.frame.origin.y - target.origin.y) <= 2.0 &&
             !CGRectIsNull(serverBounds) &&
-            fabs(serverBounds.origin.y - expectedServerY) <= 2.0 &&
-            fabs(serverBounds.size.width - target.size.width) <= 2.0 &&
-            fabs(serverBounds.size.height - target.size.height) <= 2.0;
+            fabs(serverBounds.origin.y - expectedServerY) <= 2.0;
         if (found) break;
     }
     return found;
@@ -258,13 +206,6 @@ static void install_hook(void)
                     method_setImplementation(
                         ownEnforceMethod, (IMP)feverEnforceMenuBarAvoidance);
                 }
-            }
-            SEL setFrameSelector = NSSelectorFromString(@"setFrameAndWineFrame:");
-            Method setFrameMethod = class_getInstanceMethod(wineWindow, setFrameSelector);
-            if (setFrameMethod) {
-                originalSetFrameAndWineFrame =
-                    (void *)method_setImplementation(
-                        setFrameMethod, (IMP)feverSetFrameAndWineFrame);
             }
             log_hook([NSString stringWithFormat:
                 @"pid=%d process=%@ WineWindow menu-bar avoidance bypass installed",

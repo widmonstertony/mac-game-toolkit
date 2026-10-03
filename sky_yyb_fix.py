@@ -768,7 +768,7 @@ def install_fever_window_fix() -> list[str]:
     if result.returncode:
         detail = (result.stderr or result.stdout).strip()
         raise FixError("网易启动器窗口修复服务启用失败：" + (detail or str(result.returncode)))
-    return ["网易启动器动态最大化、顶部空白、拖拽跳位与点击坐标同步修复"]
+    return ["网易启动器顶部空白、拖拽跳位与点击坐标同步修复"]
 
 
 def fever_window_fix_installed() -> bool:
@@ -873,14 +873,17 @@ def stop_related_processes() -> None:
             stderr=subprocess.DEVNULL,
             check=False,
         )
-    if YYB_SHORTCUTS.exists():
-        for executable in YYB_SHORTCUTS.glob("*.app/Contents/MacOS/YYBPackage"):
-            subprocess.run(
-                ["pkill", "-f", str(executable)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=False,
-            )
+    for root in shortcut_roots():
+        if not root.exists():
+            continue
+        for name in ("YYBPackage", SHORTCUT_ORIGINAL_NAME):
+            for executable in root.glob(f"*.app/Contents/MacOS/{name}"):
+                subprocess.run(
+                    ["pkill", "-f", str(executable)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
     # Wine launchers appear under truncated Windows paths in macOS process
     # listings, so name-based pkill does not actually stop them. Ask the YYB
     # wineserver to close the whole prefix before editing its live databases.
@@ -1207,6 +1210,7 @@ def patch_registries(backups: BackupSet) -> list[str]:
     user = upsert_reg_value(user, mac_driver, "RetinaMode", '"Y"')
     user = upsert_reg_value(user, mac_driver, "CursorClippingLocksWindows", '"N"')
     user = upsert_reg_value(user, mac_driver, "UseConfinementCursorClipping", '"N"')
+    user = upsert_reg_value(user, mac_driver, "CaptureDisplaysForFullscreen", '"N"')
     # Remove variables used only by the superseded M4 injection prototype.
     # The verified M2/M4 winevulkan patch needs no custom process environment.
     if detected_chip() == "Apple M4":
@@ -1617,16 +1621,31 @@ def patch_preferences(backups: BackupSet, fps: int) -> list[str]:
             # native macOS close, minimize and fullscreen titlebar controls.
             struct.pack_into("<I", data, record + 4, 0)
             found.add(name)
-    if "quality_fps" not in found:
-        # The initial PREF only contains first_open_ts and readback settings.
-        # Graphics preferences are created after the first successful session.
-        return ["帧率/窗口设置待首次成功进入游戏后生成；退出游戏后重跑 install.command"]
+    if "kUserPreference_Fullscreen" not in found:
+        # New installs do not persist this boolean until the user has already
+        # endured one exclusive-fullscreen session. The PREF format groups
+        # records by the four counters above; insert a bool record at the end
+        # of group 0 and keep every existing string offset stable by advancing
+        # string_base by the same eight bytes inserted before the string pool.
+        name = b"kUserPreference_Fullscreen\0"
+        insert_at = 28 + counts[0] * 8
+        name_offset = len(data) - string_base
+        data[insert_at:insert_at] = struct.pack("<II", name_offset, 0)
+        data.extend(name)
+        struct.pack_into("<I", data, 8, counts[0] + 1)
+        struct.pack_into("<I", data, 24, string_base + 8)
+        found.add("kUserPreference_Fullscreen")
     backups.capture(PREFERENCES)
     atomic_write(PREFERENCES, bytes(data))
+    if "quality_fps" not in found:
+        # The initial PREF only contains first_open_ts and readback settings.
+        # Graphics preferences are created after the first successful session,
+        # but the inserted window flag prevents that session taking over macOS.
+        return ["光遇已预设窗口模式；帧率设置待首次成功进入游戏后生成"]
     window_message = (
         "、默认窗口化"
         if "kUserPreference_Fullscreen" in found
-        else "；窗口偏好尚未生成，请在游戏内切换一次窗口化后重跑 install.command"
+        else ""
     )
     return [f"光遇目标帧率 {fps} FPS、关闭动态模糊{window_message}"]
 

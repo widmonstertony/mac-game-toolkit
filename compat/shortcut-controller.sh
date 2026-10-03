@@ -15,9 +15,18 @@ user_home="$HOME"
 if [[ "$mode" == "child" ]]; then
     child_app="${original%%.app/*}.app"
     shortcuts_root="${child_app:h}"
-    parent_app="$shortcuts_root/com.tencent.macexe.com.45a7ca33.app"
-    if [[ -d "$parent_app" ]]; then
-        parent_executable="$parent_app/Contents/MacOS/YYBPackage"
+    sibling_parent="$shortcuts_root/com.tencent.macexe.com.45a7ca33.app"
+    internal_parent="$user_home/Library/Application Support/com.tencent.yybmac/Applications/com.tencent.macexe.com.45a7ca33.app"
+    public_parent="/Applications/腾讯应用宝/com.tencent.macexe.com.45a7ca33.app"
+    parent_running=0
+    for candidate in "$internal_parent" "$public_parent" "$sibling_parent"; do
+        parent_executable="$candidate/Contents/MacOS/YYBPackage"
+        if [[ -x "$parent_executable" ]] && /usr/bin/pgrep -f "$parent_executable" >/dev/null 2>&1; then
+            parent_running=1
+            break
+        fi
+    done
+    if [[ -d "$sibling_parent" ]]; then
         # Wine 1.2.4 asks LaunchServices to open the generated child app before
         # it lets an already-created sky.exe process create its Cocoa
         # application.  Only that parent+sky state is the engine handshake:
@@ -26,14 +35,21 @@ if [[ "$mode" == "child" ]]; then
         # Fever happens to be open.  Routing the engine handshake back to Fever
         # makes macdrv wait forever at "launch intercepted" while Fever reports
         # the game as running with no window.
-        if /usr/bin/pgrep -f "$parent_executable" >/dev/null 2>&1 && \
+        if (( parent_running )) && \
             /usr/bin/pgrep -fi 'sky[.]exe' >/dev/null 2>&1; then
-            exec "$original" "$@"
+            # YYB's native child host uses argv[0] as part of its engine IPC
+            # identity. Executing the renamed backup with its on-disk name
+            # returns errCode:-1 even though the bytes are unchanged. Preserve
+            # the original process name while still keeping the wrapper at the
+            # bundle's declared executable path.
+            exec -a YYBPackage "$original" "$@"
         fi
         # Open the exact internal copy. YYB mirrors the same bundle id under
         # /Applications; asking LaunchServices for that id on a cold start can
         # launch the mirror and the internal original, producing two Fever
         # instances. Opening this path also focuses it when it is already up.
+        parent_app="$sibling_parent"
+        [[ -d "$internal_parent" ]] && parent_app="$internal_parent"
         /usr/bin/open "$parent_app"
         exit 0
     fi
