@@ -70,6 +70,14 @@ static BOOL is_fever_main_frame(NSRect frame)
     return frame.size.width >= 1000.0 && frame.size.height >= 600.0;
 }
 
+static BOOL frames_match(NSRect left, NSRect right)
+{
+    return fabs(left.origin.x - right.origin.x) <= 2.0 &&
+        fabs(left.origin.y - right.origin.y) <= 2.0 &&
+        fabs(left.size.width - right.size.width) <= 2.0 &&
+        fabs(left.size.height - right.size.height) <= 2.0;
+}
+
 static BOOL is_fever_owner(id object)
 {
     NSString *title = [object respondsToSelector:@selector(title)] ? [object title] : @"";
@@ -97,7 +105,17 @@ static void feverSetFrameAndWineFrame(id self, SEL selector, NSRect frame)
     NSWindow *window = (NSWindow *)self;
     if (is_fever_owner(self) && is_fever_main_frame(frame)) {
         NSScreen *screen = window.screen ?: NSScreen.mainScreen;
-        if (screen) frame = maximized_fever_frame(window, screen);
+        if (screen) {
+            NSRect target = maximized_fever_frame(window, screen);
+            // Fever repeatedly reapplies its saved 1240x650 client geometry,
+            // even after the native window is already maximized. Calling the
+            // original Wine setter with the same forced target on every pass
+            // emits a resize event and makes CEF repaint continuously. Keep
+            // Wine's cached maximized rectangle and suppress only that
+            // redundant rollback; the first real resize still goes through.
+            if (frames_match(window.frame, target)) return;
+            frame = target;
+        }
     }
     originalSetFrameAndWineFrame(self, selector, frame);
 }
@@ -157,10 +175,7 @@ static BOOL move_fever_owner_window(void)
         }
         if (info) CFRelease(info);
 
-        BOOL nativeFrameMatches = fabs(before.origin.x - target.origin.x) <= 2.0 &&
-            fabs(before.origin.y - target.origin.y) <= 2.0 &&
-            fabs(before.size.width - target.size.width) <= 2.0 &&
-            fabs(before.size.height - target.size.height) <= 2.0;
+        BOOL nativeFrameMatches = frames_match(before, target);
         BOOL serverFrameMatches = !CGRectIsNull(serverBounds) &&
             fabs(serverBounds.origin.y - expectedServerY) <= 2.0 &&
             fabs(serverBounds.size.width - target.size.width) <= 2.0 &&
@@ -210,10 +225,7 @@ static BOOL move_fever_owner_window(void)
             serverBounds.origin.x, serverBounds.origin.y,
             serverBounds.size.width, serverBounds.size.height]);
         if (info) CFRelease(info);
-        found = fabs(window.frame.origin.x - target.origin.x) <= 2.0 &&
-            fabs(window.frame.origin.y - target.origin.y) <= 2.0 &&
-            fabs(window.frame.size.width - target.size.width) <= 2.0 &&
-            fabs(window.frame.size.height - target.size.height) <= 2.0 &&
+        found = frames_match(window.frame, target) &&
             !CGRectIsNull(serverBounds) &&
             fabs(serverBounds.origin.y - expectedServerY) <= 2.0 &&
             fabs(serverBounds.size.width - target.size.width) <= 2.0 &&

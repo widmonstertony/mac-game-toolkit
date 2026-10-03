@@ -213,6 +213,7 @@ class FixTests(unittest.TestCase):
         self.assertIn("return frame;", source)
         self.assertIn("feverSetFrameAndWineFrame", source)
         self.assertIn("method_setImplementation", source)
+        self.assertIn("if (frames_match(window.frame, target)) return;", source)
         self.assertIn("serverBounds.size.width - target.size.width", source)
 
     def test_fresh_mmkv_gets_missing_retina_keys_and_valid_metadata(self):
