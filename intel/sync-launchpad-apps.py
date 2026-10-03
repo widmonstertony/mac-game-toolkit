@@ -41,6 +41,8 @@ APP_ROOT = Path(
 LEGACY_APP_ROOT = HOME / "Applications/腾讯应用宝"
 ICON_CACHE = SUPPORT / "launchpad-icons"
 MANAGED_KEY = "YYBIntelLaunchpadManaged"
+SKY_ICON_URL = "https://loadingbaycn.fp.ps.netease.com/file/69ba448681327d804f25ca2dLHDfkegx07"
+NETEASE_ICON_URL = "https://fever.res.netease.com/logo.png"
 LSREGISTER = Path(
     "/System/Library/Frameworks/CoreServices.framework/Frameworks/"
     "LaunchServices.framework/Support/lsregister"
@@ -317,6 +319,7 @@ def discover_netease_games() -> list[Game]:
                     game_id="63",
                     name="光·遇",
                     install_path=sky_dir,
+                    remote_artwork=SKY_ICON_URL,
                 )
             )
     return games
@@ -374,45 +377,28 @@ def make_icns(source: Path, output: Path) -> bool:
             temp = Path(temp_name)
             large = temp / "large.png"
             square = temp / "square.png"
-            iconset = temp / "Game.iconset"
-            iconset.mkdir()
+            rendered = temp / "GameIcon.icns"
             subprocess.run(
-                ["sips", "-s", "format", "png", "-Z", "1024", str(source), "--out", str(large)],
+                ["sips", "-s", "format", "png", "-Z", "512", str(source), "--out", str(large)],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
             subprocess.run(
-                ["sips", "-p", "1024", "1024", "--padColor", "151927", str(large), "--out", str(square)],
+                ["sips", "-p", "512", "512", "--padColor", "151927", str(large), "--out", str(square)],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            for size, names in {
-                16: ("icon_16x16.png",),
-                32: ("icon_16x16@2x.png", "icon_32x32.png"),
-                64: ("icon_32x32@2x.png",),
-                128: ("icon_128x128.png",),
-                256: ("icon_128x128@2x.png", "icon_256x256.png"),
-                512: ("icon_256x256@2x.png", "icon_512x512.png"),
-                1024: ("icon_512x512@2x.png",),
-            }.items():
-                rendered = temp / f"rendered-{size}.png"
-                subprocess.run(
-                    ["sips", "-z", str(size), str(size), str(square), "--out", str(rendered)],
-                    check=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                for name in names:
-                    shutil.copy2(rendered, iconset / name)
             subprocess.run(
-                ["iconutil", "-c", "icns", str(iconset), "-o", str(output)],
+                ["sips", "-s", "format", "icns", str(square), "--out", str(rendered)],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-        return output.is_file()
+            output.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(rendered, output)
+        return output.is_file() and output.stat().st_size > 0
     except (OSError, subprocess.CalledProcessError):
         return False
 
@@ -425,6 +411,55 @@ def fallback_icon(game: Game) -> Path | None:
         if candidate.is_file():
             return candidate
     return None
+
+
+def install_launcher_icons() -> list[Path]:
+    """Give the native launcher wrappers real vendor icons before game sync.
+
+    Tencent's generated Windows shortcuts do not provide macOS icon resources.
+    Fever's bundled ``16.ico`` is an installer/cardboard-box icon, so prefer the
+    standalone red Fever mark published by NetEase's official site.  Steam can
+    be sourced locally from its own installed resources and needs no network.
+    """
+    specs = (
+        (
+            APP_ROOT / "网易游戏启动器.app",
+            "FeverGames.icns",
+            NETEASE_ICON_URL,
+            DRIVE_C / "Program Files/FeverGames/icon/16.ico",
+        ),
+        (
+            APP_ROOT / "Steam（Windows）.app",
+            "Steam.icns",
+            None,
+            STEAM_ROOT / "public/steam_tray.ico",
+        ),
+    )
+    updated: list[Path] = []
+    for app, icon_name, remote, local in specs:
+        if not app.is_dir():
+            continue
+        source = fetch_artwork(remote) if remote else None
+        if source is None and local.is_file():
+            source = local
+        if source is None:
+            continue
+        resources = app / "Contents/Resources"
+        resources.mkdir(parents=True, exist_ok=True)
+        if not make_icns(source, resources / icon_name):
+            continue
+        subprocess.run(
+            ["codesign", "--force", "--deep", "--sign", "-", str(app)],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            os.utime(app, None)
+        except OSError:
+            pass
+        updated.append(app)
+    return updated
 
 
 def write_game_app(game: Game) -> Path:
@@ -506,6 +541,33 @@ def remove_stale_apps(expected_ids: set[str]) -> int:
     return removed
 
 
+def remove_duplicate_apps(preferred: dict[str, Path]) -> int:
+    """Remove obsolete managed wrappers that share a current bundle id."""
+    if not APP_ROOT.exists():
+        return 0
+    removed = 0
+    for app in APP_ROOT.glob("*.app"):
+        try:
+            with (app / "Contents/Info.plist").open("rb") as stream:
+                info = plistlib.load(stream)
+        except (OSError, plistlib.InvalidFileException):
+            continue
+        bundle_id = info.get("CFBundleIdentifier")
+        current = preferred.get(bundle_id)
+        if not info.get(MANAGED_KEY) or current is None or app == current:
+            continue
+        if LSREGISTER.is_file():
+            subprocess.run(
+                [str(LSREGISTER), "-u", str(app)],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        shutil.rmtree(app)
+        removed += 1
+    return removed
+
+
 def register(app: Path) -> None:
     if LSREGISTER.is_file():
         subprocess.run(
@@ -552,16 +614,16 @@ def sync(dry_run: bool = False) -> tuple[list[Game], int]:
         return games, 0
 
     APP_ROOT.mkdir(parents=True, exist_ok=True)
+    launcher_apps = install_launcher_icons()
     expected = {game.bundle_id for game in games}
     apps = [write_game_app(game) for game in games]
+    preferred = {game.bundle_id: app for game, app in zip(games, apps)}
     removed = remove_stale_apps(expected)
+    removed += remove_duplicate_apps(preferred)
     removed += remove_legacy_apps(expected)
     for app in apps:
         register(app)
-    for launcher in (
-        APP_ROOT / "Steam（Windows）.app",
-        APP_ROOT / "网易游戏启动器.app",
-    ):
+    for launcher in launcher_apps:
         if launcher.exists():
             register(launcher)
     return games, removed

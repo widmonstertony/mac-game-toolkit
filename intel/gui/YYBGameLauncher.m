@@ -205,7 +205,18 @@
                                              target:self
                                              action:@selector(openApp:)];
     card.identifier = app.path;
-    card.image = [[NSWorkspace sharedWorkspace] iconForFile:app.path];
+    // Read our generated ICNS directly. NSWorkspace may retain the generic
+    // icon it cached before the wrapper gained Contents/Resources, which made
+    // the Launchpad icon correct while this library card stayed stale.
+    NSString *iconName = info[@"CFBundleIconFile"];
+    NSImage *appIcon = nil;
+    if (iconName.length) {
+        if (!iconName.pathExtension.length) iconName = [iconName stringByAppendingPathExtension:@"icns"];
+        NSString *iconPath = [[app.path stringByAppendingPathComponent:@"Contents/Resources"]
+            stringByAppendingPathComponent:iconName];
+        appIcon = [[NSImage alloc] initWithContentsOfFile:iconPath];
+    }
+    card.image = appIcon ?: [[NSWorkspace sharedWorkspace] iconForFile:app.path];
     card.imagePosition = NSImageAbove;
     card.imageScaling = NSImageScaleProportionallyUpOrDown;
     card.font = [NSFont systemFontOfSize:14 weight:NSFontWeightSemibold];

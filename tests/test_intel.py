@@ -163,6 +163,64 @@ class IntelFixTests(unittest.TestCase):
             games[0].launch_arguments,
             ["netease-game", "63"],
         )
+        self.assertEqual(games[0].remote_artwork, module.SKY_ICON_URL)
+
+    def test_launcher_icons_are_generated_for_native_library_cards(self):
+        module = load_script(
+            "intel_launcher_icons", REPO / "intel/sync-launchpad-apps.py", self.home
+        )
+        netease = module.APP_ROOT / "网易游戏启动器.app"
+        steam = module.APP_ROOT / "Steam（Windows）.app"
+        netease.mkdir(parents=True)
+        steam.mkdir(parents=True)
+        steam_source = module.STEAM_ROOT / "public/steam_tray.ico"
+        steam_source.parent.mkdir(parents=True)
+        steam_source.write_bytes(b"steam-icon")
+        official_logo = self.home / "official-fever.png"
+        official_logo.write_bytes(b"fever-logo")
+
+        def render(_source, output):
+            output.write_bytes(b"icns")
+            return True
+
+        with mock.patch.object(module, "fetch_artwork", return_value=official_logo), \
+             mock.patch.object(module, "make_icns", side_effect=render), \
+             mock.patch.object(module.subprocess, "run"):
+            updated = module.install_launcher_icons()
+
+        self.assertEqual(set(updated), {netease, steam})
+        self.assertEqual(
+            (netease / "Contents/Resources/FeverGames.icns").read_bytes(), b"icns"
+        )
+        self.assertEqual(
+            (steam / "Contents/Resources/Steam.icns").read_bytes(), b"icns"
+        )
+
+        gui = (REPO / "intel/gui/YYBGameLauncher.m").read_text(encoding="utf-8")
+        self.assertIn("initWithContentsOfFile:iconPath", gui)
+
+    def test_launchpad_removes_obsolete_managed_duplicate(self):
+        module = load_script(
+            "intel_duplicate_apps", REPO / "intel/sync-launchpad-apps.py", self.home
+        )
+        bundle_id = "local.yybintel.game.netease.63"
+        current = module.APP_ROOT / "光·遇.app"
+        obsolete = module.APP_ROOT / "光·遇（网易）.app"
+        for app in (current, obsolete):
+            contents = app / "Contents"
+            contents.mkdir(parents=True)
+            with (contents / "Info.plist").open("wb") as stream:
+                import plistlib
+                plistlib.dump(
+                    {"CFBundleIdentifier": bundle_id, module.MANAGED_KEY: True}, stream
+                )
+
+        with mock.patch.object(module.subprocess, "run"):
+            removed = module.remove_duplicate_apps({bundle_id: current})
+
+        self.assertEqual(removed, 1)
+        self.assertTrue(current.exists())
+        self.assertFalse(obsolete.exists())
 
     def test_official_download_is_verified_and_rejects_path_traversal(self):
         module = load_script(
