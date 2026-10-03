@@ -41,6 +41,7 @@ APP_ROOT = Path(
 LEGACY_APP_ROOT = HOME / "Applications/腾讯应用宝"
 ICON_CACHE = SUPPORT / "launchpad-icons"
 MANAGED_KEY = "YYBIntelLaunchpadManaged"
+ICON_SCHEMA_VERSION = "2"
 SKY_ICON_URL = "https://loadingbaycn.fp.ps.netease.com/file/69ba448681327d804f25ca2dLHDfkegx07"
 NETEASE_ICON_URL = "https://fever.res.netease.com/logo.png"
 LSREGISTER = Path(
@@ -424,13 +425,13 @@ def install_launcher_icons() -> list[Path]:
     specs = (
         (
             APP_ROOT / "网易游戏启动器.app",
-            "FeverGames.icns",
+            f"FeverGames-v{ICON_SCHEMA_VERSION}.icns",
             NETEASE_ICON_URL,
             DRIVE_C / "Program Files/FeverGames/icon/16.ico",
         ),
         (
             APP_ROOT / "Steam（Windows）.app",
-            "Steam.icns",
+            f"Steam-v{ICON_SCHEMA_VERSION}.icns",
             None,
             STEAM_ROOT / "public/steam_tray.ico",
         ),
@@ -448,6 +449,19 @@ def install_launcher_icons() -> list[Path]:
         resources.mkdir(parents=True, exist_ok=True)
         if not make_icns(source, resources / icon_name):
             continue
+        info_path = app / "Contents/Info.plist"
+        try:
+            with info_path.open("rb") as stream:
+                info = plistlib.load(stream)
+            info["CFBundleIconFile"] = Path(icon_name).stem
+            info["CFBundleVersion"] = ICON_SCHEMA_VERSION
+            with info_path.open("wb") as stream:
+                plistlib.dump(info, stream, sort_keys=True)
+        except (OSError, plistlib.InvalidFileException):
+            continue
+        for old_icon in resources.glob("*.icns"):
+            if old_icon.name != icon_name:
+                old_icon.unlink()
         subprocess.run(
             ["codesign", "--force", "--deep", "--sign", "-", str(app)],
             check=False,
@@ -474,13 +488,13 @@ def write_game_app(game: Game) -> Path:
         "CFBundleDevelopmentRegion": "zh_CN",
         "CFBundleDisplayName": game.name,
         "CFBundleExecutable": "start",
-        "CFBundleIconFile": "GameIcon",
+        "CFBundleIconFile": f"GameIcon-v{ICON_SCHEMA_VERSION}",
         "CFBundleIdentifier": game.bundle_id,
         "CFBundleInfoDictionaryVersion": "6.0",
         "CFBundleName": game.name,
         "CFBundlePackageType": "APPL",
         "CFBundleShortVersionString": "1.0",
-        "CFBundleVersion": "1",
+        "CFBundleVersion": ICON_SCHEMA_VERSION,
         "LSApplicationCategoryType": "public.app-category.games",
         "LSMinimumSystemVersion": "12.0",
         "NSHighResolutionCapable": True,
@@ -507,7 +521,7 @@ def write_game_app(game: Game) -> Path:
         )
         start.chmod(0o755)
 
-    icon = resources / "GameIcon.icns"
+    icon = resources / f"GameIcon-v{ICON_SCHEMA_VERSION}.icns"
     source = game.local_artwork
     if source is None and game.remote_artwork:
         source = fetch_artwork(game.remote_artwork)
@@ -515,6 +529,10 @@ def write_game_app(game: Game) -> Path:
         fallback = fallback_icon(game)
         if fallback:
             shutil.copy2(fallback, icon)
+    if icon.is_file():
+        for old_icon in resources.glob("GameIcon*.icns"):
+            if old_icon != icon:
+                old_icon.unlink()
 
     subprocess.run(
         ["codesign", "--force", "--deep", "--sign", "-", str(app)],

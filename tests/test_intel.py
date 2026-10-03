@@ -6,6 +6,7 @@ import importlib.util
 import io
 import os
 from pathlib import Path
+import plistlib
 import struct
 import sys
 import tempfile
@@ -173,6 +174,10 @@ class IntelFixTests(unittest.TestCase):
         steam = module.APP_ROOT / "Steam（Windows）.app"
         netease.mkdir(parents=True)
         steam.mkdir(parents=True)
+        for app in (netease, steam):
+            (app / "Contents").mkdir()
+            with (app / "Contents/Info.plist").open("wb") as stream:
+                plistlib.dump({"CFBundleVersion": "1"}, stream)
         steam_source = module.STEAM_ROOT / "public/steam_tray.ico"
         steam_source.parent.mkdir(parents=True)
         steam_source.write_bytes(b"steam-icon")
@@ -190,11 +195,16 @@ class IntelFixTests(unittest.TestCase):
 
         self.assertEqual(set(updated), {netease, steam})
         self.assertEqual(
-            (netease / "Contents/Resources/FeverGames.icns").read_bytes(), b"icns"
+            (netease / "Contents/Resources/FeverGames-v2.icns").read_bytes(), b"icns"
         )
         self.assertEqual(
-            (steam / "Contents/Resources/Steam.icns").read_bytes(), b"icns"
+            (steam / "Contents/Resources/Steam-v2.icns").read_bytes(), b"icns"
         )
+        for app, icon in ((netease, "FeverGames-v2"), (steam, "Steam-v2")):
+            with (app / "Contents/Info.plist").open("rb") as stream:
+                info = plistlib.load(stream)
+            self.assertEqual(info["CFBundleIconFile"], icon)
+            self.assertEqual(info["CFBundleVersion"], "2")
 
         gui = (REPO / "intel/gui/YYBGameLauncher.m").read_text(encoding="utf-8")
         self.assertIn("initWithContentsOfFile:iconPath", gui)
@@ -210,7 +220,6 @@ class IntelFixTests(unittest.TestCase):
             contents = app / "Contents"
             contents.mkdir(parents=True)
             with (contents / "Info.plist").open("wb") as stream:
-                import plistlib
                 plistlib.dump(
                     {"CFBundleIdentifier": bundle_id, module.MANAGED_KEY: True}, stream
                 )
