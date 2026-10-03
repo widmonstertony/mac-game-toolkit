@@ -387,6 +387,8 @@ class IntelFixTests(unittest.TestCase):
         self.assertIn("x86_64", installer)
         self.assertIn("Windows 游戏.app", installer)
         self.assertIn("install-gui.command", sync_installer)
+        self.assertIn("Steam（Windows）.app-template", sync_installer)
+        self.assertIn("网易游戏启动器.app-template", sync_installer)
         self.assertIn("YYBIntelLaunchpadManaged", gui)
         self.assertIn("sync-launchpad-apps.py", gui)
         self.assertIn("apply-intel-retina.py", gui)

@@ -27,8 +27,8 @@ if [[ "${YYB_KEEP_WINDOWS_RUNNING:-0}" != "1" ]]; then
   "$BIN_DIR/apply-intel-retina.py"
 fi
 
-ditto "$PROJECT_DIR/app-bundles/Steam（Windows）.app" "$SYSTEM_APPS/Steam（Windows）.app"
-ditto "$PROJECT_DIR/app-bundles/网易游戏启动器.app" "$SYSTEM_APPS/网易游戏启动器.app"
+ditto "$PROJECT_DIR/app-bundles/Steam（Windows）.app-template" "$SYSTEM_APPS/Steam（Windows）.app"
+ditto "$PROJECT_DIR/app-bundles/网易游戏启动器.app-template" "$SYSTEM_APPS/网易游戏启动器.app"
 ditto "$BIN_DIR/dock-app-host" "$SYSTEM_APPS/Steam（Windows）.app/Contents/MacOS/start"
 ditto "$BIN_DIR/dock-app-host" "$SYSTEM_APPS/网易游戏启动器.app/Contents/MacOS/start"
 codesign --force --deep --sign - "$SYSTEM_APPS/Steam（Windows）.app" >/dev/null
