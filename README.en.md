@@ -1,4 +1,12 @@
-# Sky China PC on macOS through Tencent YYB
+# Mac Game Toolkit
+
+Formerly `sky-yyb-mac-fix`, with its original Sky fixes and Git history preserved.
+This repository groups separate Mac gaming tools: Sky China PC in Tencent YYB,
+Stellar Blade graphics settings in YYB, and [FH6 FSR presets in Highball](fh6/README.md).
+The root `install.command` still installs/fixes **Sky only**; it does not install FH6.
+FH6 frame generation, fragmented liveries and periodic stutter remain unresolved.
+
+## Sky China PC on macOS through Tencent YYB
 
 An unofficial repair tool that installs and launches the NetEase China PC edition of *Sky: Children of the Light* through Tencent YYB's bundled Windows-game engine on verified M2, M4, and Intel Macs.
 

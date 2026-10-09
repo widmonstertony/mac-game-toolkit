@@ -1,4 +1,14 @@
-# 光遇 PC 国服 · macOS 应用宝一键安装/高清修复
+# Mac Game Toolkit · Mac 游戏兼容与画质工具
+
+原 `sky-yyb-mac-fix` 仓库，保留光遇修复与提交历史，并集中收纳 Mac 游戏配置：
+
+- **光遇 PC 国服 / 应用宝**：根目录 `install.command`、`launch.command`，安装与 Retina/窗口坐标修复，教程见下文。
+- **剑星 / 应用宝**：`stellar_blade_fix.py`，见下文「附加：Apple M4 上的《剑星》」。
+- **FH6 / Highball**：[一键 FSR 超分预设与重配教程](fh6/README.md)，包含备份/撤销及单独标注的实验插帧参数。
+
+这些工具的运行环境与验证范围不同。根目录 `install.command` 仍然只负责光遇，不会安装 FH6；FH6 的插帧、碎片涂装和固定卡顿不能当作已经修复。
+
+## 光遇 PC 国服 · macOS 应用宝一键安装/高清修复
 
 让 M2、M4 或 Intel Mac 通过腾讯应用宝自带的 Windows 游戏引擎安装、登录并启动网易《光·遇》PC 国服，同时修复 M2/M4 上的“设备不支持”、协议启动、Retina 模糊、鼠标坐标缩放和旧版 Intel 引擎下载无响应等问题。
 
