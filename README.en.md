@@ -16,6 +16,14 @@ On Intel, the same `install.command` automatically uses Tencent's SHA-256-pinned
 
 This project is not affiliated with Tencent, NetEase, or thatgamecompany. It does not bypass authentication, anti-cheat, purchases, or server checks. Use your own legitimate account.
 
+## Extra: FH6 graphics presets in Highball
+
+See [fh6/README.md](fh6/README.md) for an independent FSR-upscaling preset,
+one-click reconfiguration, output-resolution choices, private backups and undo.
+It does not change Sky or Stellar Blade. Frame generation remains experimental;
+fragmented liveries and periodic stutter are unresolved, and 60 FPS is not promised.
+No proprietary runtime, save or account data is included.
+
 ## Extra: Stellar Blade on Apple M4
 
 If Stellar Blade is already installed through the Windows Steam client inside
