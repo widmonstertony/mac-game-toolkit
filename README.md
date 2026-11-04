@@ -5,6 +5,7 @@
 - **光遇 PC 国服 / 应用宝**：根目录 `install.command`、`launch.command`，安装与 Retina/窗口坐标修复，教程见下文。
 - **剑星 / 应用宝**：`stellar_blade_fix.py`，见下文「附加：Apple M4 上的《剑星》」。
 - **FH6 / Highball**：[一键 FSR 超分预设与重配教程](fh6/README.md)，包含备份/撤销及单独标注的实验插帧参数。
+- **应用宝共享 Wine 11**：[EA、Epic、Rockstar 共用 FH6-Clean 容器](wine11-shared/README.md)，保留可重建的桥接源码与入口安装脚本。
 
 这些工具的运行环境与验证范围不同。根目录 `install.command` 仍然只负责光遇，不会安装 FH6；FH6 的插帧、碎片涂装和固定卡顿不能当作已经修复。
 
@@ -72,6 +73,13 @@ python3 stellar_blade_fix.py
 ## 附加：FH6 / Highball 画质重配
 
 基础 M2 上的 FH6 超分设置、一键恢复、轻负载分辨率选项及私人备份/撤销，见 [fh6/README.md](fh6/README.md)。这是一套独立的 Highball 工具，不更改光遇/剑星；FSR 超分可恢复，但实验插帧尚未验证稳定，粉色碎片涂装和每秒卡顿仍未修复，不承诺 60 FPS。
+
+## 附加：应用宝共享 Wine 11 容器
+
+EA App、Epic Games Launcher 与 Rockstar Games Launcher 可通过应用宝入口调用
+FH6 使用的同一个 Wine 11 `FH6-Clean` 容器。源码、重装入口和验证边界见
+[wine11-shared/README.md](wine11-shared/README.md)。仓库不保存 7.9 GB 的 Wine 前缀、
+第三方程序、账号或存档；这些本机数据应由 Time Machine 备份。
 
 ## Intel Mac 一键使用
 

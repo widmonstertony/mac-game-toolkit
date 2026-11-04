@@ -3,6 +3,8 @@
 Formerly `sky-yyb-mac-fix`, with its original Sky fixes and Git history preserved.
 This repository groups separate Mac gaming tools: Sky China PC in Tencent YYB,
 Stellar Blade graphics settings in YYB, and [FH6 FSR presets in Highball](fh6/README.md).
+It also preserves the reproducible source for [EA, Epic, and Rockstar entries sharing
+one Wine 11 FH6-Clean prefix](wine11-shared/README.md).
 The root `install.command` still installs/fixes **Sky only**; it does not install FH6.
 FH6 frame generation, fragmented liveries and periodic stutter remain unresolved.
 
@@ -31,6 +33,13 @@ one-click reconfiguration, output-resolution choices, private backups and undo.
 It does not change Sky or Stellar Blade. Frame generation remains experimental;
 fragmented liveries and periodic stutter are unresolved, and 60 FPS is not promised.
 No proprietary runtime, save or account data is included.
+
+## Extra: shared Wine 11 prefix through Tencent YYB
+
+The source and local installer in [wine11-shared](wine11-shared/README.md) make
+EA App, Epic Games Launcher, and Rockstar Games Launcher visible through YYB while
+all three run in the same Wine 11 `FH6-Clean` prefix used by FH6. The 7.9 GB local
+prefix, third-party programs, accounts, and saves are intentionally not committed.
 
 ## Extra: Stellar Blade on Apple M4
 
