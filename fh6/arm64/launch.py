@@ -55,6 +55,17 @@ def launch(log):
     renderer = ["--renderer", "vkd3d"] if runner.name == "highball-headless" else []
     with events_path.open(encoding="utf-8", errors="replace") as file:
         file.seek(0, os.SEEK_END)
+        request = support / "diagnose-next-run"
+        diagnostics = support / "diagnostics.py"
+        if request.is_file() and diagnostics.is_file():
+            try:
+                capture = support / f"fh6-session-{time.time_ns()}.log"
+                subprocess.Popen([sys.executable, str(diagnostics), str(bottle), str(capture)],
+                                 cwd=support, stdin=subprocess.DEVNULL, stdout=log, stderr=log)
+                request.unlink()
+                log.write(f"Collecting one launch in {capture.name}\n")
+            except OSError as error:
+                log.write(f"Could not arm optional FH6 capture: {error}\n")
         log.write("Dispatching Steam AppID 2483190 to the existing ARM64 container\n")
         child = subprocess.Popen(
             [str(runner), "run", APP, "Steam", *renderer, "--", "-silent", "-applaunch", APP_ID],

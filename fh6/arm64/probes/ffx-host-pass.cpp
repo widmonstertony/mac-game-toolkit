@@ -48,8 +48,9 @@ int wmain(int argc, wchar_t **argv)
     const auto hr = device->QueryInterface(IID_PPV_ARGS(&heapInterop));
     printf("Vulkan command buffer interop=OK, heap interop v3=%#lx\n", hr);
     if (!heapInterop) return 1;
-    constexpr uint32_t rw = 2314, rh = 1510, uw = 3472, uh = 2266;
-    const uint32_t widths[] = {rw, rw, rw, uw}, heights[] = {rh, rh, rh, uh};
+    // FH6 supplies a display-sized color allocation with a smaller active region.
+    constexpr uint32_t rw = 1736, rh = 1133, uw = 3472, uh = 2266;
+    const uint32_t widths[] = {uw, rw, rw, uw}, heights[] = {uh, rh, rh, uh};
     const DXGI_FORMAT stagingFormats[] = {DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32_FLOAT,
         DXGI_FORMAT_R16G16_FLOAT, DXGI_FORMAT_R16G16B16A16_FLOAT};
     struct Surface {
@@ -105,8 +106,9 @@ int wmain(int argc, wchar_t **argv)
     ffxOverrideVersion selected{{FFX_API_DESC_TYPE_OVERRIDE_VERSION}, ids[0]};
     struct { ffxCreateContextDescHeader header; ID3D12Device *device; } backend{
         {FFX_API_MAKE_BACKEND_SUB_ID(FFX_API_BACKEND_ID_DX12, 0x02), &selected.header}, device};
-    ffxCreateContextDescUpscale context{{effect, &backend.header}, FFX_UPSCALE_ENABLE_AUTO_EXPOSURE,
-        {rw,rh}, {uw,uh}, nullptr};
+    ffxCreateContextDescUpscale context{{effect, &backend.header},
+        FFX_UPSCALE_ENABLE_AUTO_EXPOSURE | FFX_UPSCALE_ENABLE_DEPTH_INVERTED |
+        FFX_UPSCALE_ENABLE_DYNAMIC_RESOLUTION, {uw,uh}, {uw,uh}, nullptr};
     ffxContext srContext{};
     const auto createResult = create(&srContext, &context.header, nullptr);
     printf("Upscale context via the OptiScaler DLL interface: %u provider %s\n", createResult, names[0]);
@@ -195,7 +197,7 @@ int wmain(int argc, wchar_t **argv)
             list->ClearRenderTargetView(handle, values[i], 0, nullptr);
             if (i == 0) {
                 const auto x = LONG(900 + frame * 36);
-                const D3D12_RECT rect = {x, 650, x + 300, 850};
+                const D3D12_RECT rect = {x, rh / 2 - 100, x + 300, rh / 2 + 100};
                 const float red[] = {0.85f,0.1f,0.15f,1.f};
                 list->ClearRenderTargetView(handle, red, 1, &rect);
             }
