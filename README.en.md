@@ -1,5 +1,7 @@
 # Mac Game Toolkit
 
+[Apple Silicon ARM64/FEX + KosmicKrisp setup](fh6/arm64/README.md)
+
 Formerly `sky-yyb-mac-fix`, with its original Sky fixes and Git history preserved.
 This repository groups separate Mac gaming tools: Sky China PC in Tencent YYB,
 Stellar Blade graphics settings in YYB, and [FH6 FSR presets in Highball](fh6/README.md).

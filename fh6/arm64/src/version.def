@@ -1,0 +1,16 @@
+LIBRARY version
+EXPORTS
+    GetFileVersionInfoSizeW=version_info_size @7
+    GetFileVersionInfoA=kernelbase.GetFileVersionInfoA @1
+    GetFileVersionInfoExA=kernelbase.GetFileVersionInfoExA @2
+    GetFileVersionInfoExW=kernelbase.GetFileVersionInfoExW @3
+    GetFileVersionInfoSizeA=kernelbase.GetFileVersionInfoSizeA @4
+    GetFileVersionInfoSizeExA=kernelbase.GetFileVersionInfoSizeExA @5
+    GetFileVersionInfoSizeExW=kernelbase.GetFileVersionInfoSizeExW @6
+    GetFileVersionInfoW=kernelbase.GetFileVersionInfoW @8
+    VerFindFileA=kernelbase.VerFindFileA @9
+    VerFindFileW=kernelbase.VerFindFileW @10
+    VerLanguageNameA=kernelbase.VerLanguageNameA @13
+    VerLanguageNameW=kernelbase.VerLanguageNameW @14
+    VerQueryValueA=kernelbase.VerQueryValueA @15
+    VerQueryValueW=kernelbase.VerQueryValueW @16

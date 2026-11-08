@@ -1,5 +1,7 @@
 # Mac Game Toolkit · Mac 游戏兼容与画质工具
 
+[Apple Silicon ARM64/FEX＋KosmicKrisp 安装](fh6/arm64/README.zh.md)
+
 原 `sky-yyb-mac-fix` 仓库，保留光遇修复与提交历史，并集中收纳 Mac 游戏配置：
 
 - **光遇 PC 国服 / 应用宝**：根目录 `install.command`、`launch.command`，安装与 Retina/窗口坐标修复，教程见下文。
