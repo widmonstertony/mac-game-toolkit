@@ -16,4 +16,6 @@ The live installation uses the existing precompiled Metal shader variants. The u
 
 The live regression uses FH6's packed `R11G11B10_FLOAT` color and `R32G8X24_TYPELESS` depth. For the packed depth/stencil resource, the shim copies the float depth plane through a D3D12 buffer footprint into the shared `R32_FLOAT` texture. The original stencil plane stays in the game resource.
 
+For a profile that prioritizes clean moving images, run `python3 visual-clean.py` against the installed OptiScaler configuration. The profile disables OptiScaler's frame generation and maps the Performance input to a 1.5× upscale ratio. It keeps the native output size and the Metal FSR provider. The script prints the location of the previous INI settings.
+
 To restore the previous provider and DLL search path, close the game and Windows Steam and run `python3 install-live.py --rollback`. The original resolution, frame generation configuration and audio overlay remain in place. The GPU regression verifies the chain and texture contents. The game's launch, selected dispatch path, frame pacing and motion artifacts need an in-game run.
