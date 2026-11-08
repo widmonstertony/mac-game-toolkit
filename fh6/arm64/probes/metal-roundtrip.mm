@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
-#include "fsr4_live.h"
+#include "../fsr4/ffx_frame.hpp"
 #define VK_USE_PLATFORM_METAL_EXT
 #include <vulkan/vulkan.h>
 #define LOAD(level, name) auto name = reinterpret_cast<PFN_##name>(level(#name)); if (!name) { fprintf(stderr, "%s unavailable\n", #name); return 1; }
@@ -199,16 +199,24 @@ int main(int argc, char **argv)
     auto release = reinterpret_cast<decltype(&fsr4_release_live_owner)>(dlsym(fsr, "fsr4_release_live_owner"));
     auto status = reinterpret_cast<decltype(&fsr4_live_get_status)>(dlsym(fsr, "fsr4_live_get_status"));
     if (!encode || !release || !status) return 1;
+    const ffxCreateContextDescUpscale context = {{FFX_API_CREATE_CONTEXT_DESC_TYPE_UPSCALE},
+        FFX_UPSCALE_ENABLE_AUTO_EXPOSURE, {rw, rh}, {uw, uh}, nullptr};
+    ffxDispatchDescUpscale dispatch = {{FFX_API_DISPATCH_DESC_TYPE_UPSCALE}};
+    dispatch.commandList = &commands[0];
+    dispatch.color.resource = &surfaces[0];
+    dispatch.depth.resource = &surfaces[1];
+    dispatch.motionVectors.resource = &surfaces[2];
+    dispatch.output.resource = &surfaces[3];
+    dispatch.renderSize = {rw, rh};
+    dispatch.motionVectorScale = {-1.f, 1.f};
+    dispatch.preExposure = 1.f;
+    dispatch.reset = true;
+    const auto surface = [&](unsigned i) -> fh6::MetalSurface {
+        return {(__bridge void *)surfaces[i].texture, widths[i], heights[i]};
+    };
     Fsr4LiveFrameV2 args = {};
-    args.abiVersion = FSR4_LIVE_FRAME_ABI_V2; args.structSize = sizeof(args);
-    args.geometry = {{rw,rh,0,0}, {rw,rh,0,0}, {rw,rh,0,0}, {uw,uh,0,0}, rw, rh};
-    auto &frame = args.frame;
-    frame.device = (__bridge void *)metal; frame.owner = &args;
-    frame.color = (__bridge void *)surfaces[0].texture; frame.depth = (__bridge void *)surfaces[1].texture;
-    frame.motion = (__bridge void *)surfaces[2].texture; frame.output = (__bridge void *)surfaces[3].texture;
-    frame.rw = rw; frame.rh = rh; frame.uw = uw; frame.uh = uh;
-    frame.mvScaleX = frame.mvScaleY = frame.preExposure = 1.f;
-    frame.reset = 1; frame.autoExposure = 1;
+    fh6::MetalUpscaleInputs inputs = {(__bridge void *)metal, nullptr, &args,
+        surface(0), surface(1), surface(2), {}, surface(3)};
     id<MTLCommandQueue> mq = [metal newCommandQueue];
     VkBufferCreateInfo bufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.size = uint64_t(uw) * uh * 8; bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -242,7 +250,20 @@ int main(int argc, char **argv)
     VK(wait(inputReady));
     for (unsigned i = 0; i < 6; ++i) {
         id<MTLCommandBuffer> cb = [mq commandBuffer];
-        frame.commandBuffer = (__bridge void *)cb;
+        inputs.commandBuffer = (__bridge void *)cb;
+        if (i == 0) {
+            auto invalid = dispatch;
+            invalid.reactive.resource = &surfaces[0];
+            if (fh6::prepareFsr4Frame(context, invalid, inputs, args) || args.structSize)
+                return 1;
+            invalid = dispatch;
+            invalid.upscaleSize = {uw + 1, uh};
+            if (fh6::prepareFsr4Frame(context, invalid, inputs, args) || args.structSize)
+                return 1;
+        }
+        if (!fh6::prepareFsr4Frame(context, dispatch, inputs, args) ||
+            args.frame.mvScaleX != -1.f || args.frame.uw != uw || args.frame.uh != uh)
+            return 1;
         if (!encode(&args)) {
             Fsr4LiveStatus state = {};
             status(&state);
@@ -273,12 +294,12 @@ int main(int argc, char **argv)
             NSLog(@"%@", cb.error); return 1;
         }
         printf("Native Metal FSR frame %u: %.3f ms GPU\n", i, (cb.GPUEndTime - cb.GPUStartTime) * 1000);
-        frame.reset = 0;
+        dispatch.reset = false;
     }
     Fsr4LiveStatus state = {};
     status(&state);
     printf("FSR backend=%s variant=%s replaced=%llu\n", state.model, state.variant, (unsigned long long)state.replaced);
-    release(frame.device, frame.owner);
+    release(inputs.device, inputs.owner);
 
     void *mapped;
     VK(vkMapMemory(device, bufferMemory, 0, bufferInfo.size, 0, &mapped));

@@ -12,6 +12,7 @@ export DYLD_FALLBACK_LIBRARY_PATH="$engine/engine/lib:$engine/frameworks"
 case "${1:-}" in
     metal)
         : "${VULKAN_INCLUDE:?Set VULKAN_INCLUDE to the Vulkan-Headers include directory}"
+        : "${FFX_SDK_ROOT:?Set FFX_SDK_ROOT to the FidelityFX Kits/FidelityFX directory}"
         export FSR4_ROOT="${FSR4_ROOT:-$protonish/fsr4-metalfx-v3}"
         export FSR4_BUILD_DIR="$work/fsr-build" FSR4_SETTINGS=none FSR4_PROFILE=int8-lite
         mkdir "$FSR4_BUILD_DIR"
@@ -23,8 +24,9 @@ case "${1:-}" in
         done
         xcrun clang++ -dynamiclib -arch arm64 "$work/"*.o -framework Foundation -framework Metal \
             -framework MetalFX -o "$work/libfsr4-arm64.dylib"
-        xcrun clang++ "${common[@]}" -std=c++17 -Wall -Wextra -Werror -Wno-missing-field-initializers \
-            -I "$VULKAN_INCLUDE" "$here/metal-roundtrip.mm" -framework Foundation -framework Metal -o "$work/metal"
+        xcrun clang++ "${common[@]}" -std=c++17 -fdeclspec -Wall -Wextra -Werror -Wno-missing-field-initializers \
+            -I "$VULKAN_INCLUDE" -isystem "$FFX_SDK_ROOT" "$here/metal-roundtrip.mm" \
+            -framework Foundation -framework Metal -o "$work/metal"
         "$work/metal" "$engine/renderers/kosmickrisp/libvulkan_kosmickrisp.dylib" \
             "$work/libfsr4-arm64.dylib" 2>&1 | tee "$work/metal.log"
         ;;
