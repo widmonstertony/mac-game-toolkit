@@ -110,7 +110,7 @@ def runtime_environment(runner, root, bottle, bridge, engine, client, steam):
     return env
 
 
-def run(runner, root, bottle, steam, support, engine, log, game_args):
+def run(runner, root, bottle, steam, support, engine, log, app_id, game_args):
     client = Path(os.environ.get("STEAM_COMPAT_CLIENT_INSTALL_PATH") or
                   Path.home() / "Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS")
     if not (client / "steamclient.dylib").is_file():
@@ -122,6 +122,11 @@ def run(runner, root, bottle, steam, support, engine, log, game_args):
     if not (bridge / "verify-steam.exe").is_file():
         raise RuntimeError("Native Steam bridge verification program is missing")
     env = runtime_environment(runner, root, bottle, bridge, engine, client, steam)
+    # Match Proton-ish's normalization for waitforexitandrun. The caller
+    # validates the original Steam command and app ID before reaching here.
+    for name in ("STEAM_COMPAT_APP_ID", "SteamAppId", "SteamGameId"):
+        if env.get(name) in (None, "", "0"):
+            env[name] = app_id
     recover(steam, backup)
     try:
         stage(steam, bridge, backup)

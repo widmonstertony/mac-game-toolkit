@@ -70,7 +70,9 @@ def events(file, active):
             active.discard(pid)
 
 def launch(log):
-    declared_app = os.environ.get("STEAM_COMPAT_APP_ID") or os.environ.get("SteamAppId")
+    declared_app = os.environ.get("STEAM_COMPAT_APP_ID")
+    if declared_app in (None, "", "0"):
+        declared_app = os.environ.get("SteamAppId")
     if declared_app not in (None, "", "0", APP_ID):
         raise RuntimeError("This launch option is specific to Forza Horizon 6")
     settings = json.loads((bottle / "bottle.json").read_text())
@@ -123,10 +125,10 @@ def launch(log):
             if (len(args) < 3 or args[1] != "waitforexitandrun" or
                     Path(args[2]).resolve() != (steam / "steamapps/common/ForzaHorizon6/forzahorizon6.exe").resolve()):
                 raise RuntimeError("Expected the original Steam Play command for FH6")
-            if declared_app != APP_ID or os.environ.get("SteamGameId") != APP_ID:
+            if declared_app != APP_ID or (os.environ.get("SteamGameId") or declared_app) != APP_ID:
                 raise RuntimeError("Start Forza Horizon 6 from its original macOS Steam Play entry")
             engine = root / "engines" / settings["engineID"]
-            return native_steam.run(runner, root, bottle, steam, support, engine, log, args[3:])
+            return native_steam.run(runner, root, bottle, steam, support, engine, log, declared_app, args[3:])
         log.write("Dispatching Steam AppID 2483190 to the existing ARM64 container\n")
         child = subprocess.Popen(
             [str(runner), "run", APP, "Steam", *renderer, "--", "-silent", "-applaunch", APP_ID],
