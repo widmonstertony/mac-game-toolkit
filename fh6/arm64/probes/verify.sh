@@ -101,7 +101,7 @@ case "${1:-}" in
         compiler="$LLVM_MINGW_BIN/x86_64-w64-mingw32-clang"
         "$compiler" -shared -Wall -Wextra -Werror "$here/steam-module.c" "$here/steamclient64.def" \
             -o "$work/steamclient64.dll"
-        "$compiler" -Wall -Wextra -Werror "$here/steam-ipc.c" -o "$work/steam-ipc.exe"
+        "$compiler" -Wall -Wextra -Werror -municode "$here/steam-ipc.c" -o "$work/steam-ipc.exe"
         export WINEPREFIX="$work/prefix" WINEDLLPATH_PREPEND="$overlay" WINEDEBUG=fixme-all
         export WINEDLLOVERRIDES='winemenubuilder,mscoree,mshtml,winedbg=d;lsteamclient=b;steamclient64=n'
         export STEAM_COMPAT_CLIENT_INSTALL_PATH="${STEAM_COMPAT_CLIENT_INSTALL_PATH:-$HOME/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS}"

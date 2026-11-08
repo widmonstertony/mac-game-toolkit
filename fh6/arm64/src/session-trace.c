@@ -33,10 +33,12 @@ typedef HRESULT (WINAPI *SocketConnect)(const char *, const char *, void *, void
 typedef HRESULT (WINAPI *SocketCompletion)(void *, SocketResult *);
 typedef HRESULT (WINAPI *HttpStatus)(void *, uint32_t *);
 typedef HRESULT (WINAPI *HttpError)(void *, HRESULT *, uint32_t *);
+typedef HRESULT (WINAPI *GameSaveResult)(void *);
 static SocketConnect socket_connect;
 static SocketCompletion socket_completion;
 static HttpStatus http_status;
 static HttpError http_error;
+static GameSaveResult save_sync_result, save_upload_result;
 static HANDLE log_file = INVALID_HANDLE_VALUE;
 static LONG log_lines;
 static HMODULE self;
@@ -205,6 +207,20 @@ static HRESULT WINAPI trace_http_error(void *call, HRESULT *error, uint32_t *pla
     return result;
 }
 
+static HRESULT WINAPI trace_save_sync(void *async)
+{
+    HRESULT result = save_sync_result(async);
+    report("PlayFab Game Saves sync", 0, result);
+    return result;
+}
+
+static HRESULT WINAPI trace_save_upload(void *async)
+{
+    HRESULT result = save_upload_result(async);
+    report("PlayFab Game Saves upload", 0, result);
+    return result;
+}
+
 struct ImportHook { const char *name; FARPROC hook; void *original; };
 
 static unsigned install(HMODULE image, const char *library, const struct ImportHook *hooks, unsigned count)
@@ -282,11 +298,17 @@ __declspec(dllexport) void InitializeASI(void)
         {"HCHttpCallResponseGetStatusCode", (FARPROC)trace_http_status, &http_status},
         {"HCHttpCallResponseGetNetworkErrorCode", (FARPROC)trace_http_error, &http_error},
     };
+    const struct ImportHook saves[] = {
+        {"PFGameSaveFilesAddUserWithUiResult", (FARPROC)trace_save_sync, &save_sync_result},
+        {"PFGameSaveFilesUploadWithUiResult", (FARPROC)trace_save_upload, &save_upload_result},
+    };
     report("lobby hooks", install(GetModuleHandleW(NULL), "PlayFabMultiplayerWin.dll", lobby, ARRAYSIZE(lobby)), 0);
     report("PlayFab WinHTTP hooks", install(GetModuleHandleW(L"PlayFabMultiplayerWin.dll"), "winhttp.dll",
                                            http, ARRAYSIZE(http)), 0);
     report("libHttpClient hooks", install(GetModuleHandleW(NULL), "libHttpClient.dll",
                                           client, ARRAYSIZE(client)), 0);
+    report("PlayFab Game Saves hooks", install(GetModuleHandleW(NULL), "PlayFabGameSave.dll",
+                                              saves, ARRAYSIZE(saves)), 0);
 }
 
 BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID reserved)

@@ -7,10 +7,16 @@ struct SteamClient {
     int (__cdecl *connect_user)(void *, int);
     int (__cdecl *create_user)(void *, int *, int);
     void (__cdecl *release_user)(void *, int, int);
+    void * (__cdecl *get_user)(void *, int, int, const char *);
 };
-int main(void)
+struct SteamUser {
+    int (__cdecl *get_handle)(void *);
+    unsigned char (__cdecl *logged_on)(void *);
+};
+int wmain(int argc, wchar_t **argv)
 {
-    HMODULE bridge = LoadLibraryW(L"steamclient64.dll");
+    HMODULE bridge = argc > 1 ? LoadLibraryExW(argv[1], NULL, LOAD_WITH_ALTERED_SEARCH_PATH) :
+                                LoadLibraryW(L"steamclient64.dll");
     if (!bridge) { printf("LoadLibrary failed: %lu\n", GetLastError()); return 1; }
     Factory create = (Factory)GetProcAddress(bridge, "CreateInterface");
     int result = -1;
@@ -20,8 +26,12 @@ int main(void)
     /* Reuse the logged-in client. No Steam executable is started here. */
     int pipe = (*client)->create_pipe(client);
     int user = pipe ? (*client)->connect_user(client, pipe) : 0;
-    printf("native Steam IPC: pipe=%s logged-in user=%s\n", pipe ? "OK" : "failed", user ? "OK" : "unavailable");
+    struct SteamUser **steam_user = user ? (*client)->get_user(client, user, pipe, "SteamUser023") : NULL;
+    if (user && !steam_user) steam_user = (*client)->get_user(client, user, pipe, "SteamUser021");
+    int online = steam_user && (*steam_user)->logged_on(steam_user);
+    printf("native Steam IPC: pipe=%s user=%s online=%s\n",
+           pipe ? "OK" : "failed", user ? "OK" : "unavailable", online ? "yes" : "no");
     if (user) (*client)->release_user(client, pipe, user);
     if (pipe) (*client)->release_pipe(client, pipe);
-    return !user;
+    return !online;
 }

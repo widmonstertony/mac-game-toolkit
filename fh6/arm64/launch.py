@@ -116,6 +116,17 @@ def launch(log):
                 log.write(f"Collecting one launch in {capture.name}\n")
             except OSError as error:
                 log.write(f"Could not arm optional FH6 capture: {error}\n")
+        if (support / "native-steam-enabled").is_file():
+            import native_steam
+
+            args = sys.argv[1:]
+            if (len(args) < 3 or args[1] != "waitforexitandrun" or
+                    Path(args[2]).resolve() != (steam / "steamapps/common/ForzaHorizon6/forzahorizon6.exe").resolve()):
+                raise RuntimeError("Expected the original Steam Play command for FH6")
+            if declared_app != APP_ID or os.environ.get("SteamGameId") != APP_ID:
+                raise RuntimeError("Start Forza Horizon 6 from its original macOS Steam Play entry")
+            engine = root / "engines" / settings["engineID"]
+            return native_steam.run(runner, root, bottle, steam, support, engine, log, args[3:])
         log.write("Dispatching Steam AppID 2483190 to the existing ARM64 container\n")
         child = subprocess.Popen(
             [str(runner), "run", APP, "Steam", *renderer, "--", "-silent", "-applaunch", APP_ID],
@@ -148,6 +159,6 @@ with (support / "arm64-dispatch.lock").open("w") as lock, (
         raise SystemExit("The existing Forza Horizon 6 launch is still running")
     try:
         sys.exit(launch(log))
-    except (OSError, RuntimeError, ValueError) as error:
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
         log.write(f"{error}\n")
         raise SystemExit(str(error))

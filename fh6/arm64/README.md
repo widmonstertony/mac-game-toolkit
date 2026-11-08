@@ -4,6 +4,26 @@
 
 This is the **Highball Wine 11.18 ARM64/FEX + KosmicKrisp r4** setup. It keeps the existing Windows Steam game, settings and cloud sync in Highball. The Play button in native macOS Steam hands the launch to that existing Windows Steam session. The setup includes the FH6 Chinese error-dialog fix, the 7.1.4 audio downmix, and a vehicle-first graphics preset.
 
+The optional single-client route uses Proton-ish's `steam.exe` shim and
+`lsteamclient` to reuse the logged-in macOS Steam client. It runs inside the
+same Highball bottle. The launch is gated on an online native Steam session
+and never falls back to the Windows client. FH6's PlayFab save directories
+remain in that bottle.
+
+To prepare this route, install `launch.py` as `launch-arm64` and
+`native_steam.py` alongside it in Proton-ish's FH6 launcher directory.
+Populate its `native-bridge` directory using `BRIDGE_FILES` in
+`native_steam.py`. The two local PE builds are `verify-steam.exe` and
+`local/steamclient64.dll`, using the compiler commands in
+[`probes/verify.sh`](probes/verify.sh). The Wine overlay uses the same
+aarch64 layout and engine `ntdll.so` as the Steam probe. After quitting the
+Windows client and verifying the native client is online, create
+`native-steam-enabled` alongside the launcher to select the route.
+The upstream shim uses a fixed Windows Steam path, so the launcher stages
+only its runtime files for the duration of a game session. It restores the
+original files and library metadata on exit or before the next launch if
+the previous launcher was interrupted.
+
 ## Install on another Mac
 
 1. Install [Highball 0.10.26](https://github.com/gauthierpiarrette/highball/releases/tag/v0.10.26) and [Proton-ish](https://github.com/MagnusPladsen/Proton-ish). Set up the ARM64/FEX + KosmicKrisp preview engine **arm64-kk-wine11.18-r4** in a bottle named **Forza Horizon 6**. In Highball, use the game's Windows route so its VKD3D recipe is applied. Sign into Windows Steam and Xbox normally, then run and quit the game once. The game must be installed in this bottle's Steam library. In macOS Steam, retain the working Proton-ish compatibility selection for FH6.
