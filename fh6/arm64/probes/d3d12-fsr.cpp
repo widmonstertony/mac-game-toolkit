@@ -141,7 +141,7 @@ int wmain(int argc, wchar_t **argv)
     CHECK(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, consumerAllocator, nullptr, IID_PPV_ARGS(&consumer)));
 
     CHECK(consumer->Close());
-    auto *fg = createFrameGen(argv[2], device, rw, rh, uw, uh);
+    auto *fg = createFrameGen(argv[2], device, rw, rh, uw, uh, surfaces[3].texture);
     if (!fg) return 1;
     ID3D12Resource *generated = nullptr;
     CHECK(device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &surfaces[3].desc,

@@ -96,11 +96,19 @@ struct Bridge {
     }
 };
 
+static bool packedDepth(DXGI_FORMAT format)
+{
+    return format == DXGI_FORMAT_R32G8X24_TYPELESS || format == DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
+}
+
 struct Surface {
     ID3D12Heap *heap = nullptr;
     ID3D12Resource *texture = nullptr;
+    ID3D12Resource *depthScratch = nullptr;
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT depthLayout{};
     FsrHeapTexture metal{};
     ~Surface() {
+        if (depthScratch) depthScratch->Release();
         if (texture) texture->Release();
         if (heap) heap->Release();
     }
@@ -124,12 +132,24 @@ struct Surface {
         metal.width = uint32_t(input.Width);
         metal.height = input.Height;
         metal.format = format;
+        if (packedDepth(input.Format)) {
+            UINT64 bytes = 0;
+            device->GetCopyableFootprints(&input, 0, 1, 0, &depthLayout, nullptr, nullptr, &bytes);
+            if (!bytes || bytes == UINT64_MAX || depthLayout.Footprint.Format != DXGI_FORMAT_R32_TYPELESS)
+                return false;
+            const D3D12_RESOURCE_DESC buffer = {D3D12_RESOURCE_DIMENSION_BUFFER, 0, bytes,
+                1, 1, 1, DXGI_FORMAT_UNKNOWN, {1,0}, D3D12_TEXTURE_LAYOUT_ROW_MAJOR};
+            if (FAILED(device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &buffer,
+                       D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&depthScratch))))
+                return false;
+        }
         return true;
     }
 
     bool matches(const D3D12_RESOURCE_DESC &desc, DXGI_FORMAT format) const
     {
-        return metal.width == desc.Width && metal.height == desc.Height && metal.format == format;
+        return metal.width == desc.Width && metal.height == desc.Height && metal.format == format &&
+               bool(depthScratch) == packedDepth(desc.Format);
     }
 };
 
@@ -193,6 +213,7 @@ public:
 static DXGI_FORMAT typedFormat(DXGI_FORMAT format, unsigned slot)
 {
     if (slot == 1 || slot == 4) {
+        if (slot == 1 && packedDepth(format)) return DXGI_FORMAT_R32_FLOAT;
         if (format == DXGI_FORMAT_R32_FLOAT || format == DXGI_FORMAT_D32_FLOAT ||
             format == DXGI_FORMAT_R32_TYPELESS) return DXGI_FORMAT_R32_FLOAT;
         if (format == DXGI_FORMAT_R16_FLOAT) return format;
@@ -236,14 +257,41 @@ static void copy(ID3D12GraphicsCommandList *list, ID3D12Resource *src, ID3D12Res
     transition(list, src, D3D12_RESOURCE_STATE_COPY_SOURCE, srcState);
 }
 
+static void copyDepthPlane(ID3D12GraphicsCommandList *list, ID3D12Resource *source, const Surface &staging)
+{
+    constexpr auto read = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    constexpr auto copySource = D3D12_RESOURCE_STATE_COPY_SOURCE;
+    constexpr auto copyDest = D3D12_RESOURCE_STATE_COPY_DEST;
+    const D3D12_TEXTURE_COPY_LOCATION depth = {source, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX};
+    const D3D12_TEXTURE_COPY_LOCATION dest = {staging.texture, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX};
+    D3D12_TEXTURE_COPY_LOCATION buffer = {staging.depthScratch, D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT};
+    buffer.PlacedFootprint = staging.depthLayout;
+    // Subresource zero is the float depth plane. Its buffer footprint has the
+    // same four-byte texels as the R32 staging texture, with no stencil bytes.
+    transition(list, source, read, copySource);
+    list->CopyTextureRegion(&buffer, 0, 0, 0, &depth, nullptr);
+    transition(list, source, copySource, read);
+    transition(list, staging.depthScratch, copyDest, copySource);
+    transition(list, staging.texture, D3D12_RESOURCE_STATE_COMMON, copyDest);
+    buffer.PlacedFootprint.Footprint.Format = DXGI_FORMAT_R32_FLOAT;
+    list->CopyTextureRegion(&dest, 0, 0, 0, &buffer, nullptr);
+    transition(list, staging.texture, copyDest, D3D12_RESOURCE_STATE_COMMON);
+    transition(list, staging.depthScratch, copySource, copyDest);
+}
+
 void WINAPI Pass::prepare(IUnknown *context)
 {
     auto &pass = *static_cast<Pass *>(context);
     auto *list = static_cast<ID3D12GraphicsCommandList *>(pass.job.dispatch.commandList);
-    for (unsigned i = 0; i < pass.resources.size(); ++i)
-        if (i != 3 && pass.resources[i])
-            copy(list, pass.resources[i], pass.staging->surfaces[i].texture,
+    for (unsigned i = 0; i < pass.resources.size(); ++i) {
+        if (i == 3 || !pass.resources[i]) continue;
+        const auto &surface = pass.staging->surfaces[i];
+        if (surface.depthScratch)
+            copyDepthPlane(list, pass.resources[i], surface);
+        else
+            copy(list, pass.resources[i], surface.texture,
                  D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COMMON);
+    }
 }
 
 template<typename T> static void release(T *p) { if (p) p->Release(); }

@@ -14,4 +14,6 @@ The verified artifacts for installation are `d3d12.dll`, `d3d12core.dll`, `amd_f
 
 The live installation uses the existing precompiled Metal shader variants. The upstream compiler invokes `xcrun metal` even on a cache hit, so runtime compilation is disabled. Verify that the needed variants are present before deployment. The shim records the first native submission result and the first fallback per upscaler context in `OptiScaler-FH6-SDK/fh6-metal-fsr4.log`.
 
+The live regression uses FH6's packed `R11G11B10_FLOAT` color and `R32G8X24_TYPELESS` depth. For the packed depth/stencil resource, the shim copies the float depth plane through a D3D12 buffer footprint into the shared `R32_FLOAT` texture. The original stencil plane stays in the game resource.
+
 To restore the previous provider and DLL search path, close the game and Windows Steam and run `python3 install-live.py --rollback`. The original resolution, frame generation configuration and audio overlay remain in place. The GPU regression verifies the chain and texture contents. The game's launch, selected dispatch path, frame pacing and motion artifacts need an in-game run.

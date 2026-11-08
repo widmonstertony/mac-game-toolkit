@@ -51,8 +51,8 @@ int wmain(int argc, wchar_t **argv)
     // FH6 supplies a display-sized color allocation with a smaller active region.
     constexpr uint32_t rw = 1736, rh = 1133, uw = 3472, uh = 2266;
     const uint32_t widths[] = {uw, rw, rw, uw}, heights[] = {uh, rh, rh, uh};
-    const DXGI_FORMAT stagingFormats[] = {DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32_FLOAT,
-        DXGI_FORMAT_R16G16_FLOAT, DXGI_FORMAT_R16G16B16A16_FLOAT};
+    const DXGI_FORMAT stagingFormats[] = {DXGI_FORMAT_R11G11B10_FLOAT, DXGI_FORMAT_R32G8X24_TYPELESS,
+        DXGI_FORMAT_R16G16_FLOAT, DXGI_FORMAT_R11G11B10_FLOAT};
     struct Surface {
         ID3D12Heap *heap;
         ID3D12Resource *texture;
@@ -63,7 +63,8 @@ int wmain(int argc, wchar_t **argv)
     for (unsigned i = 0; i < 4; ++i) {
         auto &surface = surfaces[i];
         surface.desc = {D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, widths[i], heights[i], 1, 1,
-            stagingFormats[i], {1,0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, static_cast<D3D12_RESOURCE_FLAGS>(
+            stagingFormats[i], {1,0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, i == 1 ?
+                D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL : static_cast<D3D12_RESOURCE_FLAGS>(
                 D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)};
         const auto size = device->GetResourceAllocationInfo(0, 1, &surface.desc);
         D3D12_HEAP_DESC desc = {size.SizeInBytes, properties, size.Alignment, D3D12_HEAP_FLAG_NONE};
@@ -91,6 +92,12 @@ int wmain(int argc, wchar_t **argv)
     CHECK(device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&rtv)));
     auto rtvHandle = rtv->GetCPUDescriptorHandleForHeapStart();
     const auto stride = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    const D3D12_DESCRIPTOR_HEAP_DESC dsvDesc = {D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1};
+    ID3D12DescriptorHeap *dsv = nullptr;
+    CHECK(device->CreateDescriptorHeap(&dsvDesc, IID_PPV_ARGS(&dsv)));
+    const auto dsvHandle = dsv->GetCPUDescriptorHandleForHeapStart();
+    const D3D12_DEPTH_STENCIL_VIEW_DESC view = {DXGI_FORMAT_D32_FLOAT_S8X24_UINT, D3D12_DSV_DIMENSION_TEXTURE2D};
+    device->CreateDepthStencilView(surfaces[1].texture, &view, dsvHandle);
     HMODULE sr = LoadLibraryExW(argv[1], nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
     if (!sr) { printf("Upscale DLL load failed: %lu\n", GetLastError()); return 1; }
     auto query = reinterpret_cast<PfnFfxQuery>(GetProcAddress(sr, "ffxQuery"));
@@ -136,7 +143,7 @@ int wmain(int argc, wchar_t **argv)
     CHECK(device->CreateCommittedResource(&cpu, D3D12_HEAP_FLAG_NONE, &bufferDesc,
         D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&readback)));
     auto *consumer = list;
-    auto *fg = createFrameGen(argv[2], device, rw, rh, uw, uh);
+    auto *fg = createFrameGen(argv[2], device, rw, rh, uw, uh, surfaces[3].texture);
     if (!fg) return 1;
     ID3D12Resource *generated = nullptr;
     CHECK(device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &surfaces[3].desc,
@@ -166,9 +173,10 @@ int wmain(int argc, wchar_t **argv)
         const auto *base = static_cast<const unsigned char *>(mapped);
         Edge edge{uw, 0};
         for (unsigned x = 0; x < uw; ++x) {
-            const auto *pixel = reinterpret_cast<const uint16_t *>(base + footprint.Offset +
-                (uh / 2) * footprint.Footprint.RowPitch + x * 8);
-            if (pixel[0] > 0x38cd && pixel[0] < 0x7c00) {
+            const auto *pixel = reinterpret_cast<const uint32_t *>(base + footprint.Offset +
+                (uh / 2) * footprint.Footprint.RowPitch + x * 4);
+            const auto red = *pixel & 0x7ff;
+            if (red > 0x38d && red < 0x7c0) {
                 if (edge.left == uw) edge.left = x;
                 edge.right = x;
             }
@@ -192,6 +200,13 @@ int wmain(int argc, wchar_t **argv)
         auto handle = rtvHandle;
         for (unsigned i = 0; i < 4; ++i) {
             auto *texture = surfaces[i].texture;
+            if (i == 1) {
+                transition(list, texture, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+                list->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+                                            0.5f, 0x5a, 0, nullptr);
+                transition(list, texture, D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_COMMON);
+                continue;
+            }
             device->CreateRenderTargetView(texture, nullptr, handle);
             transition(list, texture, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
             list->ClearRenderTargetView(handle, values[i], 0, nullptr);
@@ -240,6 +255,7 @@ int wmain(int argc, wchar_t **argv)
     FreeLibrary(sr);
     generatedReadback->Release();
     generated->Release();
+    dsv->Release();
     readback->Release();
     rtv->Release();
     CloseHandle(event);

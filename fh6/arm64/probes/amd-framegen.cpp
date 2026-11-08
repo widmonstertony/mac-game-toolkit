@@ -13,7 +13,8 @@ struct FrameGen {
     FfxApiDimensions2D render, display;
 };
 
-FrameGen *createFrameGen(const wchar_t *library, ID3D12Device *device, uint32_t rw, uint32_t rh, uint32_t uw, uint32_t uh)
+FrameGen *createFrameGen(const wchar_t *library, ID3D12Device *device, uint32_t rw, uint32_t rh, uint32_t uw, uint32_t uh,
+                        ID3D12Resource *presentColor)
 {
     HMODULE module = LoadLibraryExW(library, nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
     if (!module) { printf("Frame generation DLL load failed: %lu\n", GetLastError()); return nullptr; }
@@ -39,7 +40,7 @@ FrameGen *createFrameGen(const wchar_t *library, ID3D12Device *device, uint32_t 
     ffxOverrideVersion selected{{FFX_API_DESC_TYPE_OVERRIDE_VERSION}, ids[0]};
     ffxCreateBackendDX12Desc backend{{FFX_API_CREATE_CONTEXT_DESC_TYPE_BACKEND_DX12, &selected.header}, device};
     ffxCreateContextDescFrameGeneration desc{{type, &backend.header}, 0, fg->display, fg->render,
-        FFX_API_SURFACE_FORMAT_R16G16B16A16_FLOAT};
+        ffxApiGetSurfaceFormatDX12(presentColor->GetDesc().Format)};
     const auto result = create(&fg->context, &desc.header, nullptr);
     printf("Frame generation provider %s, create status=%u\n", names[0] ? names[0] : "unknown", result);
     if (result) {
