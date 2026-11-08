@@ -17,6 +17,7 @@ patches="$work/highball-engine-8b315e7"
 cd wine-11.18
 for patch_file in "$patches"/patches-arm64/*.patch; do /usr/bin/patch -s -p1 -F 0 -i "$patch_file"; done
 for patch_file in "$patches"/patches/{0022,0023}-*.patch; do /usr/bin/patch -p1 -F 1 -i "$patch_file"; done
+/usr/bin/patch -p1 -F 0 -i "$here/src/wine-11.18-udp-netreset.patch"
 mkdir "$work/build"
 cd "$work/build"
 ../wine-11.18/configure --enable-archs=arm64ec,aarch64,i386 --with-mingw --with-coreaudio \
@@ -28,10 +29,12 @@ cd "$work/build"
   arm64ec_CC=arm64ec-w64-mingw32-clang aarch64_CC=aarch64-w64-mingw32-clang \
   i386_CC=i686-w64-mingw32-clang
 /usr/bin/make -j"$(sysctl -n hw.ncpu)" dlls/winecoreaudio.drv/all dlls/mmdevapi/all
+/usr/bin/make -j"$(sysctl -n hw.ncpu)" dlls/ws2_32/aarch64-windows/ws2_32.dll
 out="$work/payload"
 mkdir -p "$out"/{aarch64-unix,aarch64-windows,i386-windows}
 install -m 755 dlls/winecoreaudio.drv/winecoreaudio.so "$out/aarch64-unix/"
 for arch in aarch64 i386; do install -m 644 "dlls/mmdevapi/${arch}-windows/mmdevapi.dll" "$out/${arch}-windows/"; done
+install -m 644 dlls/ws2_32/aarch64-windows/ws2_32.dll "$out/aarch64-windows/"
 codesign --force --sign - "$out/aarch64-unix/winecoreaudio.so"
 x86_64-w64-mingw32-clang -shared -O2 -s "$here/src/dialog.c" "$here/src/version.def" -luser32 -o "$out/version.dll"
 x86_64-w64-mingw32-clang -Wall -Wextra -Werror "$here/src/audio-probe.c" -lole32 -luuid -o "$work/audio-probe.exe"
