@@ -40,6 +40,10 @@ case "${1:-}" in
         : "${WINE_BUILD:?Set WINE_BUILD to its configured build directory}"
         : "${VKD3D_INCLUDE:?Set VKD3D_INCLUDE to the VKD3D source include directory}"
         : "${VKD3D_GENERATED_INCLUDE:?Set VKD3D_GENERATED_INCLUDE to the directory containing the generated interop headers}"
+        : "${FFX_FRAMEGEN_DLL:?Set FFX_FRAMEGEN_DLL to the Windows AMD frame generation DLL}"
+        framegen_dir=$(cd "$(dirname "$FFX_FRAMEGEN_DLL")" && pwd)
+        framegen_dll="$framegen_dir/$(basename "$FFX_FRAMEGEN_DLL")"
+        test -f "$framegen_dll"
         build_native_fsr
         bridge="$here/../fsr4"
         xcrun clang -arch arm64 -c -D__WINESRC__ -DWINE_UNIX_LIB \
@@ -50,7 +54,8 @@ case "${1:-}" in
             -framework Foundation -framework Metal -o "$work/fsr-bridge.so"
         "$LLVM_MINGW_BIN/x86_64-w64-mingw32-clang++" -std=c++17 -static -municode \
             -I "$VULKAN_INCLUDE" -I "$VKD3D_GENERATED_INCLUDE" -I "$VKD3D_INCLUDE" \
-            -I "$bridge" -I "$FFX_SDK_ROOT" "$here/d3d12-fsr.cpp" -ld3d12 -luuid -o "$work/d3d12-fsr.exe"
+            -I "$bridge" -I "$FFX_SDK_ROOT" "$here/d3d12-fsr.cpp" "$here/amd-framegen.cpp" \
+            -ld3d12 -luuid -o "$work/d3d12-fsr.exe"
         export FH6_NATIVE_FSR4_LIBRARY="$work/libfsr4-arm64.dylib"
         export WINEPREFIX="$work/prefix" WINEDEBUG=fixme-all VKD3D_DEBUG=warn
         export WINEDLLPATH_PREPEND="$engine/renderers/vkd3d/wine"
@@ -60,7 +65,9 @@ case "${1:-}" in
         trap '"$engine/engine/bin/wineserver" -k >/dev/null 2>&1 || true' EXIT
         cd "$work"
         bridge_path=$("$engine/engine/bin/wine" winepath -w "$work/fsr-bridge.so")
-        "$engine/engine/bin/wine" "$work/d3d12-fsr.exe" '\??\'"${bridge_path%$'\r'}" 2>&1 | tee "$work/d3d12.log"
+        framegen_path=$("$engine/engine/bin/wine" winepath -w "$framegen_dll")
+        "$engine/engine/bin/wine" "$work/d3d12-fsr.exe" '\??\'"${bridge_path%$'\r'}" \
+            "${framegen_path%$'\r'}" 2>&1 | tee "$work/d3d12.log"
         ;;
     steam)
         : "${LLVM_MINGW_BIN:?Set LLVM_MINGW_BIN to the llvm-mingw toolchain bin directory}"

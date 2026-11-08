@@ -1,15 +1,17 @@
 #include <vulkan/vulkan_core.h>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <thread>
 #include <winternl.h>
 #include "fsr_job.hpp"
+#include "amd-framegen.hpp"
 #include <vkd3d_device_vkd3d_ext.h>
 #define CHECK(call) do { const auto hr = (call); if (FAILED(hr)) { printf("%s failed: %#lx\n", #call, hr); return 1; } } while (0)
 extern "C" HRESULT WINAPI D3D12CreateDevice(IUnknown *, D3D_FEATURE_LEVEL, REFIID, void **);
 int wmain(int argc, wchar_t **argv)
 {
-    if (argc != 2) return 2;
+    if (argc != 3) return 2;
     ID3D12Device *device;
     CHECK(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&device)));
     ID3D12DXVKInteropDevice1 *interop;
@@ -106,25 +108,6 @@ int wmain(int argc, wchar_t **argv)
     CHECK(device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&rtv)));
     auto rtvHandle = rtv->GetCPUDescriptorHandleForHeapStart();
     const auto stride = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    CHECK(list->Reset(allocator, nullptr));
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    const float values[][4] = {{0.25f,0.5f,0.75f,1.f},{0.5f,0,0,0},{0,0,0,0},{0,0,0,0}};
-    for (unsigned i = 0; i < 4; ++i) {
-        auto *texture = surfaces[i].texture;
-        device->CreateRenderTargetView(texture, nullptr, rtvHandle);
-        barrier.Transition = {texture, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-            D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET};
-        list->ResourceBarrier(1, &barrier);
-        list->ClearRenderTargetView(rtvHandle, values[i], 0, nullptr);
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
-        list->ResourceBarrier(1, &barrier);
-        rtvHandle.ptr += stride;
-    }
-    CHECK(list->Close());
-    CHECK(enqueue(list, 1));
-    CHECK(fence->SetEventOnCompletion(1, producerEvent));
     FsrJob request = {};
     request.size = sizeof(request); request.device = reinterpret_cast<UINT64>(vulkan);
     request.owner = reinterpret_cast<UINT64>(&request);
@@ -156,45 +139,120 @@ int wmain(int argc, wchar_t **argv)
     ID3D12GraphicsCommandList *consumer = nullptr;
     CHECK(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&consumerAllocator)));
     CHECK(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, consumerAllocator, nullptr, IID_PPV_ARGS(&consumer)));
-    barrier.Transition.pResource = surfaces[3].texture;
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    consumer->ResourceBarrier(1, &barrier);
-    D3D12_TEXTURE_COPY_LOCATION src = {}, dst = {};
-    src.pResource = surfaces[3].texture; src.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    dst.pResource = readback; dst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT; dst.PlacedFootprint = footprint;
-    consumer->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
-    CHECK(consumer->Close());
 
-    // Enqueue the consumer before starting the Metal worker. The queue must
-    // observe the real completion signal before touching the shared texture.
-    CHECK(queue->Wait(metalDone, 1));
-    CHECK(enqueue(consumer, 2));
-    CHECK(fence->SetEventOnCompletion(2, event));
-    HRESULT metalStatus = E_FAIL;
-    std::thread worker([&] {
-        if (WaitForSingleObject(producerEvent, 10000) != WAIT_OBJECT_0) return;
-        const auto result = (*call)(handles[1], 0, &request);
-        printf("Native Metal FSR status=%#lx GPU=%.3f ms\n", result, request.gpuMs);
-        if (result) return;
-        metalStatus = metalDone->Signal(1);
-    });
-    const bool completed = WaitForSingleObject(event, 15000) == WAIT_OBJECT_0;
-    worker.join();
-    printf("D3D12 fence handoff=%s\n", completed && SUCCEEDED(metalStatus) ? "OK" : "failed");
-    if (!completed || FAILED(metalStatus)) return 1;
-    void *mapped = nullptr;
-    CHECK(readback->Map(0, nullptr, &mapped));
-    const auto *base = static_cast<const unsigned char *>(mapped);
-    unsigned correct = 0, total = 0;
-    for (unsigned y = 8; y < uh - 8; y += 32)
-        for (unsigned x = 8; x < uw - 8; x += 32) {
-            auto p = reinterpret_cast<const uint16_t *>(base + footprint.Offset + y * footprint.Footprint.RowPitch + x * 8);
-            correct += p[0] > 0 && p[0] < p[1] && p[1] < p[2] && p[2] < 0x7c00;
-            ++total;
+    CHECK(consumer->Close());
+    auto *fg = createFrameGen(argv[2], device, rw, rh, uw, uh);
+    if (!fg) return 1;
+    ID3D12Resource *generated = nullptr;
+    CHECK(device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &surfaces[3].desc,
+        D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&generated)));
+    ID3D12Resource *generatedReadback = nullptr;
+    CHECK(device->CreateCommittedResource(&cpu, D3D12_HEAP_FLAG_NONE, &bufferDesc,
+        D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&generatedReadback)));
+    const auto transition = [](ID3D12GraphicsCommandList *commands, ID3D12Resource *texture,
+        D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) {
+        D3D12_RESOURCE_BARRIER b = {};
+        b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        b.Transition = {texture, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, before, after};
+        commands->ResourceBarrier(1, &b);
+    };
+    const auto copy = [&](ID3D12Resource *texture, ID3D12Resource *buffer, D3D12_RESOURCE_STATES state) {
+        transition(consumer, texture, state, D3D12_RESOURCE_STATE_COPY_SOURCE);
+        D3D12_TEXTURE_COPY_LOCATION src = {}, dst = {};
+        src.pResource = texture; src.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        dst.pResource = buffer; dst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT; dst.PlacedFootprint = footprint;
+        consumer->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+        transition(consumer, texture, D3D12_RESOURCE_STATE_COPY_SOURCE, state);
+    };
+    struct Edge { unsigned left, right; };
+    const auto edges = [&](ID3D12Resource *buffer) -> Edge {
+        void *mapped = nullptr;
+        if (FAILED(buffer->Map(0, nullptr, &mapped))) return {};
+        const auto *base = static_cast<const unsigned char *>(mapped);
+        Edge edge{uw, 0};
+        for (unsigned x = 0; x < uw; ++x) {
+            const auto *pixel = reinterpret_cast<const uint16_t *>(base + footprint.Offset +
+                (uh / 2) * footprint.Footprint.RowPitch + x * 8);
+            if (pixel[0] > 0x38cd && pixel[0] < 0x7c00) {
+                if (edge.left == uw) edge.left = x;
+                edge.right = x;
+            }
         }
-    printf("D3D12 -> Metal FSR -> D3D12: %u/%u ordered RGB pixels at %ux%u\n", correct, total, uw, uh);
-    readback->Unmap(0, nullptr);
+        const D3D12_RANGE noWrite{};
+        buffer->Unmap(0, &noWrite);
+        return edge;
+    };
+    // Allow a few pixels of variance from the temporal filters and sample phase.
+    const auto midpoint = [](unsigned before, unsigned after, unsigned generated) {
+        return before < generated && generated < after &&
+            std::abs(int(2 * generated) - int(before + after)) <= 6;
+    };
+    Edge previous{};
+    unsigned verified = 0;
+    for (UINT64 frame = 0; frame < 3; ++frame) {
+        CHECK(allocator->Reset());
+        CHECK(list->Reset(allocator, nullptr));
+        const float values[][4] = {{0.10f,0.25f,0.4f,1.f},{0.5f,0,0,0},
+            {frame ? -36.f : 0.f,0,0,0},{0,0,0,0}};
+        auto handle = rtvHandle;
+        for (unsigned i = 0; i < 4; ++i) {
+            auto *texture = surfaces[i].texture;
+            device->CreateRenderTargetView(texture, nullptr, handle);
+            transition(list, texture, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
+            list->ClearRenderTargetView(handle, values[i], 0, nullptr);
+            if (i == 0) {
+                const auto x = LONG(900 + frame * 36);
+                const D3D12_RECT rect = {x, 650, x + 300, 850};
+                const float red[] = {0.85f,0.1f,0.15f,1.f};
+                list->ClearRenderTargetView(handle, red, 1, &rect);
+            }
+            transition(list, texture, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
+            handle.ptr += stride;
+        }
+        CHECK(list->Close());
+        CHECK(enqueue(list, 2 * frame + 1));
+        CHECK(fence->SetEventOnCompletion(2 * frame + 1, producerEvent));
+        CHECK(consumerAllocator->Reset());
+        CHECK(consumer->Reset(consumerAllocator, nullptr));
+        constexpr auto computeRead = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        for (unsigned i = 1; i < 4; ++i)
+            transition(consumer, surfaces[i].texture, D3D12_RESOURCE_STATE_COMMON, computeRead);
+        if (!recordFrameGen(fg, consumer, surfaces[1].texture, surfaces[2].texture, surfaces[3].texture,
+                            generated, frame)) return 1;
+        copy(surfaces[3].texture, readback, computeRead);
+        copy(generated, generatedReadback, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        for (unsigned i = 1; i < 4; ++i)
+            transition(consumer, surfaces[i].texture, computeRead, D3D12_RESOURCE_STATE_COMMON);
+        CHECK(consumer->Close());
+
+        CHECK(queue->Wait(metalDone, frame + 1));
+        CHECK(enqueue(consumer, 2 * frame + 2));
+        CHECK(fence->SetEventOnCompletion(2 * frame + 2, event));
+        request.dispatch.reset = frame == 0;
+        request.dispatch.frameTimeDelta = 16.667f;
+        HRESULT metalStatus = E_FAIL;
+        std::thread worker([&] {
+            if (WaitForSingleObject(producerEvent, 10000) != WAIT_OBJECT_0) return;
+            const auto result = (*call)(handles[1], 0, &request);
+            printf("Native Metal FSR status=%#lx GPU=%.3f ms\n", result, request.gpuMs);
+            if (!result) metalStatus = metalDone->Signal(frame + 1);
+        });
+        const bool completed = WaitForSingleObject(event, 30000) == WAIT_OBJECT_0;
+        worker.join();
+        if (!completed || FAILED(metalStatus)) return 1;
+
+        const auto sr = edges(readback);
+        const auto gen = edges(generatedReadback);
+        printf("Frame %llu upscale edge=%u..%u, generated edge=%u..%u, output=%ux%u\n",
+            (unsigned long long)frame, sr.left, sr.right, gen.left, gen.right, uw, uh);
+        if (frame && midpoint(previous.left, sr.left, gen.left) &&
+                     midpoint(previous.right, sr.right, gen.right)) ++verified;
+        previous = sr;
+    }
+    printf("Verified generated intermediate frames: %u/2\n", verified);
+    destroyFrameGen(fg);
+    generatedReadback->Release();
+    generated->Release();
     readback->Release();
     rtv->Release();
     consumer->Release();
@@ -204,11 +262,11 @@ int wmain(int argc, wchar_t **argv)
     metalDone->Release();
     fence->Release();
     queue->Release();
-    if (correct != total) return 1;
     for (auto &surface : surfaces) { surface.texture->Release(); surface.heap->Release(); }
     heapInterop->Release();
     list->Release();
     allocator->Release();
     interop->Release();
     device->Release();
+    return verified == 2 ? 0 : 1;
 }
