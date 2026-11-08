@@ -18,6 +18,17 @@ static LobbyPoll poll_lobby;
 static LobbyJoin join_lobby, join_arranged;
 static LobbyFind find_lobbies;
 static MultiplayerInit initialize_multiplayer;
+/* Only numeric results are read from libHttpClient. Its request data and
+ * authentication headers remain with the original caller. */
+typedef struct { void *websocket; HRESULT error; uint32_t platform_error; } SocketResult;
+typedef HRESULT (WINAPI *SocketConnect)(const char *, const char *, void *, void *);
+typedef HRESULT (WINAPI *SocketCompletion)(void *, SocketResult *);
+typedef HRESULT (WINAPI *HttpStatus)(void *, uint32_t *);
+typedef HRESULT (WINAPI *HttpError)(void *, HRESULT *, uint32_t *);
+static SocketConnect socket_connect;
+static SocketCompletion socket_completion;
+static HttpStatus http_status;
+static HttpError http_error;
 static HANDLE log_file = INVALID_HANDLE_VALUE;
 static LONG log_lines;
 static HMODULE self;
@@ -115,6 +126,39 @@ static BOOL WINAPI trace_response(HINTERNET request, LPVOID reserved)
     return result;
 }
 
+static HRESULT WINAPI trace_socket_connect(const char *uri, const char *protocol, void *socket, void *async)
+{
+    HRESULT result = socket_connect(uri, protocol, socket, async);
+    report("HC websocket queued", 0, result);
+    return result;
+}
+
+static HRESULT WINAPI trace_socket_completion(void *async, SocketResult *completion)
+{
+    HRESULT result = socket_completion(async, completion);
+    if (SUCCEEDED(result) && completion)
+        report("HC websocket completion", completion->platform_error, completion->error);
+    else
+        report("HC websocket result query", 0, result);
+    return result;
+}
+
+static HRESULT WINAPI trace_http_status(void *call, uint32_t *status)
+{
+    HRESULT result = http_status(call, status);
+    if (SUCCEEDED(result) && status && *status >= 400)
+        report("HC HTTP status", *status, 0);
+    return result;
+}
+
+static HRESULT WINAPI trace_http_error(void *call, HRESULT *error, uint32_t *platform)
+{
+    HRESULT result = http_error(call, error, platform);
+    if (SUCCEEDED(result) && error && (FAILED(*error) || (platform && *platform)))
+        report("HC HTTP network error", platform ? *platform : 0, *error);
+    return result;
+}
+
 struct ImportHook { const char *name; FARPROC hook; void *original; };
 
 static unsigned install(HMODULE image, const char *library, const struct ImportHook *hooks, unsigned count)
@@ -182,9 +226,17 @@ __declspec(dllexport) void InitializeASI(void)
         {"WinHttpQueryHeaders", (FARPROC)trace_headers, NULL},
         {"WinHttpReceiveResponse", (FARPROC)trace_response, NULL},
     };
+    const struct ImportHook client[] = {
+        {"HCWebSocketConnectAsync", (FARPROC)trace_socket_connect, &socket_connect},
+        {"HCGetWebSocketConnectResult", (FARPROC)trace_socket_completion, &socket_completion},
+        {"HCHttpCallResponseGetStatusCode", (FARPROC)trace_http_status, &http_status},
+        {"HCHttpCallResponseGetNetworkErrorCode", (FARPROC)trace_http_error, &http_error},
+    };
     report("lobby hooks", install(GetModuleHandleW(NULL), "PlayFabMultiplayerWin.dll", lobby, ARRAYSIZE(lobby)), 0);
     report("PlayFab WinHTTP hooks", install(GetModuleHandleW(L"PlayFabMultiplayerWin.dll"), "winhttp.dll",
                                            http, ARRAYSIZE(http)), 0);
+    report("libHttpClient hooks", install(GetModuleHandleW(NULL), "libHttpClient.dll",
+                                          client, ARRAYSIZE(client)), 0);
 }
 
 BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID reserved)

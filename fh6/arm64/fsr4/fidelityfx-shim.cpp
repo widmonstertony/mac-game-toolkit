@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "fsr_job.hpp"
+#include "fg-motion.hpp"
 
 using DispatchUnix = NTSTATUS (WINAPI *)(UINT64, unsigned int, void *);
 using RecordPass = HRESULT (WINAPI *)(ID3D12CommandList *, void (WINAPI *)(IUnknown *),
@@ -169,6 +170,25 @@ struct Context {
 static std::mutex contextsMutex;
 static std::unordered_map<ffxContext, std::shared_ptr<Context>> contexts;
 static std::atomic<uint64_t> nextOwner{1};
+static std::mutex motionMutex;
+static std::array<FgMotionSample, 8> motionSamples;
+static size_t motionHead;
+
+extern "C" __declspec(dllexport)
+int WINAPI FH6FindUpscaleMotion(void *depth, void *motion, FfxApiDimensions2D size,
+                              FfxApiFloatCoords2D jitter, FfxApiFloatCoords2D *scale)
+{
+    if (!scale) return 0;
+    const auto now = GetTickCount64();
+    std::lock_guard lock(motionMutex);
+    for (size_t i = 0; i < motionSamples.size(); ++i) {
+        const auto &sample = motionSamples[(motionHead + motionSamples.size() - 1 - i) % motionSamples.size()];
+        if (!sample.matches(depth, motion, size, jitter, now)) continue;
+        *scale = sample.scale;
+        return 1;
+    }
+    return 0;
+}
 
 class Pass final : public IUnknown {
     std::atomic<ULONG> references{1};
@@ -471,6 +491,9 @@ ffxReturnCode_t ffxDispatch(ffxContext *context, const ffxDispatchDescHeader *de
     unsigned detail = 0;
     const auto reason = upscale(*entry, params, detail);
     if (!reason) {
+        std::lock_guard motionLock(motionMutex);
+        motionSamples[motionHead++ % motionSamples.size()] = {params.depth.resource, params.motionVectors.resource,
+            params.renderSize, params.jitterOffset, params.motionVectorScale, GetTickCount64()};
         entry->lastNative = true;
         return FFX_API_RETURN_OK;
     }

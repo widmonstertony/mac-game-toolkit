@@ -16,7 +16,7 @@ UPDATES = {
 }
 
 
-def update_config(text, frame_generation=False):
+def update_config(text, frame_generation=False, quality_ratio=1.5):
     if not re.search(r"(?m)^Dx12Upscaler\s*=\s*fsr31\r?$", text):
         raise ValueError("Expected the existing OptiScaler FidelityFX path")
     for section, updates in UPDATES.items():
@@ -24,6 +24,8 @@ def update_config(text, frame_generation=False):
             updates = {"Enabled": "true"}
         elif frame_generation and section == "Log":
             updates = {"LogLevel": "1"}
+        elif section == "QualityOverrides":
+            updates = {**updates, "QualityRatioPerformance": str(quality_ratio)}
         pattern = rf"(?m)^\[{section}\]\r?\n[^\[]*"
         match = re.search(pattern, text)
         if not match:
@@ -42,11 +44,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--with-frame-generation", action="store_true",
                         help="keep 2× enabled and log its dispatch and present results")
+    parser.add_argument("--quality-ratio", type=float, default=1.5)
     options = parser.parse_args()
+    if not 1.0 <= options.quality_ratio <= 2.0:
+        parser.error("--quality-ratio must be between 1.0 and 2.0")
     bottle = Path.home() / "Library/Application Support/Highball/bottles/Forza Horizon 6"
     path = bottle / GAME / "OptiScaler.ini"
     old = path.read_bytes()
-    new = update_config(old.decode("utf-8"), options.with_frame_generation).encode("utf-8")
+    new = update_config(old.decode("utf-8"), options.with_frame_generation,
+                        options.quality_ratio).encode("utf-8")
     if old == new:
         return
     backup = bottle / ".fh6-metal-fsr4" / f"OptiScaler-before-clear-{datetime.now():%Y%m%d-%H%M%S-%f}.ini"

@@ -64,10 +64,11 @@ def monitor(bottle, output):
     opti = game / "OptiScaler.log"
     shim = game / "OptiScaler-FH6-SDK/fh6-metal-fsr4.log"
     lobby = game / "OptiScaler-FH6-SDK/fh6-session-results.log"
+    framegen = game / "OptiScaler-FH6-SDK/fh6-framegen-motion.log"
     wine_logs = lambda: sorted(logs.glob("*-Forza Horizon 6-steam.exe.log"),
                                key=lambda path: path.stat().st_mtime)[-3:]
     offsets = {}
-    for path in (opti, shim, lobby, *wine_logs()):
+    for path in (opti, shim, lobby, framegen, *wine_logs()):
         if path.exists():
             stat = path.stat()
             offsets[path] = stat.st_ino, stat.st_size
@@ -102,6 +103,8 @@ def monitor(bottle, output):
                 if line.startswith(b"FH6 Metal FSR4 "):
                     record(line.decode("ascii", errors="replace"))
             for line in new_lines(lobby, offsets):
+                record(line.decode("ascii", errors="replace"))
+            for line in new_lines(framegen, offsets):
                 record(line.decode("ascii", errors="replace"))
 
             frame_times, base_times = [], []
