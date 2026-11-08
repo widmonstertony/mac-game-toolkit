@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Keep native Metal FSR 4 and prioritize clear base frames in FH6."""
+import argparse
 from datetime import datetime
 import os
 from pathlib import Path
@@ -15,10 +16,14 @@ UPDATES = {
 }
 
 
-def update_config(text):
+def update_config(text, frame_generation=False):
     if not re.search(r"(?m)^Dx12Upscaler\s*=\s*fsr31\r?$", text):
         raise ValueError("Expected the existing OptiScaler FidelityFX path")
     for section, updates in UPDATES.items():
+        if frame_generation and section == "FrameGen":
+            updates = {"Enabled": "true"}
+        elif frame_generation and section == "Log":
+            updates = {"LogLevel": "1"}
         pattern = rf"(?m)^\[{section}\]\r?\n[^\[]*"
         match = re.search(pattern, text)
         if not match:
@@ -34,10 +39,14 @@ def update_config(text):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--with-frame-generation", action="store_true",
+                        help="keep 2× enabled and log its dispatch and present results")
+    options = parser.parse_args()
     bottle = Path.home() / "Library/Application Support/Highball/bottles/Forza Horizon 6"
     path = bottle / GAME / "OptiScaler.ini"
     old = path.read_bytes()
-    new = update_config(old.decode("utf-8")).encode("utf-8")
+    new = update_config(old.decode("utf-8"), options.with_frame_generation).encode("utf-8")
     if old == new:
         return
     backup = bottle / ".fh6-metal-fsr4" / f"OptiScaler-before-clear-{datetime.now():%Y%m%d-%H%M%S-%f}.ini"
@@ -53,7 +62,7 @@ def main():
         os.replace(pending, path)
     finally:
         pending.unlink(missing_ok=True)
-    print(f"Clear-frame profile staged. Previous settings: {backup}")
+    print(f"FH6 visual settings staged. Previous settings: {backup}")
 
 
 if __name__ == "__main__":

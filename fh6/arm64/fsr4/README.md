@@ -18,4 +18,6 @@ The live regression uses FH6's packed `R11G11B10_FLOAT` color and `R32G8X24_TYPE
 
 For a profile that prioritizes clean moving images, run `python3 visual-clean.py` against the installed OptiScaler configuration. The profile disables OptiScaler's frame generation and maps the Performance input to a 1.5× upscale ratio. It keeps the native output size and the Metal FSR provider. The script prints the location of the previous INI settings.
 
+Use `--with-frame-generation` to keep 2× interpolation active while logging its dispatches and presents. For the KosmicKrisp GPU page-fault investigation, set `HB_KK_NO_UBO_ROBUST=0` in both the bottle and the FH6 game profile. Use separate vkd3d and Mesa shader cache directories for this setting so shaders compiled with unchecked uniform-buffer reads stay out of the test. Keep the original caches for the other configuration.
+
 To restore the previous provider and DLL search path, close the game and Windows Steam and run `python3 install-live.py --rollback`. The original resolution, frame generation configuration and audio overlay remain in place. The GPU regression verifies the chain and texture contents. The game's launch, selected dispatch path, frame pacing and motion artifacts need an in-game run.

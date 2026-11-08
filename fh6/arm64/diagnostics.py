@@ -21,6 +21,8 @@ WINE_EVENTS = {
     b"834366da-2d43-4fe3-8dcd-42ff2274bd0d": "gaming COM activation",
     b"SIO_UDP_NETRESET": "UDP reset option",
     b"0x8060046b": "join error",
+    b"it failed with PageFault": "Metal GPU page fault",
+    b"VK_ERROR_DEVICE_LOST": "Vulkan device lost",
 }
 
 
@@ -61,10 +63,11 @@ def monitor(bottle, output):
     logs = bottle.parent.parent / "logs"
     opti = game / "OptiScaler.log"
     shim = game / "OptiScaler-FH6-SDK/fh6-metal-fsr4.log"
+    lobby = game / "OptiScaler-FH6-SDK/fh6-session-results.log"
     wine_logs = lambda: sorted(logs.glob("*-Forza Horizon 6-steam.exe.log"),
                                key=lambda path: path.stat().st_mtime)[-3:]
     offsets = {}
-    for path in (opti, shim, *wine_logs()):
+    for path in (opti, shim, lobby, *wine_logs()):
         if path.exists():
             stat = path.stat()
             offsets[path] = stat.st_ino, stat.st_size
@@ -98,6 +101,8 @@ def monitor(bottle, output):
             for line in new_lines(shim, offsets):
                 if line.startswith(b"FH6 Metal FSR4 "):
                     record(line.decode("ascii", errors="replace"))
+            for line in new_lines(lobby, offsets):
+                record(line.decode("ascii", errors="replace"))
 
             frame_times, base_times = [], []
             counts = collections.Counter()
