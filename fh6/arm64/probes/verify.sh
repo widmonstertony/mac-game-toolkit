@@ -34,7 +34,7 @@ case "${1:-}" in
         "$work/metal" "$engine/renderers/kosmickrisp/libvulkan_kosmickrisp.dylib" \
             "$work/libfsr4-arm64.dylib" 2>&1 | tee "$work/metal.log"
         ;;
-    d3d12)
+    d3d12|live)
         : "${LLVM_MINGW_BIN:?Set LLVM_MINGW_BIN to the llvm-mingw toolchain bin directory}"
         : "${WINE_SOURCE:?Set WINE_SOURCE to the matching Highball Wine 11.18 source}"
         : "${WINE_BUILD:?Set WINE_BUILD to its configured build directory}"
@@ -52,22 +52,43 @@ case "${1:-}" in
             -isystem "$FFX_SDK_ROOT" -c "$bridge/wine_fsr.mm" -o "$work/wine_fsr.o"
         xcrun clang++ -dynamiclib -arch arm64 "$work/wine_heap.o" "$work/wine_fsr.o" \
             -framework Foundation -framework Metal -o "$work/fsr-bridge.so"
-        "$LLVM_MINGW_BIN/x86_64-w64-mingw32-clang++" -std=c++17 -static -municode \
-            -I "$VULKAN_INCLUDE" -I "$VKD3D_GENERATED_INCLUDE" -I "$VKD3D_INCLUDE" \
-            -I "$bridge" -I "$FFX_SDK_ROOT" "$here/d3d12-fsr.cpp" "$here/amd-framegen.cpp" \
+        compiler="$LLVM_MINGW_BIN/x86_64-w64-mingw32-clang++"
+        headers=(-I "$VULKAN_INCLUDE" -I "$VKD3D_GENERATED_INCLUDE" -I "$VKD3D_INCLUDE" -I "$bridge" -I "$FFX_SDK_ROOT")
+        probe="$here/d3d12-fsr.cpp"
+        if [[ "$1" == live ]]; then
+            : "${VKD3D_HOST_OVERLAY:?Set VKD3D_HOST_OVERLAY to the Wine DLL directory for the patched renderer}"
+            : "${FFX_UPSCALE_DLL:?Set FFX_UPSCALE_DLL to the original Windows AMD upscaling DLL}"
+            probe="$here/ffx-host-pass.cpp"
+            cp "$FFX_UPSCALE_DLL" "$work/amd_fidelityfx_upscaler_original_dx12.dll"
+            mv "$work/fsr-bridge.so" "$work/fh6-fsr-bridge.so"
+            "$compiler" -std=c++17 -static -shared -O2 "${headers[@]}" "$bridge/fidelityfx-shim.cpp" \
+                -luuid -o "$work/amd_fidelityfx_upscaler_dx12.dll"
+        fi
+        "$compiler" -std=c++17 -static -municode "${headers[@]}" "$probe" "$here/amd-framegen.cpp" \
             -ld3d12 -luuid -o "$work/d3d12-fsr.exe"
         export FH6_NATIVE_FSR4_LIBRARY="$work/libfsr4-arm64.dylib"
         export WINEPREFIX="$work/prefix" WINEDEBUG=fixme-all VKD3D_DEBUG=warn
         export WINEDLLPATH_PREPEND="$engine/renderers/vkd3d/wine"
+        if [[ "$1" == live ]]; then
+            export WINEDLLPATH_PREPEND="$VKD3D_HOST_OVERLAY:$WINEDLLPATH_PREPEND"
+        fi
         export WINEDLLOVERRIDES='d3d12,d3d12core,dxgi=n,b;winemenubuilder,mscoree,mshtml,winedbg=d'
         export VK_DRIVER_FILES="$engine/renderers/kosmickrisp/kosmickrisp_icd.json"
         export VKD3D_FEATURE_LEVEL=12_1 VKD3D_SHADER_MODEL=6_6 VKD3D_CONFIG=no_staggered_submit,force_native_fp16
         trap '"$engine/engine/bin/wineserver" -k >/dev/null 2>&1 || true' EXIT
         cd "$work"
-        bridge_path=$("$engine/engine/bin/wine" winepath -w "$work/fsr-bridge.so")
+        if [[ "$1" == live ]]; then
+            argument=$("$engine/engine/bin/wine" winepath -w "$work/amd_fidelityfx_upscaler_dx12.dll")
+        else
+            bridge_path=$("$engine/engine/bin/wine" winepath -w "$work/fsr-bridge.so")
+            argument='\??\'"${bridge_path%$'\r'}"
+        fi
         framegen_path=$("$engine/engine/bin/wine" winepath -w "$framegen_dll")
-        "$engine/engine/bin/wine" "$work/d3d12-fsr.exe" '\??\'"${bridge_path%$'\r'}" \
+        "$engine/engine/bin/wine" "$work/d3d12-fsr.exe" "${argument%$'\r'}" \
             "${framegen_path%$'\r'}" 2>&1 | tee "$work/d3d12.log"
+        if [[ "$1" == live ]]; then
+            grep -q 'FH6 Metal FSR4 dispatch status=0 ' "$work/d3d12.log"
+        fi
         ;;
     steam)
         : "${LLVM_MINGW_BIN:?Set LLVM_MINGW_BIN to the llvm-mingw toolchain bin directory}"
@@ -89,7 +110,7 @@ case "${1:-}" in
         "$engine/engine/bin/wine" "$work/steam-ipc.exe" 2>&1 | tee "$work/steam.log"
         ;;
     *)
-        printf 'Usage: %s metal|d3d12|steam\n' "$0" >&2
+        printf 'Usage: %s metal|d3d12|live|steam\n' "$0" >&2
         exit 2
         ;;
 esac

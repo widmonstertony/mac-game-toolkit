@@ -25,5 +25,6 @@ NTSTATUS fh6_export_heap(void *data)
 }
 
 extern NTSTATUS fh6_encode_fsr(void *);
+extern NTSTATUS fh6_validate_fsr(void *);
 
-const unixlib_entry_t __wine_unix_call_funcs[] = {fh6_encode_fsr};
+const unixlib_entry_t __wine_unix_call_funcs[] = {fh6_encode_fsr, fh6_validate_fsr};

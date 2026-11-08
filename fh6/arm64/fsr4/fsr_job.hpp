@@ -6,6 +6,7 @@
 struct FsrHeapTexture {
     uint64_t memory, offset;
     uint32_t width, height;
+    uint32_t format; // Typed DXGI format. Zero selects the original probe format.
 };
 
 struct FsrJob {
@@ -15,6 +16,6 @@ struct FsrJob {
     uint64_t owner;
     ffxCreateContextDescUpscale context;
     ffxDispatchDescUpscale dispatch;
-    FsrHeapTexture color, depth, motion, output;
+    FsrHeapTexture color, depth, motion, output, exposure;
     double gpuMs;
 };

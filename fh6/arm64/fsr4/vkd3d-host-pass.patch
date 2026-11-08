@@ -1,0 +1,221 @@
+diff --git a/libs/d3d12core/d3d12core.def b/libs/d3d12core/d3d12core.def
+index abd56d6..11ec186 100644
+--- a/libs/d3d12core/d3d12core.def
++++ b/libs/d3d12core/d3d12core.def
+@@ -2,4 +2,5 @@ LIBRARY d3d12core.dll
+
+ EXPORTS
+     D3D12GetInterface
++    VKD3DRecordHostPass
+     D3D12SDKVersion DATA PRIVATE
+diff --git a/libs/vkd3d/command.c b/libs/vkd3d/command.c
+index 84976e6..0852c4e 100644
+--- a/libs/vkd3d/command.c
++++ b/libs/vkd3d/command.c
+@@ -2836,6 +2836,10 @@ static void d3d12_command_allocator_free_resources(struct d3d12_command_allocato
+         d3d12_pipeline_state_dec_ref(allocator->pipelines[i]);
+     }
+     allocator->pipelines_count = 0;
++
++    for (i = 0; i < allocator->host_passes_count; i++)
++        IUnknown_Release(allocator->host_passes[i].context);
++    allocator->host_passes_count = 0;
+ }
+
+ static void d3d12_command_allocator_set_name(struct d3d12_command_allocator *allocator, const char *name)
+@@ -2944,6 +2948,7 @@ static ULONG d3d12_command_allocator_dec_ref(struct d3d12_command_allocator *all
+         vkd3d_free(allocator->buffer_views);
+         vkd3d_free(allocator->views);
+         vkd3d_free(allocator->pipelines);
++        vkd3d_free(allocator->host_passes);
+
+         if (vkd3d_config_flags & VKD3D_CONFIG_FLAG_RECYCLE_COMMAND_POOLS)
+         {
+@@ -21820,6 +21825,46 @@ fail:
+     vkd3d_free(sub.bind_sparse.bind_infos);
+ }
+
++/* Run a same-process GPU interop operation between segments of one D3D12 list.
++ * The callback must wait for its external GPU work, may not enter D3D12 or
++ * Vulkan, and must return failure if its output was not written. */
++HRESULT WINAPI VKD3DRecordHostPass(ID3D12CommandList *iface,
++        void (WINAPI *prepare)(IUnknown *), HRESULT (WINAPI *execute)(IUnknown *), IUnknown *context)
++{
++    struct d3d12_command_list *list = iface ? d3d12_command_list_from_iface(iface) : NULL;
++    struct d3d12_command_allocator *allocator;
++    unsigned int count;
++
++    if (!list || !execute || !context || !list->is_recording)
++        return E_INVALIDARG;
++
++    allocator = list->allocator;
++    count = list->cmd.iteration_count;
++    if (list->type != D3D12_COMMAND_LIST_TYPE_DIRECT ||
++            count >= VKD3D_MAX_COMMAND_LIST_SEQUENCES ||
++            !d3d12_command_list_allows_new_sequence(list) ||
++            (list->rendering_info.state_flags & VKD3D_RENDERING_ACTIVE))
++        return E_NOTIMPL;
++
++    if (!vkd3d_array_reserve((void **)&allocator->host_passes, &allocator->host_passes_size,
++            allocator->host_passes_count + 1, sizeof(*allocator->host_passes)))
++        return E_OUTOFMEMORY;
++
++    /* Keep staging alive even if splitting fails after the prefix was recorded. */
++    IUnknown_AddRef(context);
++    allocator->host_passes[allocator->host_passes_count++] = (struct vkd3d_host_pass){execute, context};
++    if (prepare)
++        prepare(context);
++    d3d12_command_list_end_transfer_batch(list);
++    d3d12_command_list_flush_subresource_updates(list);
++    d3d12_command_list_begin_new_sequence(list, false);
++    if (list->cmd.iteration_count != count + 1)
++        return E_FAIL;
++
++    list->cmd.iterations[count].host_pass_index = allocator->host_passes_count;
++    return S_OK;
++}
++
+ static bool vkd3d_submission_has_query_reset_hazard(
+         UINT command_list_count, ID3D12CommandList * const *command_lists)
+ {
+@@ -21916,6 +21961,7 @@ static void STDMETHODCALLTYPE d3d12_command_queue_ExecuteCommandLists(ID3D12Comm
+     unsigned int *breadcrumb_indices;
+ #endif
+     unsigned int cmd_submit_count;
++    bool has_host_pass = false;
+     bool hazard_query_resets;
+     uint32_t *cmd_cost;
+     unsigned int iter;
+@@ -21986,6 +22032,7 @@ static void STDMETHODCALLTYPE d3d12_command_queue_ExecuteCommandLists(ID3D12Comm
+             if (cmd_list->cmd.iterations[iter].vk_post_indirect_barrier_commands)
+                 num_command_buffers++;
+             assert(cmd_list->cmd.iterations[iter].vk_command_buffer);
++            has_host_pass |= cmd_list->cmd.iterations[iter].host_pass_index != 0;
+             num_command_buffers++;
+         }
+
+@@ -22009,12 +22056,16 @@ static void STDMETHODCALLTYPE d3d12_command_queue_ExecuteCommandLists(ID3D12Comm
+         }
+     }
+
+-    if (!(buffers = vkd3d_calloc(num_command_buffers, sizeof(*buffers))))
++    if (!(buffers = vkd3d_calloc(num_command_buffers,
++            sizeof(*buffers) + (has_host_pass ? sizeof(*sub.execute.host_passes) : 0))))
+     {
+         ERR("Failed to allocate command buffer array.\n");
+         return;
+     }
+
++    if (has_host_pass)
++        sub.execute.host_passes = (struct vkd3d_host_pass *)(buffers + num_command_buffers);
++
+     if (!(allocators = vkd3d_calloc(command_list_count, sizeof(*allocators))))
+     {
+         ERR("Failed to allocate outstanding submissions count.\n");
+@@ -22188,6 +22239,9 @@ static void STDMETHODCALLTYPE d3d12_command_queue_ExecuteCommandLists(ID3D12Comm
+             }
+
+             cmd_cost[cmd_submit_count] = cmd_list->cmd.iterations[iter].estimated_cost;
++            if (cmd_list->cmd.iterations[iter].host_pass_index)
++                sub.execute.host_passes[cmd_submit_count] =
++                        allocators[i]->host_passes[cmd_list->cmd.iterations[iter].host_pass_index - 1];
+
+             buffer = &buffers[cmd_submit_count++];
+             buffer->sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+@@ -23537,7 +23591,7 @@ static void d3d12_command_queue_execute(struct d3d12_command_queue *command_queu
+         debug_capture = false;
+ #endif
+
+-    stagger_submissions = d3d12_command_queue_needs_staggered_submissions_locked(command_queue);
++    stagger_submissions = !exec->host_passes && d3d12_command_queue_needs_staggered_submissions_locked(command_queue);
+
+     if (command_queue->stagger_submissions != stagger_submissions)
+     {
+@@ -23598,6 +23652,29 @@ static void d3d12_command_queue_execute(struct d3d12_command_queue *command_queu
+     {
+         fallback = serialize_transition;
+
++        if (!serialize_transition && exec->host_passes && exec->host_passes[cmd_index].execute)
++        {
++            VkSemaphoreWaitInfo host_wait = {VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
++            const struct vkd3d_host_pass *pass = &exec->host_passes[cmd_index];
++
++            assert(!is_first);
++            host_wait.semaphoreCount = 1;
++            host_wait.pSemaphores = &vkd3d_queue->submission_timeline;
++            host_wait.pValues = &command_queue->last_submission_timeline_value;
++            vkd3d_queue_release(vkd3d_queue);
++            vr = VK_CALL(vkWaitSemaphores(command_queue->device->vk_device, &host_wait, 30000000000ull));
++            hr = vr == VK_SUCCESS ? pass->execute(pass->context) : E_FAIL;
++            vk_queue = vkd3d_queue_acquire(vkd3d_queue);
++            if (FAILED(hr))
++            {
++                d3d12_device_mark_as_removed(command_queue->device, hr,
++                        "External GPU pass failed (producer wait status %d).\n", vr);
++                /* Retire resources against the last submitted segment. */
++                vr = VK_SUCCESS;
++                break;
++            }
++        }
++
+         memset(signal_semaphore_infos, 0, sizeof(signal_semaphore_infos));
+         signal_semaphore_infos[0].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+         signal_semaphore_infos[0].semaphore = vkd3d_queue->submission_timeline;
+@@ -23648,6 +23725,14 @@ static void d3d12_command_queue_execute(struct d3d12_command_queue *command_queu
+                     break;
+         }
+
++        if (exec->host_passes)
++            for (i = 1; i < cmd_count; ++i)
++                if (exec->host_passes[cmd_index + i].execute)
++                {
++                    cmd_count = i;
++                    break;
++                }
++
+         submit = &submit_desc[num_submits++];
+         submit->sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+         submit->commandBufferInfoCount = cmd_count;
+diff --git a/libs/vkd3d/vkd3d_private.h b/libs/vkd3d/vkd3d_private.h
+index 121dd86..b4980b4 100644
+--- a/libs/vkd3d/vkd3d_private.h
++++ b/libs/vkd3d/vkd3d_private.h
+@@ -2624,6 +2624,12 @@ struct d3d12_command_allocator_command_pool
+     struct d3d12_command_allocator_command_pool_list recycled, pending;
+ };
+
++struct vkd3d_host_pass
++{
++    HRESULT (WINAPI *execute)(IUnknown *context);
++    IUnknown *context;
++};
++
+ /* ID3D12CommandAllocator */
+ struct d3d12_command_allocator
+ {
+@@ -2641,6 +2647,9 @@ struct d3d12_command_allocator
+     size_t buffer_views_size;
+     size_t buffer_view_count;
+
++    struct vkd3d_host_pass *host_passes;
++    size_t host_passes_size, host_passes_count;
++
+     struct d3d12_pipeline_state **pipelines;
+     size_t pipelines_size;
+     size_t pipelines_count;
+@@ -3052,6 +3061,7 @@ struct d3d12_command_list_iteration
+     VkCommandBuffer vk_post_indirect_barrier_commands;
+     uint32_t estimated_cost;
+     bool fallback; /* Only applies to vk_command_buffer. */
++    size_t host_pass_index; /* One-based index in the command allocator. */
+     struct d3d12_command_list_iteration_indirect_meta indirect_meta;
+ };
+
+@@ -3576,6 +3586,7 @@ struct d3d12_command_queue_submission_signal
+ struct d3d12_command_queue_submission_execute
+ {
+     VkCommandBufferSubmitInfo *cmd;
++    struct vkd3d_host_pass *host_passes;
+     uint32_t *cmd_cost;
+     struct d3d12_command_allocator **command_allocators;
+     UINT cmd_count;
