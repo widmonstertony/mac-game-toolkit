@@ -226,7 +226,7 @@ void WINAPI Pass::prepare(IUnknown *context)
 
 template<typename T> static void release(T *p) { if (p) p->Release(); }
 
-static bool upscale(Context &context, const ffxDispatchDescUpscale &dispatch)
+static const char *upscale(Context &context, const ffxDispatchDescUpscale &dispatch)
 {
     const auto record = reinterpret_cast<RecordPass>(
         GetProcAddress(GetModuleHandleW(L"d3d12core.dll"), "VKD3DRecordHostPass"));
@@ -237,10 +237,13 @@ static bool upscale(Context &context, const ffxDispatchDescUpscale &dispatch)
                                   reinterpret_cast<LPCWSTR>(&shim), &module) != FALSE;
     }();
     static const Bridge bridge;
-    if (!record || !pinned || !bridge.handle || !dispatch.commandList ||
-        dispatch.header.pNext || dispatch.flags || dispatch.enableSharpening ||
+    if (!record) return "renderer host-pass export missing";
+    if (!pinned) return "provider could not be pinned";
+    if (!bridge.handle) return "Wine Unix bridge unavailable";
+    if (!dispatch.commandList) return "missing D3D12 command list";
+    if (dispatch.header.pNext || dispatch.flags || dispatch.enableSharpening ||
         dispatch.reactive.resource || dispatch.transparencyAndComposition.resource)
-        return false;
+        return "dispatch has unsupported flags, sharpening, masks, or extensions";
 
     const bool exposure = dispatch.exposure.resource && !(context.description.flags & FFX_UPSCALE_ENABLE_AUTO_EXPOSURE);
     const FfxApiResource inputs[] = {dispatch.color, dispatch.depth, dispatch.motionVectors, dispatch.output, dispatch.exposure};
@@ -251,28 +254,29 @@ static bool upscale(Context &context, const ffxDispatchDescUpscale &dispatch)
     for (unsigned i = 0; i < count; ++i) {
         resources[i] = static_cast<ID3D12Resource *>(inputs[i].resource);
         const auto expected = i == 3 ? FFX_API_RESOURCE_STATE_UNORDERED_ACCESS : FFX_API_RESOURCE_STATE_COMPUTE_READ;
-        if (!resources[i] || inputs[i].state != expected) return false;
+        if (!resources[i] || inputs[i].state != expected)
+            return "resource missing or state incompatible";
         descriptions[i] = resources[i]->GetDesc();
         const auto &desc = descriptions[i];
         formats[i] = typedFormat(desc.Format, i);
         if (desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D || desc.DepthOrArraySize != 1 ||
             desc.SampleDesc.Count != 1 || desc.Width > UINT32_MAX || !formats[i] ||
             (i == 4 && (desc.Width != 1 || desc.Height != 1)))
-            return false;
+            return "resource format or shape incompatible";
     }
 
     auto *list = static_cast<ID3D12GraphicsCommandList *>(dispatch.commandList);
     ID3D12Device *rawDevice = nullptr;
-    if (FAILED(list->GetDevice(IID_PPV_ARGS(&rawDevice)))) return false;
+    if (FAILED(list->GetDevice(IID_PPV_ARGS(&rawDevice)))) return "D3D12 command list device unavailable";
     const std::unique_ptr<ID3D12Device, decltype(&release<ID3D12Device>)> device(rawDevice, release<ID3D12Device>);
     ID3D12DXVKInteropDevice3 *rawInterop = nullptr;
-    if (FAILED(device->QueryInterface(IID_PPV_ARGS(&rawInterop)))) return false;
+    if (FAILED(device->QueryInterface(IID_PPV_ARGS(&rawInterop)))) return "D3D12 Vulkan heap interop unavailable";
     const std::unique_ptr<ID3D12DXVKInteropDevice3, decltype(&release<ID3D12DXVKInteropDevice3>)>
         interop(rawInterop, release<ID3D12DXVKInteropDevice3>);
     VkInstance instance{};
     VkPhysicalDevice physical{};
     VkDevice vulkan{};
-    if (FAILED(interop->GetVulkanHandles(&instance, &physical, &vulkan)) || !vulkan) return false;
+    if (FAILED(interop->GetVulkanHandles(&instance, &physical, &vulkan)) || !vulkan) return "Vulkan device unavailable";
 
     std::shared_ptr<Staging> staging;
     for (auto it = context.staging.begin(); it != context.staging.end();) {
@@ -285,10 +289,10 @@ static bool upscale(Context &context, const ffxDispatchDescUpscale &dispatch)
         it = context.staging.erase(it);
     }
     if (!staging) {
-        if (context.staging.size() >= 8) return false;
+        if (context.staging.size() >= 8) return "all staging sets are in flight";
         staging = std::make_shared<Staging>();
         for (unsigned i = 0; i < count; ++i)
-            if (!staging->surfaces[i].create(device.get(), interop.get(), descriptions[i], formats[i])) return false;
+            if (!staging->surfaces[i].create(device.get(), interop.get(), descriptions[i], formats[i])) return "could not allocate shareable staging texture";
         context.staging.push_back(staging);
     }
 
@@ -304,15 +308,15 @@ static bool upscale(Context &context, const ffxDispatchDescUpscale &dispatch)
     job.motion = staging->surfaces[2].metal;
     job.output = staging->surfaces[3].metal;
     job.exposure = staging->surfaces[4].metal;
-    if (bridge.call(bridge.handle, 1, &job)) return false;
+    if (bridge.call(bridge.handle, 1, &job)) return "Metal library or descriptor validation failed";
 
     auto *pass = new Pass(staging, bridge, job, resources);
     const auto result = record(list, Pass::prepare, Pass::run, pass);
     pass->Release();
-    if (FAILED(result)) return false;
+    if (FAILED(result)) return "vkd3d could not split this command list";
     copy(list, staging->surfaces[3].texture, resources[3],
          D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-    return true;
+    return nullptr;
 }
 
 extern "C" __declspec(dllexport)
@@ -374,12 +378,21 @@ ffxReturnCode_t ffxDispatch(ffxContext *context, const ffxDispatchDescHeader *de
     if (!entry) return dispatch(context, desc);
     auto params = *reinterpret_cast<const ffxDispatchDescUpscale *>(desc);
     std::lock_guard lock(entry->mutex);
-    if (upscale(*entry, params)) {
+    const auto reason = upscale(*entry, params);
+    if (!reason) {
         entry->lastNative = true;
         return FFX_API_RETURN_OK;
     }
     if (!entry->reportedFallback) {
-        std::fprintf(stderr, "FH6 Metal FSR4 using the original provider for this dispatch layout\n");
+        std::fprintf(stderr, "FH6 Metal FSR4 fallback: %s (context flags=%#x dispatch flags=%#x "
+            "sharpness=%d reactive=%d transparency=%d extension=%d, formats=%u/%u/%u/%u/%u, "
+            "states=%#x/%#x/%#x/%#x/%#x, size=%ux%u->%ux%u)\n",
+            reason, entry->description.flags, params.flags, params.enableSharpening,
+            params.reactive.resource != nullptr, params.transparencyAndComposition.resource != nullptr,
+            params.header.pNext != nullptr, params.color.description.format, params.depth.description.format,
+            params.motionVectors.description.format, params.output.description.format, params.exposure.description.format,
+            params.color.state, params.depth.state, params.motionVectors.state, params.output.state, params.exposure.state,
+            params.renderSize.width, params.renderSize.height, params.upscaleSize.width, params.upscaleSize.height);
         entry->reportedFallback = true;
     }
     params.reset |= entry->lastNative;
