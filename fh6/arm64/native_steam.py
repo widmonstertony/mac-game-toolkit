@@ -17,8 +17,17 @@ BRIDGE_FILES = {
     "vstdlib_s64.dll": "vstdlib_s64.dll",
     "lsteamclient.dll": "x86_64-windows/lsteamclient.dll",
     "lsteamclient.so": "aarch64-unix/lsteamclient.so",
+    "system32/lsteamclient.dll": "x86_64-windows/lsteamclient.dll",
 }
 LIBRARY_CONFIG = "steamapps/libraryfolders.vdf"
+
+
+def runtime_path(steam, name):
+    if name == "system32/lsteamclient.dll":
+        # Wineboot places this trigger in a new prefix. This bottle already
+        # exists, so stage it explicitly with the matching Unix overlay.
+        return steam.parents[1] / "windows" / name
+    return steam / name
 
 
 def replace_file(source, destination):
@@ -53,7 +62,7 @@ def recover(steam, backup):
     ):
         raise RuntimeError("Invalid FH6 Steam runtime recovery manifest")
     for name, present in originals.items():
-        target = steam / name
+        target = runtime_path(steam, name)
         if present:
             replace_file(backup / name, target)
         else:
@@ -70,7 +79,7 @@ def stage(steam, bridge, backup):
             raise RuntimeError(f"Missing installed Proton-ish bridge file: {name}")
     originals = {}
     for name in (*BRIDGE_FILES, LIBRARY_CONFIG):
-        target = steam / name
+        target = runtime_path(steam, name)
         if target.is_symlink() or (target.exists() and not target.is_file()):
             raise RuntimeError(f"Unexpected Steam runtime file: {name}")
         originals[name] = target.exists()
@@ -82,7 +91,7 @@ def stage(steam, bridge, backup):
     pending.write_text(json.dumps(originals))
     os.replace(pending, backup / "originals.json")
     for name, source in BRIDGE_FILES.items():
-        replace_file(bridge / source, steam / name)
+        replace_file(bridge / source, runtime_path(steam, name))
 
 
 def runtime_environment(runner, root, bottle, bridge, engine, client, steam):
