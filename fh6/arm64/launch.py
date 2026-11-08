@@ -48,11 +48,16 @@ def launch(log):
     env = {key: os.environ[key] for key in allowed if key in os.environ}
     env["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
     env["HIGHBALL_HOME"] = str(root)
+    # macOS Steam starts this wrapper in the game folder. After resolving
+    # the shared library symlink, Highball sees that directory inside the
+    # bottle and would count this Python process as a running Steam game.
+    os.chdir(support)
+    renderer = ["--renderer", "vkd3d"] if runner.name == "highball-headless" else []
     with events_path.open(encoding="utf-8", errors="replace") as file:
         file.seek(0, os.SEEK_END)
         log.write("Dispatching Steam AppID 2483190 to the existing ARM64 container\n")
         child = subprocess.Popen(
-            [str(runner), "run", APP, "Steam", "--", "-silent", "-applaunch", APP_ID],
+            [str(runner), "run", APP, "Steam", *renderer, "--", "-silent", "-applaunch", APP_ID],
             cwd=root, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
             start_new_session=True,
         )
