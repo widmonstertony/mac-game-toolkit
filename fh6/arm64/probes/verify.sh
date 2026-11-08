@@ -9,26 +9,58 @@ work=$(mktemp -d "${TMPDIR:-/tmp}/fh6-arm64-probe.XXXXXXXX")
 printf 'Probe files and logs: %s\n' "$work"
 export DYLD_FALLBACK_LIBRARY_PATH="$engine/engine/lib:$engine/frameworks"
 
+build_native_fsr() {
+    : "${VULKAN_INCLUDE:?Set VULKAN_INCLUDE to the Vulkan-Headers include directory}"
+    : "${FFX_SDK_ROOT:?Set FFX_SDK_ROOT to the FidelityFX Kits/FidelityFX directory}"
+    export FSR4_ROOT="${FSR4_ROOT:-$protonish/fsr4-metalfx-v3}"
+    export FSR4_BUILD_DIR="$work/fsr-build" FSR4_SETTINGS=none FSR4_PROFILE=int8-lite
+    mkdir "$FSR4_BUILD_DIR"
+    cp -cR "$FSR4_ROOT/build/." "$FSR4_BUILD_DIR"
+    common=(-O2 -fobjc-arc -arch arm64 -I "$FSR4_ROOT/src")
+    xcrun clang "${common[@]}" -c "$FSR4_ROOT/hook/fsr4_metalfx.m" -o "$work/hook.o"
+    for source in fsr4_live fsr411_live fsr412_live fsr4_panel; do
+        xcrun clang++ "${common[@]}" -std=c++17 -c "$FSR4_ROOT/src/$source.mm" -o "$work/$source.o"
+    done
+    xcrun clang++ -dynamiclib -arch arm64 "$work/"*.o -framework Foundation -framework Metal \
+        -framework MetalFX -o "$work/libfsr4-arm64.dylib"
+}
+
 case "${1:-}" in
     metal)
-        : "${VULKAN_INCLUDE:?Set VULKAN_INCLUDE to the Vulkan-Headers include directory}"
-        : "${FFX_SDK_ROOT:?Set FFX_SDK_ROOT to the FidelityFX Kits/FidelityFX directory}"
-        export FSR4_ROOT="${FSR4_ROOT:-$protonish/fsr4-metalfx-v3}"
-        export FSR4_BUILD_DIR="$work/fsr-build" FSR4_SETTINGS=none FSR4_PROFILE=int8-lite
-        mkdir "$FSR4_BUILD_DIR"
-        cp -cR "$FSR4_ROOT/build/." "$FSR4_BUILD_DIR"
-        common=(-O2 -fobjc-arc -arch arm64 -I "$FSR4_ROOT/src")
-        xcrun clang "${common[@]}" -c "$FSR4_ROOT/hook/fsr4_metalfx.m" -o "$work/hook.o"
-        for source in fsr4_live fsr411_live fsr412_live fsr4_panel; do
-            xcrun clang++ "${common[@]}" -std=c++17 -c "$FSR4_ROOT/src/$source.mm" -o "$work/$source.o"
-        done
-        xcrun clang++ -dynamiclib -arch arm64 "$work/"*.o -framework Foundation -framework Metal \
-            -framework MetalFX -o "$work/libfsr4-arm64.dylib"
+        build_native_fsr
         xcrun clang++ "${common[@]}" -std=c++17 -fdeclspec -Wall -Wextra -Werror -Wno-missing-field-initializers \
             -I "$VULKAN_INCLUDE" -isystem "$FFX_SDK_ROOT" "$here/metal-roundtrip.mm" \
             -framework Foundation -framework Metal -o "$work/metal"
         "$work/metal" "$engine/renderers/kosmickrisp/libvulkan_kosmickrisp.dylib" \
             "$work/libfsr4-arm64.dylib" 2>&1 | tee "$work/metal.log"
+        ;;
+    d3d12)
+        : "${LLVM_MINGW_BIN:?Set LLVM_MINGW_BIN to the llvm-mingw toolchain bin directory}"
+        : "${WINE_SOURCE:?Set WINE_SOURCE to the matching Highball Wine 11.18 source}"
+        : "${WINE_BUILD:?Set WINE_BUILD to its configured build directory}"
+        : "${VKD3D_INCLUDE:?Set VKD3D_INCLUDE to the VKD3D source include directory}"
+        : "${VKD3D_GENERATED_INCLUDE:?Set VKD3D_GENERATED_INCLUDE to the directory containing the generated interop headers}"
+        build_native_fsr
+        bridge="$here/../fsr4"
+        xcrun clang -arch arm64 -c -D__WINESRC__ -DWINE_UNIX_LIB \
+            -I "$WINE_BUILD/include" -I "$WINE_SOURCE/include" "$bridge/wine_heap.c" -o "$work/wine_heap.o"
+        xcrun clang++ "${common[@]}" -std=c++17 -fdeclspec -Wall -Wextra -Werror \
+            -isystem "$FFX_SDK_ROOT" -c "$bridge/wine_fsr.mm" -o "$work/wine_fsr.o"
+        xcrun clang++ -dynamiclib -arch arm64 "$work/wine_heap.o" "$work/wine_fsr.o" \
+            -framework Foundation -framework Metal -o "$work/fsr-bridge.so"
+        "$LLVM_MINGW_BIN/x86_64-w64-mingw32-clang++" -std=c++17 -static -municode \
+            -I "$VULKAN_INCLUDE" -I "$VKD3D_GENERATED_INCLUDE" -I "$VKD3D_INCLUDE" \
+            -I "$bridge" -I "$FFX_SDK_ROOT" "$here/d3d12-fsr.cpp" -ld3d12 -luuid -o "$work/d3d12-fsr.exe"
+        export FH6_NATIVE_FSR4_LIBRARY="$work/libfsr4-arm64.dylib"
+        export WINEPREFIX="$work/prefix" WINEDEBUG=fixme-all VKD3D_DEBUG=warn
+        export WINEDLLPATH_PREPEND="$engine/renderers/vkd3d/wine"
+        export WINEDLLOVERRIDES='d3d12,d3d12core,dxgi=n,b;winemenubuilder,mscoree,mshtml,winedbg=d'
+        export VK_DRIVER_FILES="$engine/renderers/kosmickrisp/kosmickrisp_icd.json"
+        export VKD3D_FEATURE_LEVEL=12_1 VKD3D_SHADER_MODEL=6_6 VKD3D_CONFIG=no_staggered_submit,force_native_fp16
+        trap '"$engine/engine/bin/wineserver" -k >/dev/null 2>&1 || true' EXIT
+        cd "$work"
+        bridge_path=$("$engine/engine/bin/wine" winepath -w "$work/fsr-bridge.so")
+        "$engine/engine/bin/wine" "$work/d3d12-fsr.exe" '\??\'"${bridge_path%$'\r'}" 2>&1 | tee "$work/d3d12.log"
         ;;
     steam)
         : "${LLVM_MINGW_BIN:?Set LLVM_MINGW_BIN to the llvm-mingw toolchain bin directory}"
@@ -50,7 +82,7 @@ case "${1:-}" in
         "$engine/engine/bin/wine" "$work/steam-ipc.exe" 2>&1 | tee "$work/steam.log"
         ;;
     *)
-        printf 'Usage: %s metal|steam\n' "$0" >&2
+        printf 'Usage: %s metal|d3d12|steam\n' "$0" >&2
         exit 2
         ;;
 esac
