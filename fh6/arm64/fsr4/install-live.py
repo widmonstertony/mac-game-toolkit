@@ -87,7 +87,9 @@ def main():
         "FSR4_BUILD_DIR": str(installed / "fsr-build"),
         "FSR4_SETTINGS": "none",
         "FSR4_PROFILE": "int8-lite",
-        "FSR4_COMPILE": "1",
+        # The verified cache is shipped alongside the runtime. Its compiler
+        # probes Xcode even on a cache hit when runtime compilation is enabled.
+        "FSR4_COMPILE": "0",
         "FSR4_HOOK_LOG": str(installed / "fsr4.log"),
         "VKD3D_SHADER_CACHE_PATH": str(installed / "vkd3d-cache"),
     }

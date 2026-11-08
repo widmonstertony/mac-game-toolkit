@@ -12,4 +12,6 @@ The Windows FidelityFX shim validates the descriptor and stages color, depth, mo
 
 The verified artifacts for installation are `d3d12.dll`, `d3d12core.dll`, `amd_fidelityfx_upscaler_dx12.dll`, `fh6-fsr-bridge.so`, and `libfsr4-arm64.dylib`. Gather them in a directory and run `python3 install-live.py --artifacts DIRECTORY` with the game and Windows Steam closed. The existing AMD DLL is retained alongside the shim. The new renderer uses its own vkd3d disk cache because the renderer build identity differs. The previous cache stays on disk.
 
+The live installation uses the existing precompiled Metal shader variants. The upstream compiler invokes `xcrun metal` even on a cache hit, so runtime compilation is disabled. Verify that the needed variants are present before deployment. The shim records the first native submission result and the first fallback per upscaler context in `OptiScaler-FH6-SDK/fh6-metal-fsr4.log`.
+
 To restore the previous provider and DLL search path, close the game and Windows Steam and run `python3 install-live.py --rollback`. The original resolution, frame generation configuration and audio overlay remain in place. The GPU regression verifies the chain and texture contents. The game's launch, selected dispatch path, frame pacing and motion artifacts need an in-game run.

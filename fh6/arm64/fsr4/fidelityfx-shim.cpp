@@ -4,6 +4,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstdarg>
 #include <cstdio>
 #include <memory>
 #include <mutex>
@@ -32,6 +33,25 @@ static std::wstring moduleDirectory()
     std::wstring dir(path, len);
     dir.resize(dir.find_last_of(L'\\') + 1);
     return dir;
+}
+
+[[gnu::format(printf, 1, 2)]]
+static void report(const char *format, ...)
+{
+    char line[768];
+    va_list args;
+    va_start(args, format);
+    const auto length = std::vsnprintf(line, sizeof(line), format, args);
+    va_end(args);
+    if (length <= 0 || length >= int(sizeof(line))) return;
+    std::fputs(line, stderr);
+    const auto path = moduleDirectory() + L"fh6-metal-fsr4.log";
+    const auto file = CreateFileW(path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                  nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return;
+    DWORD written;
+    WriteFile(file, line, DWORD(length), &written, nullptr);
+    CloseHandle(file);
 }
 
 struct Provider {
@@ -161,9 +181,11 @@ public:
     static HRESULT WINAPI run(IUnknown *context) {
         auto &pass = *static_cast<Pass *>(context);
         const auto status = pass.bridge.call(pass.bridge.handle, 0, &pass.job);
-        static std::atomic<unsigned> seen{0};
-        if (status || seen.fetch_add(1, std::memory_order_relaxed) == 0)
-            std::fprintf(stderr, "FH6 Metal FSR4 dispatch status=%#lx GPU=%.3f ms\n", status, pass.job.gpuMs);
+        static std::atomic<bool> reportedSuccess{false}, reportedFailure{false};
+        auto &reported = status ? reportedFailure : reportedSuccess;
+        if (!reported.exchange(true, std::memory_order_relaxed))
+            report("FH6 Metal FSR4 dispatch status=%#lx GPU=%.3f ms\n",
+                   static_cast<unsigned long>(status), pass.job.gpuMs);
         return status ? E_FAIL : S_OK;
     }
 };
@@ -226,7 +248,8 @@ void WINAPI Pass::prepare(IUnknown *context)
 
 template<typename T> static void release(T *p) { if (p) p->Release(); }
 
-static const char *upscale(Context &context, const ffxDispatchDescUpscale &dispatch)
+static const char *upscale(Context &context, const ffxDispatchDescUpscale &dispatch,
+                           unsigned &detail)
 {
     const auto record = reinterpret_cast<RecordPass>(
         GetProcAddress(GetModuleHandleW(L"d3d12core.dll"), "VKD3DRecordHostPass"));
@@ -254,15 +277,19 @@ static const char *upscale(Context &context, const ffxDispatchDescUpscale &dispa
     for (unsigned i = 0; i < count; ++i) {
         resources[i] = static_cast<ID3D12Resource *>(inputs[i].resource);
         const auto expected = i == 3 ? FFX_API_RESOURCE_STATE_UNORDERED_ACCESS : FFX_API_RESOURCE_STATE_COMPUTE_READ;
-        if (!resources[i] || inputs[i].state != expected)
+        if (!resources[i] || inputs[i].state != expected) {
+            detail = i;
             return "resource missing or state incompatible";
+        }
         descriptions[i] = resources[i]->GetDesc();
         const auto &desc = descriptions[i];
         formats[i] = typedFormat(desc.Format, i);
         if (desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D || desc.DepthOrArraySize != 1 ||
             desc.SampleDesc.Count != 1 || desc.Width > UINT32_MAX || !formats[i] ||
-            (i == 4 && (desc.Width != 1 || desc.Height != 1)))
+            (i == 4 && (desc.Width != 1 || desc.Height != 1))) {
+            detail = (i << 16) | unsigned(desc.Format);
             return "resource format or shape incompatible";
+        }
     }
 
     auto *list = static_cast<ID3D12GraphicsCommandList *>(dispatch.commandList);
@@ -291,8 +318,12 @@ static const char *upscale(Context &context, const ffxDispatchDescUpscale &dispa
     if (!staging) {
         if (context.staging.size() >= 8) return "all staging sets are in flight";
         staging = std::make_shared<Staging>();
-        for (unsigned i = 0; i < count; ++i)
-            if (!staging->surfaces[i].create(device.get(), interop.get(), descriptions[i], formats[i])) return "could not allocate shareable staging texture";
+        for (unsigned i = 0; i < count; ++i) {
+            if (!staging->surfaces[i].create(device.get(), interop.get(), descriptions[i], formats[i])) {
+                detail = (i << 16) | unsigned(formats[i]);
+                return "could not allocate shareable staging texture";
+            }
+        }
         context.staging.push_back(staging);
     }
 
@@ -308,12 +339,18 @@ static const char *upscale(Context &context, const ffxDispatchDescUpscale &dispa
     job.motion = staging->surfaces[2].metal;
     job.output = staging->surfaces[3].metal;
     job.exposure = staging->surfaces[4].metal;
-    if (bridge.call(bridge.handle, 1, &job)) return "Metal library or descriptor validation failed";
+    if (const auto status = bridge.call(bridge.handle, 1, &job)) {
+        detail = unsigned(status);
+        return "Metal library or descriptor validation failed";
+    }
 
     auto *pass = new Pass(staging, bridge, job, resources);
     const auto result = record(list, Pass::prepare, Pass::run, pass);
     pass->Release();
-    if (FAILED(result)) return "vkd3d could not split this command list";
+    if (FAILED(result)) {
+        detail = unsigned(result);
+        return "vkd3d could not split this command list";
+    }
     copy(list, staging->surfaces[3].texture, resources[3],
          D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     return nullptr;
@@ -375,19 +412,27 @@ ffxReturnCode_t ffxDispatch(ffxContext *context, const ffxDispatchDescHeader *de
         std::lock_guard lock(contextsMutex);
         if (auto it = contexts.find(*context); it != contexts.end()) entry = it->second;
     }
-    if (!entry) return dispatch(context, desc);
+    if (!entry) {
+        static std::atomic<bool> reported{false};
+        if (!reported.exchange(true, std::memory_order_relaxed))
+            report("FH6 Metal FSR4 fallback: upscale context was not registered\n");
+        return dispatch(context, desc);
+    }
     auto params = *reinterpret_cast<const ffxDispatchDescUpscale *>(desc);
     std::lock_guard lock(entry->mutex);
-    const auto reason = upscale(*entry, params);
+    unsigned detail = 0;
+    const auto reason = upscale(*entry, params, detail);
     if (!reason) {
         entry->lastNative = true;
         return FFX_API_RETURN_OK;
     }
     if (!entry->reportedFallback) {
-        std::fprintf(stderr, "FH6 Metal FSR4 fallback: %s (context flags=%#x dispatch flags=%#x "
+        const int listType = params.commandList ?
+            static_cast<ID3D12GraphicsCommandList *>(params.commandList)->GetType() : -1;
+        report("FH6 Metal FSR4 fallback: %s (detail=%#x list=%d context flags=%#x dispatch flags=%#x "
             "sharpness=%d reactive=%d transparency=%d extension=%d, formats=%u/%u/%u/%u/%u, "
             "states=%#x/%#x/%#x/%#x/%#x, size=%ux%u->%ux%u)\n",
-            reason, entry->description.flags, params.flags, params.enableSharpening,
+            reason, detail, listType, entry->description.flags, params.flags, params.enableSharpening,
             params.reactive.resource != nullptr, params.transparencyAndComposition.resource != nullptr,
             params.header.pNext != nullptr, params.color.description.format, params.depth.description.format,
             params.motionVectors.description.format, params.output.description.format, params.exposure.description.format,
