@@ -13,10 +13,18 @@ typedef HRESULT (WINAPI *LobbyPoll)(void *, uint32_t *, const LobbyEvent *const 
 typedef HRESULT (WINAPI *LobbyJoin)(void *, const void *, const char *, const void *, void *, void **);
 typedef HRESULT (WINAPI *LobbyFind)(void *, const void *, const void *, void *);
 typedef HRESULT (WINAPI *MultiplayerInit)(const char *, void **);
+typedef HRESULT (WINAPI *LobbyCreate)(void *, const void *, const void *, const void *, void *, void **);
+typedef HRESULT (WINAPI *TicketCreate)(void *, uint32_t, const void *, const char *const *,
+                                      const void *, void *, void **);
+typedef HRESULT (WINAPI *TicketJoin)(void *, uint32_t, const void *, const char *,
+                                    const char *, const char *, void *, void **);
 
-static LobbyPoll poll_lobby;
+static LobbyPoll poll_lobby, poll_matchmaking;
 static LobbyJoin join_lobby, join_arranged;
 static LobbyFind find_lobbies;
+static LobbyCreate create_lobby;
+static TicketCreate create_ticket;
+static TicketJoin join_ticket;
 static MultiplayerInit initialize_multiplayer;
 /* Only numeric results are read from libHttpClient. Its request data and
  * authentication headers remain with the original caller. */
@@ -74,6 +82,44 @@ static HRESULT WINAPI trace_find(void *handle, const void *entity, const void *c
 {
     HRESULT result = find_lobbies(handle, entity, config, context);
     report("find request", 0, result);
+    return result;
+}
+
+static HRESULT WINAPI trace_create_lobby(void *handle, const void *creator, const void *create_config,
+        const void *join_config, void *context, void **lobby)
+{
+    HRESULT result = create_lobby(handle, creator, create_config, join_config, context, lobby);
+    report("create and join lobby request", 0, result);
+    return result;
+}
+
+static HRESULT WINAPI trace_create_ticket(void *handle, uint32_t count, const void *users,
+        const char *const *attributes, const void *config, void *context, void **ticket)
+{
+    HRESULT result = create_ticket(handle, count, users, attributes, config, context, ticket);
+    report("create matchmaking ticket request", count, result);
+    return result;
+}
+
+static HRESULT WINAPI trace_join_ticket(void *handle, uint32_t count, const void *users,
+        const char *attributes, const char *id, const char *queue, void *context, void **ticket)
+{
+    HRESULT result = join_ticket(handle, count, users, attributes, id, queue, context, ticket);
+    report("join matchmaking ticket request", count, result);
+    return result;
+}
+
+static HRESULT WINAPI trace_matchmaking(void *handle, uint32_t *count, const LobbyEvent *const **events)
+{
+    HRESULT result = poll_matchmaking(handle, count, events);
+    if (FAILED(result)) report("matchmaking poll failed", 0, result);
+    else if (count && events && *events) {
+        for (uint32_t i = 0; i < *count; ++i) {
+            const LobbyEvent *event = (*events)[i];
+            if (event && event->type == 1) /* PFMatchmakingStateChangeType::TicketCompleted */
+                report("matchmaking ticket completion", event->type, ((const LobbyCompletion *)event)->result);
+        }
+    }
     return result;
 }
 
@@ -217,10 +263,14 @@ __declspec(dllexport) void InitializeASI(void)
                            (LPCWSTR)&self, &pinned)) return;
     const struct ImportHook lobby[] = {
         {"PFMultiplayerInitialize", (FARPROC)trace_init, &initialize_multiplayer},
+        {"PFMultiplayerCreateAndJoinLobby", (FARPROC)trace_create_lobby, &create_lobby},
         {"PFMultiplayerFindLobbies", (FARPROC)trace_find, &find_lobbies},
         {"PFMultiplayerJoinLobby", (FARPROC)trace_join, &join_lobby},
         {"PFMultiplayerJoinArrangedLobby", (FARPROC)trace_arranged, &join_arranged},
         {"PFMultiplayerStartProcessingLobbyStateChanges", (FARPROC)trace_poll, &poll_lobby},
+        {"PFMultiplayerCreateMatchmakingTicket", (FARPROC)trace_create_ticket, &create_ticket},
+        {"PFMultiplayerJoinMatchmakingTicketFromId", (FARPROC)trace_join_ticket, &join_ticket},
+        {"PFMultiplayerStartProcessingMatchmakingStateChanges", (FARPROC)trace_matchmaking, &poll_matchmaking},
     };
     const struct ImportHook http[] = {
         {"WinHttpQueryHeaders", (FARPROC)trace_headers, NULL},

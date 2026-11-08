@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdio>
 #include <iterator>
+#include <limits>
 #include <string>
 
 #include "fg-motion.hpp"
@@ -111,6 +112,25 @@ extern "C" __declspec(dllexport) ffxReturnCode_t ffxQuery(ffxContext *context, f
     return query ? query(context, desc) : FFX_API_RETURN_NO_PROVIDER;
 }
 
+static bool repairEmptyRect(ffxDispatchDescFrameGeneration &params)
+{
+    auto &rect = params.generationRect;
+    const auto &color = params.presentColor;
+    const auto &output = params.outputs[0];
+    const auto width = color.description.width;
+    const auto height = color.description.height;
+    constexpr auto maxDimension = std::numeric_limits<int32_t>::max();
+    // OptiScaler may center a missing extent before Streamline supplies its
+    // interpolation viewport. Leave every valid viewport, including bars, alone.
+    if (!params.numGeneratedFrames || !color.resource || !output.resource ||
+        !width || !height || width > maxDimension || height > maxDimension ||
+        width != output.description.width || height != output.description.height ||
+        rect.width || rect.height || rect.left != int32_t(width / 2) || rect.top != int32_t(height / 2))
+        return false;
+    rect = {0, 0, int32_t(width), int32_t(height)};
+    return true;
+}
+
 extern "C" __declspec(dllexport) ffxReturnCode_t ffxDispatch(ffxContext *context, const ffxDispatchDescHeader *desc)
 {
     static const auto dispatch = reinterpret_cast<PfnFfxDispatch>(original("ffxDispatch"));
@@ -125,9 +145,10 @@ extern "C" __declspec(dllexport) ffxReturnCode_t ffxDispatch(ffxContext *context
         checkMotion(params);
         return dispatch(context, &params.header);
     }
-    const auto result = dispatch(context, desc);
     if (desc && desc->type == FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION) {
-        const auto &params = *reinterpret_cast<const ffxDispatchDescFrameGeneration *>(desc);
+        auto params = *reinterpret_cast<const ffxDispatchDescFrameGeneration *>(desc);
+        const bool repaired = repairEmptyRect(params);
+        const auto result = dispatch(context, repaired ? &params.header : desc);
         static std::atomic<unsigned> generated{0}, failures{0};
         if (params.numGeneratedFrames) {
             const auto count = (result ? failures : generated).fetch_add(1, std::memory_order_relaxed);
@@ -135,12 +156,13 @@ extern "C" __declspec(dllexport) ffxReturnCode_t ffxDispatch(ffxContext *context
                 char line[256];
                 const auto &rect = params.generationRect;
                 const int length = std::snprintf(line, sizeof(line),
-                    "FH6 frame generation dispatch frame=%llu frames=%u result=%u rect=%d,%d+%dx%d reset=%d\n",
+                    "FH6 frame generation dispatch frame=%llu frames=%u result=%u rect=%d,%d+%dx%d reset=%d repairedEmptyRect=%u\n",
                     static_cast<unsigned long long>(params.frameID), params.numGeneratedFrames, result,
-                    rect.left, rect.top, rect.width, rect.height, params.reset);
+                    rect.left, rect.top, rect.width, rect.height, params.reset, unsigned(repaired));
                 if (length < int(sizeof(line))) report(line, length);
             }
         }
+        return result;
     }
-    return result;
+    return dispatch(context, desc);
 }

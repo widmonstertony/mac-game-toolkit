@@ -6,7 +6,9 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 import time
+import xml.etree.ElementTree as ET
 
 APP_ID = "2483190"
 APP = "Forza Horizon 6"
@@ -18,6 +20,43 @@ runner = next((root / "bin" / name for name in ("highball-headless", "highball")
                if os.access(root / "bin" / name, os.X_OK)), root / "bin/highball")
 support = Path(__file__).resolve().parent
 event_pattern = re.compile(r"AppID 2483190 (adding PID|no longer tracking PID) (\d+)")
+
+def restore_visuals(configs):
+    if len(configs) != 1:
+        raise ValueError("Expected exactly one FH6 graphics configuration")
+    config = configs[0]
+    original = config.read_bytes()
+    document = ET.fromstring(original)
+    if document.tag != "UserConfig" or document.get("Version") != "52":
+        raise ValueError("Unexpected FH6 graphics configuration version")
+    # Restore the previous scene quality, leaving the existing display,
+    # upscaling, frame-generation and audio choices in place.
+    options = {
+        "GeometryQuality": 5, "SSRQuality": 5, "ShadowQuality": 4,
+        "NightShadows": 2, "SSGIQuality": 2, "ParticlesSettings": 4,
+        "VolumetricFogQuality": 5, "LensEffects": 4, "DeformableSnowQuality": 4,
+    }
+    updated = original
+    for key, value in options.items():
+        prefix = rb'<option id="' + key.encode() + rb'"\s+value="'
+        updated, count = re.subn(rb'(' + prefix + rb')[^"]*',
+                                 lambda match: match[1] + str(value).encode(), updated)
+        if count != 1:
+            raise ValueError(f"Expected one FH6 graphics setting named {key}")
+    if updated == original:
+        return
+    with (support / f"fh6-visual-settings-before-{time.time_ns()}.xml").open("xb") as backup:
+        backup.write(original)
+    with tempfile.NamedTemporaryFile(dir=config.parent, prefix=".fh6-visual-", delete=False) as stream:
+        pending = Path(stream.name)
+        stream.write(updated)
+    try:
+        pending.chmod(config.stat().st_mode & 0o777)
+        if config.read_bytes() != original:
+            raise RuntimeError("FH6 graphics configuration changed during launch")
+        os.replace(pending, config)
+    finally:
+        pending.unlink(missing_ok=True)
 
 def events(file, active):
     for line in file:
@@ -55,6 +94,17 @@ def launch(log):
     renderer = ["--renderer", "vkd3d"] if runner.name == "highball-headless" else []
     with events_path.open(encoding="utf-8", errors="replace") as file:
         file.seek(0, os.SEEK_END)
+        visual_request = support / "restore-visuals-next-run"
+        if visual_request.is_file():
+            configs = list((bottle / "drive_c/users").glob(
+                "*/AppData/Local/ForzaHorizon6/LocalStorage_Shared/ForzaUserConfigSelections/UserConfigSelections"
+            ))
+            try:
+                restore_visuals(configs)
+                visual_request.unlink()
+                log.write("Restored FH6 scene detail\n")
+            except (OSError, RuntimeError, ValueError, ET.ParseError) as error:
+                log.write(f"Could not restore optional FH6 visual settings: {error}\n")
         request = support / "diagnose-next-run"
         diagnostics = support / "diagnostics.py"
         if request.is_file() and diagnostics.is_file():
