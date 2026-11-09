@@ -7,6 +7,7 @@
 #include <string>
 
 #include "fg-motion.hpp"
+#include "gpu-label.hpp"
 
 static HMODULE module;
 
@@ -138,17 +139,22 @@ extern "C" __declspec(dllexport) ffxReturnCode_t ffxDispatch(ffxContext *context
     if (desc && desc->type == FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE) {
         auto params = *reinterpret_cast<const ffxDispatchDescFrameGenerationPrepare *>(desc);
         checkMotion(params);
+        const Fh6GpuLabel gpuLabel(params.commandList, "FH6 2x FG preparation");
         return dispatch(context, &params.header);
     }
     if (desc && desc->type == FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2) {
         auto params = *reinterpret_cast<const ffxDispatchDescFrameGenerationPrepareV2 *>(desc);
         checkMotion(params);
+        const Fh6GpuLabel gpuLabel(params.commandList, "FH6 2x FG preparation");
         return dispatch(context, &params.header);
     }
     if (desc && desc->type == FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION) {
         auto params = *reinterpret_cast<const ffxDispatchDescFrameGeneration *>(desc);
         const bool repaired = repairEmptyRect(params);
-        const auto result = dispatch(context, repaired ? &params.header : desc);
+        const auto result = [&] {
+            const Fh6GpuLabel gpuLabel(params.commandList, "FH6 2x FG interpolation");
+            return dispatch(context, repaired ? &params.header : desc);
+        }();
         static std::atomic<unsigned> generated{0}, failures{0};
         if (params.numGeneratedFrames) {
             const auto count = (result ? failures : generated).fetch_add(1, std::memory_order_relaxed);

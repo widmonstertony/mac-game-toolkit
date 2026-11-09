@@ -23,3 +23,11 @@ Use `--with-frame-generation` to keep 2× interpolation active while logging its
 The optional frame-generation provider shim forwards all five FidelityFX entry points to the original AMD DLL, saved beside it as `amd_fidelityfx_framegeneration_original_dx12.dll`. It corrects an axis reversal only when the upscaler recently saw the same depth and motion resources, render size and jitter, with equal scale magnitudes. Its bounded log reports matched inputs, corrections and dispatch results in `fh6-framegen-motion.log`. Both provider shims must be installed for a correction to apply.
 
 To restore the previous provider and DLL search path, close the game and Windows Steam and run `python3 install-live.py --rollback`. The original resolution, frame generation configuration and audio overlay remain in place. The GPU regression verifies the chain and texture contents. The game's launch, selected dispatch path, frame pacing and motion artifacts need an in-game run.
+
+For a targeted GPU trace, the two provider shims can annotate the original
+upscaler, frame-generation preparation, and interpolation command ranges.
+Set `FH6_GPU_LABELS=1` and append `debug_utils` to `VKD3D_CONFIG` for that
+capture. For a stock-upscaler trace, forward to the game's matching
+FidelityFX DLL in an isolated diagnostic provider directory. The native Metal
+host pass has its own encoder path. These markers leave the provider's
+dispatch and synchronization intact.

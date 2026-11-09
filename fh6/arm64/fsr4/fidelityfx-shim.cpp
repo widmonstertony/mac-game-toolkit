@@ -14,6 +14,7 @@
 
 #include "fsr_job.hpp"
 #include "fg-motion.hpp"
+#include "gpu-label.hpp"
 
 using DispatchUnix = NTSTATUS (WINAPI *)(UINT64, unsigned int, void *);
 using RecordPass = HRESULT (WINAPI *)(ID3D12CommandList *, void (WINAPI *)(IUnknown *),
@@ -484,6 +485,8 @@ ffxReturnCode_t ffxDispatch(ffxContext *context, const ffxDispatchDescHeader *de
         static std::atomic<bool> reported{false};
         if (!reported.exchange(true, std::memory_order_relaxed))
             report("FH6 Metal FSR4 fallback: upscale context was not registered\n");
+        auto &params = *reinterpret_cast<const ffxDispatchDescUpscale *>(desc);
+        const Fh6GpuLabel gpuLabel(params.commandList, "FH6 FSR upscaling");
         return dispatch(context, desc);
     }
     auto params = *reinterpret_cast<const ffxDispatchDescUpscale *>(desc);
@@ -513,5 +516,6 @@ ffxReturnCode_t ffxDispatch(ffxContext *context, const ffxDispatchDescHeader *de
     }
     params.reset |= entry->lastNative;
     entry->lastNative = false;
+    const Fh6GpuLabel gpuLabel(params.commandList, "FH6 FSR upscaling");
     return dispatch(context, &params.header);
 }
