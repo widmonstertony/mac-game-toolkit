@@ -44,6 +44,14 @@ The optional `session-trace.c` ASI builds with llvm-mingw
 It records GDK region activation and HTTP status/error codes alongside
 PlayFab session and save results. It does not log request headers or bodies.
 
+To capture one slow run, install `diagnostics.py` alongside `launch-arm64`
+and create `diagnose-next-run`. With OptiScaler timing logging enabled,
+the collector records base and presented frame times, frame-generation
+phases, CPU use, system GPU utilization, and Wine waits. Sustained slow
+frames with 2× active trigger a short process stack sample and an eight-second
+Metal System Trace if Xcode Instruments can attach. The launcher consumes
+the marker once. Captures stay local in the launcher directory.
+
 ## Install on another Mac
 
 1. Install [Highball 0.10.26](https://github.com/gauthierpiarrette/highball/releases/tag/v0.10.26) and [Proton-ish](https://github.com/MagnusPladsen/Proton-ish). Set up the ARM64/FEX + KosmicKrisp preview engine **arm64-kk-wine11.18-r4** in a bottle named **Forza Horizon 6**. In Highball, use the game's Windows route so its VKD3D recipe is applied. Sign into Windows Steam and Xbox normally, then run and quit the game once. The game must be installed in this bottle's Steam library. In macOS Steam, retain the working Proton-ish compatibility selection for FH6.

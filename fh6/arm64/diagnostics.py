@@ -4,6 +4,8 @@ from datetime import datetime
 import os
 from pathlib import Path
 import re
+import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -12,6 +14,23 @@ import time
 GAME = "drive_c/Program Files (x86)/Steam/steamapps/common/ForzaHorizon6"
 PRESENT = re.compile(rb"LocalPresent .*Frametime: (\d+(?:\.\d+)?) ms")
 BASE_PRESENT = re.compile(rb"FGHooks::FGPresent flags: .*Frametime: (\d+(?:\.\d+)?)")
+PHASE = re.compile(
+    rb"^\[(\d{2}):(\d{2}):(\d{2}\.\d+)\].*?"
+    rb"(FGHooks::FGPresent flags:|ResTrack_Dx12::ClearPossibleHudless|"
+    rb"FSRFG_Dx12::DispatchCallback frameID:|FSRFG_Dx12::DispatchCallback D3D12_Dispatch result:|"
+    rb"FGHooks::FGPresent Present finished|LocalPresent .*Frametime:)"
+)
+PHASES = (("fg_prepare", "entry", "ready"), ("swapchain_to_callback", "ready", "callback"),
+          ("fg_cpu_submit", "callback", "submitted"), ("swapchain_to_first_present", "ready", "first"),
+          ("swapchain_to_last_present", "ready", "last"), ("fg_present_total", "entry", "finished"))
+PHASE_MARKS = {
+    b"FGHooks::FGPresent flags:": "entry",
+    b"ResTrack_Dx12::ClearPossibleHudless": "ready",
+    b"FSRFG_Dx12::DispatchCallback frameID:": "callback",
+    b"FSRFG_Dx12::DispatchCallback D3D12_Dispatch result:": "submitted",
+    b"FGHooks::FGPresent Present finished": "finished",
+}
+GPU_METRICS = re.compile(r'"(Device|Renderer|Tiler) Utilization %"\s*=\s*(\d+)')
 EXTENTS = re.compile(rb"DLSSContext (color_in|color_out|depth|mvec) extents (\([\d,]+\))")
 GAME_PROCESS = re.compile(r"(?im)^\s*(\d+)\s+.*[\\/]forzahorizon6\.exe\s*$")
 LOCK = re.compile(rb"RtlpWaitForCriticalSection section ([0-9a-f]+).* in thread ([0-9a-f]+), blocked by ([0-9a-f]+)", re.I)
@@ -23,6 +42,7 @@ WINE_EVENTS = {
     b"0x8060046b": "join error",
     b"it failed with PageFault": "Metal GPU page fault",
     b"VK_ERROR_DEVICE_LOST": "Vulkan device lost",
+    b"exceeded compiled variants footprint": "Metal compiled-variant footprint limit",
 }
 
 
@@ -58,6 +78,69 @@ def start_sample(pid, output, kind, report):
                             stdout=report, stderr=report)
 
 
+def frame_phase(line, frame, timings):
+    match = PHASE.search(line)
+    if not match:
+        return
+    h, m, sec, label = match.groups()
+    now = (int(h) * 3600 + int(m) * 60 + float(sec)) * 1000
+    mark = PHASE_MARKS.get(label)
+    if mark == "entry":
+        frame.clear()
+    elif "entry" not in frame:
+        return
+    if mark is None:
+        frame.setdefault("first", now)
+        frame["last"] = now
+    else:
+        frame[mark] = now
+    if mark == "finished":
+        for name, start, end in PHASES:
+            if start in frame and end in frame:
+                elapsed = (frame[end] - frame[start]) % 86400000
+                if elapsed < 30000:
+                    timings[name].append(elapsed)
+        frame.clear()
+
+
+def stats(values):
+    ordered = sorted(values)
+    return (f"n={len(ordered)} p50={ordered[len(ordered)//2]:.2f} "
+            f"p95={ordered[(len(ordered)*95-1)//100]:.2f} max={ordered[-1]:.2f} ms")
+
+
+def start_metal_trace(pid, output, report):
+    if shutil.disk_usage(output.parent).free < 3 * 1024 ** 3:
+        report("Metal trace skipped: less than 3 GiB free")
+        return None
+    trace = output.with_suffix(".metal.trace")
+    env = dict(os.environ, DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer")
+    with output.with_suffix(".metal.status").open("x", encoding="utf-8") as status:
+        process = subprocess.Popen(
+            ["/usr/bin/xcrun", "xctrace", "record", "--template", "Metal System Trace",
+             "--attach", pid, "--time-limit", "8s", "--no-prompt", "--output", str(trace)],
+            stdin=subprocess.DEVNULL, stdout=status, stderr=status, env=env,
+        )
+    report(f"Metal trace requested for pid={pid}")
+    return process
+
+
+def finish_metal_trace(process):
+    if process.poll() is None:
+        process.send_signal(signal.SIGINT)
+        try:
+            process.wait(timeout=8)
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            try:
+                process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+    return process.returncode
+
+
+
 def monitor(bottle, output):
     game = bottle / GAME
     logs = bottle.parent.parent / "logs"
@@ -67,8 +150,9 @@ def monitor(bottle, output):
     framegen = game / "OptiScaler-FH6-SDK/fh6-framegen-motion.log"
     wine_logs = lambda: sorted(logs.glob("*-Forza Horizon 6-steam.exe.log"),
                                key=lambda path: path.stat().st_mtime)[-3:]
+    native_log = output.parent / "arm64-dispatch.log"
     offsets = {}
-    for path in (opti, shim, lobby, framegen, *wine_logs()):
+    for path in (opti, shim, lobby, framegen, native_log, *wine_logs()):
         if path.exists():
             stat = path.stat()
             offsets[path] = stat.st_ino, stat.st_size
@@ -82,6 +166,11 @@ def monitor(bottle, output):
         samples = {}
         recorded_locks = set()
         last_sockets = None
+        frame = {}
+        slow_windows = 0
+        metal_attempted = False
+        metal_trace = None
+        metal_deadline = 0
         deadline = time.monotonic() + 25 * 60
         while time.monotonic() < deadline:
             try:
@@ -109,7 +198,9 @@ def monitor(bottle, output):
 
             frame_times, base_times = [], []
             counts = collections.Counter()
+            timings = collections.defaultdict(list)
             for line in new_lines(opti, offsets):
+                frame_phase(line, frame, timings)
                 if present := PRESENT.search(line):
                     frame_times.append(float(present[1]))
                 elif present := BASE_PRESENT.search(line):
@@ -125,16 +216,45 @@ def monitor(bottle, output):
                 elif b"Velocity is missing" in line or b"Depth is missing" in line:
                     counts["fg_input_missing"] += 1
             if frame_times:
-                frame_times.sort()
-                record(f"present n={len(frame_times)} p50={frame_times[len(frame_times)//2]:.1f}ms "
-                       f"max={frame_times[-1]:.1f}ms base_max={max(base_times, default=0):.1f}ms "
-                       f"fg={dict(counts)}")
-                if match and counts["fg_present_two"] and frame_times[-1] >= 100 and "present" not in samples:
-                    samples["present"] = start_sample(match[1], output, "present", report)
-                    record("sample requested after a slow present")
+                record(f"present {stats(frame_times)} fg={dict(counts)}")
+            if base_times:
+                record(f"base frame {stats(base_times)}")
+            for name, values in timings.items():
+                record(f"phase {name} {stats(values)}")
+            if match and len(base_times) >= 10 and counts["fg_present_two"]:
+                slow = sorted(base_times)[len(base_times)//2] >= 35
+                slow_windows = slow_windows + 1 if slow else 0
+                try:
+                    cpu = run_text("/bin/ps", "-p", match[1], "-o", "%cpu=,rss=").split()
+                    gpu = dict(GPU_METRICS.findall(run_text("/usr/sbin/ioreg", "-r", "-c",
+                                                          "IOAccelerator", "-l", "-w", "0")))
+                    if len(cpu) == 2:
+                        record(f"load cpu_pct={cpu[0]} rss_kib={cpu[1]} system_gpu_pct={gpu}")
+                except (OSError, subprocess.TimeoutExpired):
+                    record("CPU/GPU load observation unavailable")
+                if slow_windows and "steady" not in samples:
+                    samples["steady"] = start_sample(match[1], output, "steady", report)
+                    record("sample requested during slow gameplay frames")
+                if (slow_windows >= 3 and not metal_attempted and
+                        ("steady" not in samples or samples["steady"].poll() is not None)):
+                    metal_attempted = True
+                    try:
+                        metal_trace = start_metal_trace(match[1], output, record)
+                        metal_deadline = time.monotonic() + 35
+                    except OSError as error:
+                        record(f"Metal trace could not start: {error}")
+            else:
+                slow_windows = 0
+            if metal_trace and (metal_trace.poll() is not None or time.monotonic() >= metal_deadline):
+                record(f"Metal trace finished status={finish_metal_trace(metal_trace)}")
+                metal_trace = None
+            if (match and frame_times and counts["fg_present_two"] and max(frame_times) >= 100
+                    and "present" not in samples and not metal_trace):
+                samples["present"] = start_sample(match[1], output, "present", report)
+                record("sample requested after a slow present")
 
             events = collections.Counter()
-            for path in wine_logs():
+            for path in (native_log, *wine_logs()):
                 for line in new_lines(path, offsets):
                     if lock := LOCK.search(line):
                         section, waiter, owner = (value.decode("ascii") for value in lock.groups())
@@ -149,9 +269,13 @@ def monitor(bottle, output):
                 if match and events["critical-section wait"] and "lock" not in samples:
                     samples["lock"] = start_sample(match[1], output, "lock", report)
             if missing >= 3:
+                if metal_trace:
+                    record(f"Metal trace finished on game exit status={finish_metal_trace(metal_trace)}")
                 record("game exited")
                 return
             time.sleep(2)
+        if metal_trace:
+            record(f"Metal trace finished on capture deadline status={finish_metal_trace(metal_trace)}")
         record("capture window ended")
 
 
