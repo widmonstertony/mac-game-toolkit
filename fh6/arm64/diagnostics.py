@@ -11,6 +11,8 @@ import sys
 import time
 
 
+# Steam may launch the Python collector under Rosetta even though Wine uses FEX.
+ARM64 = ("/usr/bin/arch", "-arm64")
 GAME = "drive_c/Program Files (x86)/Steam/steamapps/common/ForzaHorizon6"
 PRESENT = re.compile(rb"LocalPresent .*Frametime: (\d+(?:\.\d+)?) ms")
 BASE_PRESENT = re.compile(rb"FGHooks::FGPresent flags: .*Frametime: (\d+(?:\.\d+)?)")
@@ -74,7 +76,7 @@ def new_lines(path, offsets):
 
 def start_sample(pid, output, kind, report):
     sample_path = output.with_suffix(f".{kind}.sample")
-    return subprocess.Popen(["/usr/bin/sample", pid, "1", "5", "-file", str(sample_path)],
+    return subprocess.Popen([*ARM64, "/usr/bin/sample", pid, "1", "5", "-file", str(sample_path)],
                             stdout=report, stderr=report)
 
 
@@ -117,7 +119,7 @@ def start_metal_trace(pid, output, report):
     env = dict(os.environ, DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer")
     with output.with_suffix(".metal.status").open("x", encoding="utf-8") as status:
         process = subprocess.Popen(
-            ["/usr/bin/xcrun", "xctrace", "record", "--template", "Metal System Trace",
+            [*ARM64, "/usr/bin/xcrun", "xctrace", "record", "--template", "Metal System Trace",
              "--attach", pid, "--time-limit", "8s", "--no-prompt", "--output", str(trace)],
             stdin=subprocess.DEVNULL, stdout=status, stderr=status, env=env,
         )
