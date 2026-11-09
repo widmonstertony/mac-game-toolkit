@@ -31,6 +31,19 @@ that sequence against the signed-in macOS client. If OptiScaler 0.9.4 stalls
 while installing Streamline hooks, set `UseNtdllHooks = false` in
 `[Hooks]` to select its alternate DLL-loading hooks.
 
+
+For an FSR 3.1 comparison, create `fsr31-next-run` alongside the native Steam
+launcher. The next launch backs up `OptiScaler.ini` and uses the game's
+FidelityFX upscaler with OptiScaler 2× frame generation. It restores the
+older Highball frame-generation composition and pacing settings without
+changing the renderer, resolution or cache. To return to the prior profile,
+restore the saved INI after closing the game.
+
+The optional `session-trace.c` ASI builds with llvm-mingw
+(`-shared -O2 -lwinhttp -lruntimeobject`, with libraries after the source).
+It records GDK region activation and HTTP status/error codes alongside
+PlayFab session and save results. It does not log request headers or bodies.
+
 ## Install on another Mac
 
 1. Install [Highball 0.10.26](https://github.com/gauthierpiarrette/highball/releases/tag/v0.10.26) and [Proton-ish](https://github.com/MagnusPladsen/Proton-ish). Set up the ARM64/FEX + KosmicKrisp preview engine **arm64-kk-wine11.18-r4** in a bottle named **Forza Horizon 6**. In Highball, use the game's Windows route so its VKD3D recipe is applied. Sign into Windows Steam and Xbox normally, then run and quit the game once. The game must be installed in this bottle's Steam library. In macOS Steam, retain the working Proton-ish compatibility selection for FH6.

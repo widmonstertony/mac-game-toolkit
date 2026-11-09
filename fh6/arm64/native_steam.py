@@ -41,6 +41,52 @@ def replace_file(source, destination):
         pending.unlink(missing_ok=True)
 
 
+def apply_fsr31_profile(game, support, log):
+    request = support / "fsr31-next-run"
+    if not request.is_file():
+        return
+    provider = game / "amd_fidelityfx_upscaler_dx12.dll"
+    if not provider.is_file():
+        raise RuntimeError("The game's original FidelityFX upscaler is missing")
+    config = game / "OptiScaler.ini"
+    old = config.read_bytes()
+    text = old.decode("utf-8")
+    updates = {
+        "Upscalers": {"Dx12Upscaler": "fsr31"},
+        "FrameGen": {
+            "Enabled": "true", "FGInput": "dlssg", "FGOutput": "fsrfg",
+            "DrawUIOverFG": "false", "UIPremultipliedAlpha": "true",
+            "DisableHudless": "false", "DisableUI": "false",
+        },
+        "FSRFG": {"AllowAsync": "false", "FramePacingTuning": "true"},
+        "FSR": {"Fsr4Update": "false"},
+        "Libraries": {"FfxDx12SRPath": r"C:\Program Files (x86)\Steam\steamapps\common\ForzaHorizon6"},
+    }
+    for section, values in updates.items():
+        match = re.search(rf"(?m)^\[{section}\]\r?\n[^\[]*", text)
+        if not match:
+            raise RuntimeError(f"Missing OptiScaler section {section}")
+        block = match[0]
+        for key, value in values.items():
+            block, count = re.subn(rf"(?m)^({key}[ \t]*=[ \t]*)[^\r\n]*",
+                                   lambda line: line[1] + value, block)
+            if count != 1:
+                raise RuntimeError(f"Expected exactly one OptiScaler setting {section}.{key}")
+        text = text[:match.start()] + block + text[match.end():]
+
+    with tempfile.TemporaryDirectory(dir=support) as staging:
+        pending = Path(staging) / config.name
+        pending.write_bytes(text.encode("utf-8"))
+        shutil.copymode(config, pending)
+        if config.read_bytes() != old:
+            raise RuntimeError("OptiScaler settings changed while preparing the FSR profile")
+        backup = Path(tempfile.mkdtemp(prefix="before-fsr31-", dir=support)) / config.name
+        replace_file(config, backup)
+        replace_file(pending, config)
+    request.unlink()
+    log.write("Selected the original game FidelityFX upscaler and preserved 2x frame generation\n")
+
+
 def ensure_bottle_idle(steam):
     processes = subprocess.check_output(["/bin/ps", "-axo", "comm"], text=True)
     for line in processes.splitlines():
@@ -137,6 +183,8 @@ def run(runner, root, bottle, steam, support, engine, log, app_id, game_args):
         if env.get(name) in (None, "", "0"):
             env[name] = app_id
     recover(steam, backup)
+    ensure_bottle_idle(steam)
+    apply_fsr31_profile(game, support, log)
     try:
         stage(steam, bridge, backup)
         steam_dll = r"C:\Program Files (x86)\Steam\steamclient64.dll"

@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <winhttp.h>
+#include <winstring.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -47,6 +48,10 @@ static HWND (WINAPI *create_window)(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int,
 static HANDLE log_file = INVALID_HANDLE_VALUE;
 static LONG log_lines;
 static HMODULE self;
+static HRESULT (WINAPI *gdk_activation)(HSTRING, REFIID, void **);
+static GEOID (WINAPI *gdk_geo)(GEOCLASS);
+static GEOID (WINAPI *game_geo)(GEOCLASS);
+
 
 static void report(const char *operation, uint32_t kind, HRESULT result)
 {
@@ -179,6 +184,52 @@ static BOOL WINAPI trace_response(HINTERNET request, LPVOID reserved)
     return result;
 }
 
+static HRESULT WINAPI trace_gdk_activation(HSTRING name, REFIID iid, void **result)
+{
+    HRESULT status = gdk_activation(name, iid, result);
+    if (!wcscmp(WindowsGetStringRawBuffer(name, NULL),
+                L"Windows.Internal.System.Profile.RegionPolicyEvaluator"))
+        report("GDK region policy activation", 0, status);
+    return status;
+}
+
+static GEOID WINAPI trace_gdk_geo(GEOCLASS type)
+{
+    GEOID result = gdk_geo(type);
+    report("GDK user geography", (uint32_t)type,
+           result == GEOID_NOT_AVAILABLE ? E_FAIL : S_OK);
+    return result;
+}
+
+static GEOID WINAPI trace_game_geo(GEOCLASS type)
+{
+    GEOID result = game_geo(type);
+    report("game user geography", (uint32_t)type,
+           result == GEOID_NOT_AVAILABLE ? E_FAIL : S_OK);
+    return result;
+}
+
+static BOOL WINAPI trace_gdk_send(HINTERNET request, LPCWSTR headers, DWORD header_length,
+        LPVOID data, DWORD data_length, DWORD total, DWORD_PTR context)
+{
+    BOOL result = WinHttpSendRequest(request, headers, header_length, data, data_length, total, context);
+    if (!result) {
+        DWORD error = GetLastError();
+        if (error != ERROR_IO_PENDING) report("GDK WinHTTP send error", error, 0);
+    }
+    return result;
+}
+
+static BOOL WINAPI trace_gdk_headers(HINTERNET request, DWORD level, LPCWSTR name, LPVOID output,
+        LPDWORD length, LPDWORD index)
+{
+    BOOL result = WinHttpQueryHeaders(request, level, name, output, length, index);
+    if (result && level == (WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER) &&
+        output && length && *length >= sizeof(DWORD))
+        report("GDK WinHTTP status", *(DWORD *)output, 0);
+    return result;
+}
+
 static HRESULT WINAPI trace_socket_connect(const char *uri, const char *protocol, void *socket, void *async)
 {
     HRESULT result = socket_connect(uri, protocol, socket, async);
@@ -292,6 +343,37 @@ static unsigned install(HMODULE image, const char *library, const struct ImportH
     return installed;
 }
 
+static DWORD WINAPI trace_gdk_when_loaded(void *unused)
+{
+    (void)unused;
+    HMODULE gdk = NULL;
+    for (unsigned attempt = 0; attempt < 300; ++attempt) {
+        if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_PIN, L"xgameruntime.dll", &gdk))
+            break;
+        Sleep(100);
+    }
+    if (!gdk) {
+        report("GDK module not loaded", 0, E_FAIL);
+        return 0;
+    }
+    const struct ImportHook gdk_http[] = {
+        {"WinHttpSendRequest", (FARPROC)trace_gdk_send, NULL},
+        {"WinHttpQueryHeaders", (FARPROC)trace_gdk_headers, NULL},
+    };
+    const struct ImportHook region[] = {
+        {"RoGetActivationFactory", (FARPROC)trace_gdk_activation, &gdk_activation},
+    };
+    const struct ImportHook gdk_geography[] = {
+        {"GetUserGeoID", (FARPROC)trace_gdk_geo, &gdk_geo},
+    };
+    report("GDK HTTP hooks", install(gdk, "winhttp.dll", gdk_http, ARRAYSIZE(gdk_http)), 0);
+    report("GDK region hooks", install(gdk, "api-ms-win-core-winrt-l1-1-0.dll",
+                                      region, ARRAYSIZE(region)), 0);
+    report("GDK geography hooks", install(gdk, "api-ms-win-core-localization-l1-2-0.dll",
+                                          gdk_geography, ARRAYSIZE(gdk_geography)), 0);
+    return 0;
+}
+
 __declspec(dllexport) void InitializeASI(void)
 {
     static LONG started;
@@ -341,6 +423,14 @@ __declspec(dllexport) void InitializeASI(void)
     const struct ImportHook window[] = {
         {"CreateWindowExW", (FARPROC)trace_window, &create_window},
     };
+    const struct ImportHook game_geography[] = {
+        {"GetUserGeoID", (FARPROC)trace_game_geo, &game_geo},
+    };
+    HANDLE gdk_worker = CreateThread(NULL, 0, trace_gdk_when_loaded, NULL, 0, NULL);
+    if (gdk_worker) CloseHandle(gdk_worker);
+    else report("GDK hook worker unavailable", GetLastError(), E_FAIL);
+    report("game geography hooks", install(GetModuleHandleW(NULL), "kernel32.dll",
+                                           game_geography, ARRAYSIZE(game_geography)), 0);
     report("lobby hooks", install(GetModuleHandleW(NULL), "PlayFabMultiplayerWin.dll", lobby, ARRAYSIZE(lobby)), 0);
     report("PlayFab WinHTTP hooks", install(GetModuleHandleW(L"PlayFabMultiplayerWin.dll"), "winhttp.dll",
                                            http, ARRAYSIZE(http)), 0);
