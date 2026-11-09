@@ -24,6 +24,13 @@ only its runtime files for the duration of a game session. It restores the
 original files and library metadata on exit or before the next launch if
 the previous launcher was interrupted.
 
+The local forwarder refreshes the native SteamClient021 factory under the same
+lock as the generic interface query. A query could otherwise fault when the
+caller switches between the main and worker threads. The Steam probe checks
+that sequence against the signed-in macOS client. If OptiScaler 0.9.4 stalls
+while installing Streamline hooks, set `UseNtdllHooks = false` in
+`[Hooks]` to select its alternate DLL-loading hooks.
+
 ## Install on another Mac
 
 1. Install [Highball 0.10.26](https://github.com/gauthierpiarrette/highball/releases/tag/v0.10.26) and [Proton-ish](https://github.com/MagnusPladsen/Proton-ish). Set up the ARM64/FEX + KosmicKrisp preview engine **arm64-kk-wine11.18-r4** in a bottle named **Forza Horizon 6**. In Highball, use the game's Windows route so its VKD3D recipe is applied. Sign into Windows Steam and Xbox normally, then run and quit the game once. The game must be installed in this bottle's Steam library. In macOS Steam, retain the working Proton-ish compatibility selection for FH6.

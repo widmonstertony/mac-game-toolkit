@@ -5,7 +5,7 @@ EXPORTS
     Breakpad_SteamSetSteamID=lsteamclient.Breakpad_SteamSetSteamID
     Breakpad_SteamWriteMiniDumpSetComment=lsteamclient.Breakpad_SteamWriteMiniDumpSetComment
     Breakpad_SteamWriteMiniDumpUsingExceptionInfoWithBuildId=lsteamclient.Breakpad_SteamWriteMiniDumpUsingExceptionInfoWithBuildId
-    CreateInterface=lsteamclient.CreateInterface
+    CreateInterface
     Steam_BConnected=lsteamclient.Steam_BConnected
     Steam_BGetCallback=lsteamclient.Steam_BGetCallback
     Steam_BLoggedOn=lsteamclient.Steam_BLoggedOn

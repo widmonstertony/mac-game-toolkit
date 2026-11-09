@@ -102,12 +102,14 @@ case "${1:-}" in
         "$compiler" -shared -Wall -Wextra -Werror "$here/steam-module.c" "$here/steamclient64.def" \
             -o "$work/steamclient64.dll"
         "$compiler" -Wall -Wextra -Werror -municode "$here/steam-ipc.c" -o "$work/steam-ipc.exe"
+        "$compiler" -Wall -Wextra -Werror "$here/steam-ipc-threads.c" -o "$work/steam-ipc-threads.exe"
         export WINEPREFIX="$work/prefix" WINEDLLPATH_PREPEND="$overlay" WINEDEBUG=fixme-all
         export WINEDLLOVERRIDES='winemenubuilder,mscoree,mshtml,winedbg=d;lsteamclient=b;steamclient64=n'
         export STEAM_COMPAT_CLIENT_INSTALL_PATH="${STEAM_COMPAT_CLIENT_INSTALL_PATH:-$HOME/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS}"
         trap '"$engine/engine/bin/wineserver" -k >/dev/null 2>&1 || true' EXIT
         cd "$work"
         "$engine/engine/bin/wine" "$work/steam-ipc.exe" 2>&1 | tee "$work/steam.log"
+        "$engine/engine/bin/wine" "$work/steam-ipc-threads.exe" 2>&1 | tee "$work/steam-threads.log"
         ;;
     *)
         printf 'Usage: %s metal|d3d12|live|steam\n' "$0" >&2

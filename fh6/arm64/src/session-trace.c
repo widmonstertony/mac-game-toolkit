@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <winhttp.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <wchar.h>
 
@@ -39,6 +40,10 @@ static SocketCompletion socket_completion;
 static HttpStatus http_status;
 static HttpError http_error;
 static GameSaveResult save_sync_result, save_upload_result;
+static int (__cdecl *steam_init)(const char *, void *);
+static bool (__cdecl *steam_restart)(uint32_t);
+static HWND (WINAPI *create_window)(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int,
+                                   int, int, HWND, HMENU, HINSTANCE, LPVOID);
 static HANDLE log_file = INVALID_HANDLE_VALUE;
 static LONG log_lines;
 static HMODULE self;
@@ -221,6 +226,33 @@ static HRESULT WINAPI trace_save_upload(void *async)
     return result;
 }
 
+static int __cdecl trace_steam_init(const char *interfaces, void *error)
+{
+    report("Steamworks init begin", GetCurrentThreadId(), 0);
+    int result = steam_init(interfaces, error);
+    report("Steamworks init end", GetCurrentThreadId(), result);
+    return result;
+}
+
+static bool __cdecl trace_steam_restart(uint32_t app)
+{
+    report("Steamworks launch check begin", GetCurrentThreadId(), 0);
+    bool result = steam_restart(app);
+    report("Steamworks launch check end", GetCurrentThreadId(), result);
+    return result;
+}
+
+static HWND WINAPI trace_window(DWORD ex, LPCWSTR class_name, LPCWSTR title, DWORD style,
+        int x, int y, int width, int height, HWND parent, HMENU menu, HINSTANCE instance, LPVOID data)
+{
+    static LONG count;
+    bool trace = InterlockedIncrement(&count) <= 12;
+    if (trace) report("Win32 window creation begin", GetCurrentThreadId(), 0);
+    HWND result = create_window(ex, class_name, title, style, x, y, width, height, parent, menu, instance, data);
+    if (trace) report("Win32 window creation end", GetCurrentThreadId(), result ? 0 : HRESULT_FROM_WIN32(GetLastError()));
+    return result;
+}
+
 struct ImportHook { const char *name; FARPROC hook; void *original; };
 
 static unsigned install(HMODULE image, const char *library, const struct ImportHook *hooks, unsigned count)
@@ -302,6 +334,13 @@ __declspec(dllexport) void InitializeASI(void)
         {"PFGameSaveFilesAddUserWithUiResult", (FARPROC)trace_save_sync, &save_sync_result},
         {"PFGameSaveFilesUploadWithUiResult", (FARPROC)trace_save_upload, &save_upload_result},
     };
+    const struct ImportHook steam[] = {
+        {"SteamAPI_RestartAppIfNecessary", (FARPROC)trace_steam_restart, &steam_restart},
+        {"SteamInternal_SteamAPI_Init", (FARPROC)trace_steam_init, &steam_init},
+    };
+    const struct ImportHook window[] = {
+        {"CreateWindowExW", (FARPROC)trace_window, &create_window},
+    };
     report("lobby hooks", install(GetModuleHandleW(NULL), "PlayFabMultiplayerWin.dll", lobby, ARRAYSIZE(lobby)), 0);
     report("PlayFab WinHTTP hooks", install(GetModuleHandleW(L"PlayFabMultiplayerWin.dll"), "winhttp.dll",
                                            http, ARRAYSIZE(http)), 0);
@@ -309,6 +348,10 @@ __declspec(dllexport) void InitializeASI(void)
                                           client, ARRAYSIZE(client)), 0);
     report("PlayFab Game Saves hooks", install(GetModuleHandleW(NULL), "PlayFabGameSave.dll",
                                               saves, ARRAYSIZE(saves)), 0);
+    report("Steamworks startup hooks", install(GetModuleHandleW(NULL), "steam_api64.dll",
+                                               steam, ARRAYSIZE(steam)), 0);
+    report("Win32 startup hooks", install(GetModuleHandleW(NULL), "user32.dll",
+                                         window, ARRAYSIZE(window)), 0);
 }
 
 BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID reserved)
