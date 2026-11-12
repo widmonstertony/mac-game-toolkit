@@ -1,0 +1,4 @@
+msync: bootstrapped mach port on wine-18e6ed7-msync.
+msync: up and running.
+Begin cold-policy initializer reentry regression
+header_faults=1 outer_faults=1 mode=1

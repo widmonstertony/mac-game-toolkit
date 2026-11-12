@@ -19,7 +19,7 @@ for p in highball-engine-8b315e7/patches/*.patch; do
     case "$(basename "$p")" in 0013-*|0025-*|0026-*|0027-*|0028-*) continue;; esac
     patch -d "$source_dir" -p1 -F0 -i "$PWD/$p"
 done
-for p in wine11-highball-exception-chain.patch wine11-websocket.patch wine11-dual-stack.patch; do
+for p in wine11-highball-exception-chain.patch wine11-initializer-reentry.patch wine11-websocket.patch wine11-dual-stack.patch; do
     patch -d "$source_dir" -p1 -F0 -i "$here/$p"
 done
 python3 - "$source_dir" <<'PY'

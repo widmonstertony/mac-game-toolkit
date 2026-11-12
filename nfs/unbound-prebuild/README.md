@@ -1,0 +1,11 @@
+# Unbound prebuild crash repair
+
+The local Steam build is `16690907`; the renderer SHA-256 is exactly the upstream original `ee3a654be58be406eda32aeadad99ad60894403e374a2d3b847a20008cd30c62`. Six game-generated minidumps from two separate normal native-Steam launches report access violations at renderer RVA `0x446e4`. That instruction dereferences a null COM pointer immediately before `IUnknown::Release` in the prebuild cleanup loop. The later critical-section timeout is a consequence of the faulting owner, not evidence that the lock itself needs a timeout tweak.
+
+This matches [macprotips/NFSUnboundFix 1.1.0](https://github.com/macprotips/NFSUnboundFix), distributed with permission in [MacGameFix's checked recipe](https://github.com/MathiasKowoll/MacGameFix/blob/main/fixes/nfsu-prebuild.recipes), blob `c1a9baa85d952b0a2b4dfdb41cf3b6606c7b2149`. It keeps pipeline prebuilding enabled, rejects failed root signatures in graphics/compute prebuild, and avoids releasing null entries during cleanup. It does not skip all shader prebuilding, pretend unsupported hardware supports a feature, or change DRM.
+
+`python3 install.py` validates the actual local file and proves a full inverse transformation. `python3 install.py --apply` installs; `python3 install.py --restore --apply` restores. Unknown versions, unexpected bytes, checksum mismatches or a running Unbound process stop the operation. Writes are atomic. Source-controlled inverse edits restore the exact original DLL without copying the full game or clearing caches. Only this renderer DLL and a small local receipt are written; native Steam, shared EA container, resolution, audio, saves and all other game settings stay in place.
+
+Upstream marks this as experimental. After this repair, the next normal native-Steam launch remained running beyond the former crash point, produced no new matching crash dump, and the user confirmed a visible menu or game. Stable driving, performance and frame generation still need separate gameplay verification. Minidumps remain private on the machine. No game code or dump is shipped here.
+
+The derived recipe/installer is GPL-3.0-or-later; see COPYING.GPL3. Original idea and six repair sites: macprotips; earlier prebuild-disable workaround: Ariel O. Local crash correlation and Python integration: mac-game-toolkit.

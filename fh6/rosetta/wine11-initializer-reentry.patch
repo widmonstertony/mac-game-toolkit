@@ -1,0 +1,41 @@
+--- a/dlls/ntdll/software_exception_chain.h
++++ b/dlls/ntdll/software_exception_chain.h
+@@ -15,6 +15,7 @@
+ #define software_alu_enabled __wine_software_exception_chain_configuration[3]
+ #include "guaranteed_ud.h"
+ static LONG software_legacy_d5;
++static LONG software_chain_initializing;
+ 
+ /* The fast path reads every group below; equality of two incomplete contexts
+  * does not make absent fields valid. An unsupported context uses normal dispatch. */
+@@ -40,7 +41,7 @@
+         WCHAR buffer[16];
+         UNICODE_STRING name = RTL_CONSTANT_STRING(L"WINE_SOFTWARE_EXCEPTION_CHAIN");
+         UNICODE_STRING value = {0, sizeof(buffer), buffer};
+-        IMAGE_NT_HEADERS *nt = RtlImageNtHeader(NtCurrentTeb()->Peb->ImageBaseAddress);
++        IMAGE_NT_HEADERS *nt;
+         UNICODE_STRING *path = &NtCurrentTeb()->Peb->ProcessParameters->ImagePathName;
+         UNICODE_STRING base = *path;
+         UNICODE_STRING probe = RTL_CONSTANT_STRING(L"exception_chain_probe.exe");
+@@ -48,6 +49,13 @@
+         unsigned int i;
+         LONG statistics = 1, resume_bridge = 0;
+         mode = 0;
++        /* Header inspection can itself fault or invoke an exception handler.
++         * Reentry (or another initializing thread) must use normal dispatch,
++         * not recursively initialize policy on an ever-growing stack. Never
++         * wait here: the initializer may need that same exception handler. */
++        if (InterlockedCompareExchange(&software_chain_initializing, 1, 0)) return FALSE;
++        nt = RtlImageNtHeader(NtCurrentTeb()->Peb->ImageBaseAddress);
++
+         for (i = 0; i < path->Length / sizeof(WCHAR); ++i)
+             if (path->Buffer[i] == '\\' || path->Buffer[i] == '/')
+             {
+@@ -106,6 +114,7 @@
+         InterlockedCompareExchange(&software_chain_statistics, statistics, -1);
+         InterlockedCompareExchange(&software_chain_mode, mode, -1);
+         mode = software_chain_mode;
++        InterlockedExchange(&software_chain_initializing, 0);
+     }
+     if (mode) burst_configure();
+     return mode != 0 && !NtCurrentTeb()->Peb->BeingDebugged;

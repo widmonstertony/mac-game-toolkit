@@ -1,0 +1,4 @@
+msync: bootstrapped mach port on wine-18e6ed7-msync.
+msync: up and running.
+Begin cold-policy initializer reentry regression
+0024:err:virtual:virtual_setup_exception stack overflow 1344 bytes addr 0x6ffffd5ab390 stack 0x120ac0 (0x120000-0x121000-0x320000)
