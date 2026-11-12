@@ -1,0 +1,84 @@
+--- a/dlls/ntdll/locale.c
++++ b/dlls/ntdll/locale.c
+@@ -29,6 +29,7 @@
+ #include "winnls.h"
+ #include "ntdll_misc.h"
+ #include "locale_private.h"
++#include "utf8_dialog.h"
+ #include "wine/debug.h"
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(nls);
+@@ -628,7 +629,7 @@
+ {
+     unsigned int ret;
+ 
+-    if (nls_info.AnsiTableInfo.CodePage != CP_UTF8)
++    if (nls_info.AnsiTableInfo.CodePage != CP_UTF8 && !prefer_utf8_dialog( src, srclen ))
+         ret = cp_mbstowcs( &nls_info.AnsiTableInfo, dst, dstlen / sizeof(WCHAR), src, srclen );
+     else
+         utf8_mbstowcs( dst, dstlen / sizeof(WCHAR), &ret, src, srclen );
+@@ -645,7 +646,7 @@
+ {
+     unsigned int ret;
+ 
+-    if (nls_info.AnsiTableInfo.CodePage != CP_UTF8)
++    if (nls_info.AnsiTableInfo.CodePage != CP_UTF8 && !prefer_utf8_dialog( str, len ))
+         ret = cp_mbstowcs_size( &nls_info.AnsiTableInfo, str, len );
+     else
+         utf8_mbstowcs_size( str, len, &ret );
+--- a/dlls/kernelbase/locale.c
++++ b/dlls/kernelbase/locale.c
+@@ -36,6 +36,7 @@
+ #include "winuser.h"
+ #include "winternl.h"
+ #include "kernelbase.h"
++#include "../ntdll/utf8_dialog.h"
+ #include "wine/debug.h"
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(nls);
+@@ -7021,6 +7022,12 @@
+         return 0;
+     }
+     if (srclen < 0) srclen = strlen(src) + 1;
++    if ((codepage == CP_ACP || codepage == CP_THREAD_ACP || codepage == 1252 || codepage == 936) &&
++        !(flags & ~(MB_PRECOMPOSED | MB_ERR_INVALID_CHARS)) && prefer_utf8_dialog( src, srclen ))
++    {
++        codepage = CP_UTF8;
++        flags &= MB_ERR_INVALID_CHARS;
++    }
+ 
+     switch (codepage)
+     {
+--- a/dlls/ntdll/utf8_dialog.h
++++ b/dlls/ntdll/utf8_dialog.h
+@@ -0,0 +1,30 @@
++/* SPDX-License-Identifier: LGPL-2.1-or-later
++ * Opt-in UTF-8 UI string conversion without changing the process ACP/fonts. */
++static BOOL prefer_utf8_dialog( const char *src, unsigned int len )
++{
++    unsigned int i = 0, ch, need, minimum;
++    BOOL cjk = FALSE;
++    WCHAR value[2];
++    SIZE_T length;
++    while (i < len)
++    {
++        ch = (unsigned char)src[i++];
++        if (ch < 0x80) continue;
++        if (ch >= 0xc2 && ch <= 0xdf) { need = 1; minimum = 0x80; ch &= 0x1f; }
++        else if (ch >= 0xe0 && ch <= 0xef) { need = 2; minimum = 0x800; ch &= 0x0f; }
++        else if (ch >= 0xf0 && ch <= 0xf4) { need = 3; minimum = 0x10000; ch &= 7; }
++        else return FALSE;
++        if (need > len - i) return FALSE;
++        while (need--)
++        {
++            unsigned char byte = src[i++];
++            if ((byte & 0xc0) != 0x80) return FALSE;
++            ch = (ch << 6) | (byte & 0x3f);
++        }
++        if (ch < minimum || ch > 0x10ffff || (ch >= 0xd800 && ch <= 0xdfff)) return FALSE;
++        if ((ch >= 0x3400 && ch <= 0x9fff) || (ch >= 0x3040 && ch <= 0x30ff)) cjk = TRUE;
++    }
++    return cjk && !RtlQueryEnvironmentVariable( NULL, L"WINE_UTF8_DIALOGS", 17,
++                                               value, ARRAY_SIZE(value), &length ) &&
++           length == 1 && value[0] == L'1';
++}

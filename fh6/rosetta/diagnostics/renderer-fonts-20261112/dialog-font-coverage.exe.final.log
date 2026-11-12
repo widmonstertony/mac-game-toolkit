@@ -1,0 +1,16 @@
+requested=MS Shell Dlg charset=0 selected=MS Shell Dlg missing=0
+requested=MS Shell Dlg charset=1 selected=MS Shell Dlg missing=0
+requested=MS Shell Dlg 2 charset=0 selected=MS Shell Dlg 2 missing=0
+requested=MS Shell Dlg 2 charset=1 selected=MS Shell Dlg 2 missing=0
+requested=Tahoma charset=0 selected=Tahoma missing=3
+requested=Tahoma charset=1 selected=Tahoma missing=3
+requested=Arial charset=0 selected=Arial missing=3
+requested=Arial charset=1 selected=Arial missing=3
+requested=Segoe UI charset=0 selected=Segoe UI missing=0
+requested=Segoe UI charset=1 selected=Segoe UI missing=0
+requested=Microsoft Sans Serif charset=0 selected=Microsoft Sans Serif missing=3
+requested=Microsoft Sans Serif charset=1 selected=Microsoft Sans Serif missing=3
+requested=Hiragino Sans GB charset=0 selected=Arial missing=3
+requested=Hiragino Sans GB charset=1 selected=Arial Unicode MS missing=0
+requested=Arial Unicode MS charset=0 selected=Arial Unicode MS missing=0
+requested=Arial Unicode MS charset=1 selected=Arial Unicode MS missing=0

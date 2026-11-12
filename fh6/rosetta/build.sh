@@ -19,7 +19,7 @@ for p in highball-engine-8b315e7/patches/*.patch; do
     case "$(basename "$p")" in 0013-*|0025-*|0026-*|0027-*|0028-*) continue;; esac
     patch -d "$source_dir" -p1 -F0 -i "$PWD/$p"
 done
-for p in wine11-highball-exception-chain.patch wine11-initializer-reentry.patch wine11-websocket.patch wine11-dual-stack.patch; do
+for p in wine11-highball-exception-chain.patch wine11-initializer-reentry.patch wine11-utf8-dialog.patch wine11-websocket.patch wine11-dual-stack.patch; do
     patch -d "$source_dir" -p1 -F0 -i "$here/$p"
 done
 python3 - "$source_dir" <<'PY'
@@ -45,6 +45,7 @@ export CROSSCC="$WINE_CROSSCC" x86_64_CC="$WINE_CROSSCC"
  --without-gphoto --without-netapi --without-pulse --without-alsa --without-oss --without-udev \
  --without-unwind --without-ffmpeg --without-inotify
 make -j4 dlls/ntdll/ntdll.so dlls/ntdll/x86_64-windows/ntdll.dll \
+ dlls/kernelbase/x86_64-windows/kernelbase.dll \
  dlls/winhttp/x86_64-windows/winhttp.dll dlls/ws2_32/x86_64-windows/ws2_32.dll
 "$WINE_CROSSCC" -shared -nostdlib -nodefaultlibs -Wl,--entry,DllMain -O2 \
  "$here/steamclient-x64.c" "$here/steamclient-x64.def" -lkernel32 -o steamclient64.dll

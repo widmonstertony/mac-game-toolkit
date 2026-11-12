@@ -50,6 +50,12 @@ def verify_runtime(profile):
         path = system / name
         if not path.is_file() or not is_native_x64(path):
             raise RuntimeError('FH6 needs the official x64 VC++ runtime in its private prefix: ' + name)
+    renderer_record = profile / 'renderer-files.json'
+    if not renderer_record.is_file():
+        raise RuntimeError('FH6 private renderer loaders have not been checked; run install_renderer.py')
+    for relative, expected in json.loads(renderer_record.read_text()).items():
+        if hashlib.sha256((profile / relative).read_bytes()).hexdigest() != expected:
+            raise RuntimeError('FH6 renderer loader changed: ' + relative)
 
 
 def environment(profile):
@@ -62,9 +68,16 @@ def environment(profile):
     env.setdefault('STEAM_COMPAT_CLIENT_INSTALL_PATH', str(Path.home() / 'Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS'))
     env['WINEPREFIX'] = str(profile / 'prefix')
     env['PATH'] = str(profile / 'engine/bin') + ':/usr/bin:/bin:/usr/sbin:/sbin'
-    env['WINEDLLPATH_PREPEND'] = str(profile / 'engine/lib/wine') + ':' + values['WINEDLLPATH_PREPEND']
+    # PREPEND is a Highball frontend setting; this private route executes Wine
+    # directly. Wine itself searches WINEDLLPATH. Renderer builtins must precede
+    # the generic engine directory, which also contains stock vkd3d/DXVK DLLs.
+    paths = values['WINEDLLPATH_PREPEND'] + ':' + str(profile / 'engine/lib/wine')
+    env['WINEDLLPATH_PREPEND'] = paths
+    env['WINEDLLPATH'] = paths + ':' + values.get('WINEDLLPATH', '')
     env.update(WINE_SOFTWARE_EXCEPTION_CHAIN='1', WINE_SOFTWARE_ALU_BRIDGE='1',
                WINE_SOFTWARE_EXCEPTION_STATS='0', WINE_SOFTWARE_BRIDGE_RESUME='1')
+    env.pop('WINE_UTF8_ACP', None)
+    env['WINE_UTF8_DIALOGS'] = '1'
     return env
 
 
