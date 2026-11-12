@@ -1,0 +1,2 @@
+*.patch -whitespace
+validation/*.txt text eol=lf

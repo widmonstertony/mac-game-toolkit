@@ -1,0 +1,33 @@
+PASS WSAStartup
+PASS UDP sockets created
+PASS UDP dual-stack enabled
+PASS UDP dual-stack bind
+PASS IPv4 DONTFRAGMENT on dual-stack socket
+PASS IPv4 TTL on dual-stack socket
+PASS mapped unicast hops actually applied
+PASS invalid TTL still fails
+PASS invalid socket still fails
+PASS IPv4 loopback peer bound
+PASS dual-stack send to mapped IPv4 peer
+PASS IPv4 peer receives real datagram
+PASS IPv4 peer sends response
+PASS dual-stack receives real response
+PASS timeout session created
+PASS HTTP response-header timeout configured
+INFO timeout error=10060 elapsed=155 ms
+PASS WinHTTP receive timeout preserved
+PASS WebSocket ownership + concurrent HTTP + delayed echo
+PASS WebSocket ownership + concurrent HTTP + delayed echo
+PASS WebSocket ownership + concurrent HTTP + delayed echo
+PASS WebSocket ownership + concurrent HTTP + delayed echo
+PASS WebSocket ownership + concurrent HTTP + delayed echo
+PASS WebSocket ownership + concurrent HTTP + delayed echo
+INFO thread wait result=0
+INFO worker 0 stage 8
+INFO worker 1 stage 8
+INFO worker 2 stage 8
+INFO worker 3 stage 8
+INFO worker 4 stage 8
+INFO worker 5 stage 8
+PASS six WebSocket workers complete without hang
+RESULT failures=0

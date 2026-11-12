@@ -1,0 +1,23 @@
+{
+  "llvm_pe_network": {
+    "result": "rejected",
+    "observed_timeout_error": 122,
+    "expected_timeout_errors": [
+      12002,
+      10060
+    ],
+    "rounds_failed": 3,
+    "gnu_rebuild_timeout": 10060
+  },
+  "ordinary_forwarder": {
+    "result": "rejected",
+    "reproduced_with": [
+      "ported Wine 11.0 pair",
+      "rebuilt base pair without CPU changes"
+    ],
+    "location": "SteamClient interface inside forwarding DLL data arena; vtable upper half overwritten after thread creation",
+    "control": "direct lsteamclient queries and original loader-detoured PE pass",
+    "fix": "CRT-free forwarding DLL with dedicated 64 KiB arena",
+    "fixed_main_worker_main_test": "pass"
+  }
+}

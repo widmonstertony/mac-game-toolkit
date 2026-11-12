@@ -1,0 +1,4 @@
+msync: bootstrapped mach port on wine-18fd494-msync.
+msync: up and running.
+native Steam interface: OK (0)
+native Steam IPC: pipe=OK user=OK online=yes

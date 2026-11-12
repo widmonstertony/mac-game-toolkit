@@ -133,3 +133,8 @@ python3 -m unittest discover -s fh6 -p 'test_*.py' -v
 从仓库根目录执行。测试使用临时合成配置，不访问真实游戏环境。
 涵盖保留非画质设置、幂等、未知版本拒绝、备份恢复、并发修改、失败回滚和进程检查。
 这属于配置工具测试，**不是长期游戏稳定性或 60 FPS 的验证**。
+
+
+地平线6独占的 Rosetta＋D3DMetal 异常处理移植及兼容性结果见 [rosetta/README.md](rosetta/README.md)。基于公开 Wine 源码，复用 Highball，不需要付费 CrossOver；游戏帧时间与在线会话仍待实测。
+
+For the FH6-only Highball/Rosetta exception-handling port, source patches, binary checksums and compatibility results, see [rosetta/README.md](rosetta/README.md). Gameplay performance and actual online session joining remain unverified.

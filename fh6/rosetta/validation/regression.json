@@ -1,0 +1,52 @@
+[
+  {
+    "mode": "disabled",
+    "exit": 0,
+    "seconds": 8.374,
+    "tail": [
+      "CONFIGURATION mode=0 counters=1 resume=0 alu=1 failures=0",
+      "TIMING records=0 dropped=0 active=0 failures=0",
+      "SUMMARY handler_calls=393202 first_handler_calls=393202 links=0 cap_exits=0 failures=0"
+    ]
+  },
+  {
+    "mode": "enabled",
+    "exit": 0,
+    "seconds": 4.561,
+    "tail": [
+      "CONFIGURATION mode=1 counters=1 resume=1 alu=1 failures=0",
+      "TIMING records=70 dropped=0 active=0 failures=0",
+      "SUMMARY handler_calls=393202 first_handler_calls=393202 links=249608 cap_exits=2802 failures=0"
+    ]
+  },
+  {
+    "mode": "enabled-clean",
+    "exit": 0,
+    "seconds": 4.116,
+    "tail": [
+      "CONFIGURATION mode=3 counters=1 resume=1 alu=1 failures=0",
+      "TIMING records=71 dropped=0 active=0 failures=0",
+      "SUMMARY handler_calls=393202 first_handler_calls=393202 links=249608 cap_exits=2802 failures=0"
+    ]
+  },
+  {
+    "mode": "enabled-quiet",
+    "exit": 0,
+    "seconds": 4.074,
+    "tail": [
+      "CONFIGURATION mode=3 counters=0 resume=1 alu=1 failures=0",
+      "TIMING records=75 dropped=0 active=0 failures=0",
+      "SUMMARY handler_calls=393202 first_handler_calls=393202 links=0 cap_exits=0 failures=0"
+    ]
+  },
+  {
+    "mode": "enabled-noresume",
+    "exit": 0,
+    "seconds": 4.217,
+    "tail": [
+      "CONFIGURATION mode=3 counters=1 resume=0 alu=1 failures=0",
+      "TIMING records=73 dropped=0 active=0 failures=0",
+      "SUMMARY handler_calls=393202 first_handler_calls=393202 links=249608 cap_exits=2802 failures=0"
+    ]
+  }
+]

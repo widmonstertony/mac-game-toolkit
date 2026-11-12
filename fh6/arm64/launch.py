@@ -75,6 +75,9 @@ def launch(log):
         declared_app = os.environ.get("SteamAppId")
     if declared_app not in (None, "", "0", APP_ID):
         raise RuntimeError("This launch option is specific to Forza Horizon 6")
+    if (support / "rosetta-profile-enabled").is_file():
+        import rosetta_profile
+        return rosetta_profile.launch(log)
     settings = json.loads((bottle / "bottle.json").read_text())
     game = settings.get("gameEnvironment", {}).get("forza-horizon-6", {})
     if (settings.get("engineID"), settings.get("renderer"), game.get("VKD3D_FEATURE_LEVEL")) != (

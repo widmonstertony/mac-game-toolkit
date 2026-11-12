@@ -1,0 +1,74 @@
+CONTEXT_GROUP_CONTRACT cases=35 failures=0
+SEQUENTIAL links=0 expected=0 us_per_130_traps=245.977400 failures=0
+FALLBACKS boundary_and_ud2_links=0 failures=0
+INCOMPLETE_CONTEXT real_traps=130 synthetic_links=0 failures=0
+CONCURRENT threads=4 chains=400 elapsed_ms=41.803600 failures=0
+REFUSAL_MEMORY_TEMPLATE nop_jump=normal_execution noaccess=real_fault failures=0
+LOAD_BRIDGE accepted=0 expected=0 fault_fallbacks=1 failures=0
+REGISTER_PHASE phase=0 cases=1090 comparisons=66080 accepted=0 expected=0 real_handlers=132160 failures=0
+REGISTER_PHASE phase=1 cases=1090 comparisons=66080 accepted=0 expected=0 real_handlers=66080 failures=0
+REFUSAL_TRACE active=0 records=0 dropped=0 outstanding=0 off_window_and_overflow=checked failures=0
+RESUME_DESTINATION_AV original_address=verified original_context=verified real_faults=1 resumed=0 failures=0
+ARITHMETIC_DESTINATION_AV result=6 flags=0x15 original_faults=1 failures=0
+RESUME_DESTINATION_UD2 original_address=verified real_faults=1 resumed=0 failures=0
+UD_EQUIVALENCE private=0 id=0 signature=8c9562d3e44e8183
+UD_DESTINATION private=0 id=0 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=1 signature=8c9562d3e44e8183
+UD_DESTINATION private=0 id=1 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=2 signature=8c9562d3e44e8183
+UD_DESTINATION private=0 id=2 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=3 signature=8c9562d3e44e8183
+UD_DESTINATION private=0 id=3 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=4 signature=14650fb0739d0383
+UD_DESTINATION private=0 id=4 legacy_d5=1 real_handlers=0 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=5 signature=7189509c9bb15f43
+UD_DESTINATION private=0 id=5 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=6 signature=7189509c9bb15f43
+UD_DESTINATION private=0 id=6 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=7 signature=7189509c9bb15f43
+UD_DESTINATION private=0 id=7 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=8 signature=d24b9d1a33b94803
+UD_DESTINATION private=0 id=8 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=9 signature=d24b9d1a33b94803
+UD_DESTINATION private=0 id=9 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=10 signature=4d0444cf90b02fc3
+UD_DESTINATION private=0 id=10 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=11 signature=8c9562d3e44e8183
+UD_DESTINATION private=0 id=11 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=12 signature=8c9562d3e44e8183
+UD_DESTINATION private=0 id=12 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=0 id=13 signature=8c9562d3e44e8183
+UD_DESTINATION private=0 id=13 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=0 signature=8c9562d3e44e8183
+UD_DESTINATION private=1 id=0 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=1 signature=8c9562d3e44e8183
+UD_DESTINATION private=1 id=1 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=2 signature=8c9562d3e44e8183
+UD_DESTINATION private=1 id=2 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=3 signature=8c9562d3e44e8183
+UD_DESTINATION private=1 id=3 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=4 signature=14650fb0739d0383
+UD_DESTINATION private=1 id=4 legacy_d5=1 real_handlers=0 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=5 signature=7189509c9bb15f43
+UD_DESTINATION private=1 id=5 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=6 signature=7189509c9bb15f43
+UD_DESTINATION private=1 id=6 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=7 signature=7189509c9bb15f43
+UD_DESTINATION private=1 id=7 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=8 signature=d24b9d1a33b94803
+UD_DESTINATION private=1 id=8 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=9 signature=d24b9d1a33b94803
+UD_DESTINATION private=1 id=9 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=10 signature=4d0444cf90b02fc3
+UD_DESTINATION private=1 id=10 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c0000005 context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=11 signature=8c9562d3e44e8183
+UD_DESTINATION private=1 id=11 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=12 signature=8c9562d3e44e8183
+UD_DESTINATION private=1 id=12 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+UD_EQUIVALENCE private=1 id=13 signature=8c9562d3e44e8183
+UD_DESTINATION private=1 id=13 legacy_d5=1 real_handlers=64 links=0 accepted=0 code=c000001d context_flags=ad7 failures=0
+CENSUS attempts=0 accepted=0 outcomes=0 failures=0
+DIAGNOSTICS hardware=0 links=0 exits=0 failures=0
+CONFIGURATION mode=3 counters=0 resume=1 alu=1 failures=0
+TIMING records=75 dropped=0 active=0 failures=0
+SUMMARY handler_calls=393202 first_handler_calls=393202 links=0 cap_exits=0 failures=0

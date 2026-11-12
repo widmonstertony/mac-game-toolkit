@@ -1,0 +1,2212 @@
+--- /dev/null
++++ b/dlls/ntdll/arithmetic_impl.inc
+@@ -0,0 +1,217 @@
++/* Execute register-only arithmetic on temporary values. Seed only arithmetic
++ * flags: never load guest TF/DF/IF or other control bits into the host handler.
++ * The operation and PUSHFQ materialization run in one asm block so undefined
++ * arithmetic bits follow this x86 runtime too, rather than invented C values.
++ * No guest context effects are committed until the existing jump/target checks
++ * succeed. Unsupported widths, memory operands, stack writes and prefixes fall
++ * back unchanged. */
++static void software_bridge_alu(unsigned int operation,unsigned int width,
++                                ULONG64 left,ULONG64 right,DWORD initial_flags,
++                                ULONG64 *result,DWORD *flags)
++{
++    ULONG64 seed, observed;
++    __asm__ volatile("pushfq; popq %0" : "=r"(seed) :: "memory");
++    seed=(seed & ~(ULONG64)0x8d5) | (initial_flags & 0x8d5);
++#define ALU_ASM(insn,suffix,operand) \
++    __asm__ volatile("pushq %[seed]; popfq; " insn suffix " " operand "; pushfq; popq %[flags]" \
++                     : [left] "+&r"(left), [flags] "=&r"(observed) \
++                     : [right] "r"(right), [seed] "r"(seed) : "cc","memory")
++#define ALU_CASE(op,insn) case op: if(width==64){ALU_ASM(insn,"q","%[right],%[left]");} \
++                                  else{ALU_ASM(insn,"l","%k[right],%k[left]");} break
++    switch(operation)
++    {
++        ALU_CASE(0,"add"); ALU_CASE(1,"or"); ALU_CASE(4,"and");
++        ALU_CASE(5,"sub"); ALU_CASE(6,"xor"); ALU_CASE(7,"cmp");
++        ALU_CASE(8,"test");
++        case 9:
++            if(width==64)
++                __asm__ volatile("pushq %[seed]; popfq; shrq %%cl,%[left]; pushfq; popq %[flags]"
++                    : [left] "+&r"(left),[flags] "=&r"(observed)
++                    : "c"(right),[seed] "r"(seed) : "cc","memory");
++            else
++                __asm__ volatile("pushq %[seed]; popfq; shrl %%cl,%k[left]; pushfq; popq %[flags]"
++                    : [left] "+&r"(left),[flags] "=&r"(observed)
++                    : "c"(right),[seed] "r"(seed) : "cc","memory");
++            break;
++        /* Rosetta can materialize undefined OF differently for immediate
++         * versus CL shifts. Execute the original immediate form, including
++         * its complete imm8 value; do not substitute a CL instruction. */
++        case 10:
++#define SHIFT_IMM(n) case n: \
++            if(width==64) \
++                __asm__ volatile("pushq %[seed]; popfq; shrq $" #n ",%[left]; pushfq; popq %[flags]" \
++                    : [left] "+&r"(left),[flags] "=&r"(observed) : [seed] "r"(seed) : "cc","memory"); \
++            else \
++                __asm__ volatile("pushq %[seed]; popfq; shrl $" #n ",%k[left]; pushfq; popq %[flags]" \
++                    : [left] "+&r"(left),[flags] "=&r"(observed) : [seed] "r"(seed) : "cc","memory"); \
++            break
++            switch((unsigned int)right & 255)
++            {
++                SHIFT_IMM(0); SHIFT_IMM(1); SHIFT_IMM(2); SHIFT_IMM(3); SHIFT_IMM(4); SHIFT_IMM(5); SHIFT_IMM(6); SHIFT_IMM(7);
++                SHIFT_IMM(8); SHIFT_IMM(9); SHIFT_IMM(10); SHIFT_IMM(11); SHIFT_IMM(12); SHIFT_IMM(13); SHIFT_IMM(14); SHIFT_IMM(15);
++                SHIFT_IMM(16); SHIFT_IMM(17); SHIFT_IMM(18); SHIFT_IMM(19); SHIFT_IMM(20); SHIFT_IMM(21); SHIFT_IMM(22); SHIFT_IMM(23);
++                SHIFT_IMM(24); SHIFT_IMM(25); SHIFT_IMM(26); SHIFT_IMM(27); SHIFT_IMM(28); SHIFT_IMM(29); SHIFT_IMM(30); SHIFT_IMM(31);
++                SHIFT_IMM(32); SHIFT_IMM(33); SHIFT_IMM(34); SHIFT_IMM(35); SHIFT_IMM(36); SHIFT_IMM(37); SHIFT_IMM(38); SHIFT_IMM(39);
++                SHIFT_IMM(40); SHIFT_IMM(41); SHIFT_IMM(42); SHIFT_IMM(43); SHIFT_IMM(44); SHIFT_IMM(45); SHIFT_IMM(46); SHIFT_IMM(47);
++                SHIFT_IMM(48); SHIFT_IMM(49); SHIFT_IMM(50); SHIFT_IMM(51); SHIFT_IMM(52); SHIFT_IMM(53); SHIFT_IMM(54); SHIFT_IMM(55);
++                SHIFT_IMM(56); SHIFT_IMM(57); SHIFT_IMM(58); SHIFT_IMM(59); SHIFT_IMM(60); SHIFT_IMM(61); SHIFT_IMM(62); SHIFT_IMM(63);
++                SHIFT_IMM(64); SHIFT_IMM(65); SHIFT_IMM(66); SHIFT_IMM(67); SHIFT_IMM(68); SHIFT_IMM(69); SHIFT_IMM(70); SHIFT_IMM(71);
++                SHIFT_IMM(72); SHIFT_IMM(73); SHIFT_IMM(74); SHIFT_IMM(75); SHIFT_IMM(76); SHIFT_IMM(77); SHIFT_IMM(78); SHIFT_IMM(79);
++                SHIFT_IMM(80); SHIFT_IMM(81); SHIFT_IMM(82); SHIFT_IMM(83); SHIFT_IMM(84); SHIFT_IMM(85); SHIFT_IMM(86); SHIFT_IMM(87);
++                SHIFT_IMM(88); SHIFT_IMM(89); SHIFT_IMM(90); SHIFT_IMM(91); SHIFT_IMM(92); SHIFT_IMM(93); SHIFT_IMM(94); SHIFT_IMM(95);
++                SHIFT_IMM(96); SHIFT_IMM(97); SHIFT_IMM(98); SHIFT_IMM(99); SHIFT_IMM(100); SHIFT_IMM(101); SHIFT_IMM(102); SHIFT_IMM(103);
++                SHIFT_IMM(104); SHIFT_IMM(105); SHIFT_IMM(106); SHIFT_IMM(107); SHIFT_IMM(108); SHIFT_IMM(109); SHIFT_IMM(110); SHIFT_IMM(111);
++                SHIFT_IMM(112); SHIFT_IMM(113); SHIFT_IMM(114); SHIFT_IMM(115); SHIFT_IMM(116); SHIFT_IMM(117); SHIFT_IMM(118); SHIFT_IMM(119);
++                SHIFT_IMM(120); SHIFT_IMM(121); SHIFT_IMM(122); SHIFT_IMM(123); SHIFT_IMM(124); SHIFT_IMM(125); SHIFT_IMM(126); SHIFT_IMM(127);
++                SHIFT_IMM(128); SHIFT_IMM(129); SHIFT_IMM(130); SHIFT_IMM(131); SHIFT_IMM(132); SHIFT_IMM(133); SHIFT_IMM(134); SHIFT_IMM(135);
++                SHIFT_IMM(136); SHIFT_IMM(137); SHIFT_IMM(138); SHIFT_IMM(139); SHIFT_IMM(140); SHIFT_IMM(141); SHIFT_IMM(142); SHIFT_IMM(143);
++                SHIFT_IMM(144); SHIFT_IMM(145); SHIFT_IMM(146); SHIFT_IMM(147); SHIFT_IMM(148); SHIFT_IMM(149); SHIFT_IMM(150); SHIFT_IMM(151);
++                SHIFT_IMM(152); SHIFT_IMM(153); SHIFT_IMM(154); SHIFT_IMM(155); SHIFT_IMM(156); SHIFT_IMM(157); SHIFT_IMM(158); SHIFT_IMM(159);
++                SHIFT_IMM(160); SHIFT_IMM(161); SHIFT_IMM(162); SHIFT_IMM(163); SHIFT_IMM(164); SHIFT_IMM(165); SHIFT_IMM(166); SHIFT_IMM(167);
++                SHIFT_IMM(168); SHIFT_IMM(169); SHIFT_IMM(170); SHIFT_IMM(171); SHIFT_IMM(172); SHIFT_IMM(173); SHIFT_IMM(174); SHIFT_IMM(175);
++                SHIFT_IMM(176); SHIFT_IMM(177); SHIFT_IMM(178); SHIFT_IMM(179); SHIFT_IMM(180); SHIFT_IMM(181); SHIFT_IMM(182); SHIFT_IMM(183);
++                SHIFT_IMM(184); SHIFT_IMM(185); SHIFT_IMM(186); SHIFT_IMM(187); SHIFT_IMM(188); SHIFT_IMM(189); SHIFT_IMM(190); SHIFT_IMM(191);
++                SHIFT_IMM(192); SHIFT_IMM(193); SHIFT_IMM(194); SHIFT_IMM(195); SHIFT_IMM(196); SHIFT_IMM(197); SHIFT_IMM(198); SHIFT_IMM(199);
++                SHIFT_IMM(200); SHIFT_IMM(201); SHIFT_IMM(202); SHIFT_IMM(203); SHIFT_IMM(204); SHIFT_IMM(205); SHIFT_IMM(206); SHIFT_IMM(207);
++                SHIFT_IMM(208); SHIFT_IMM(209); SHIFT_IMM(210); SHIFT_IMM(211); SHIFT_IMM(212); SHIFT_IMM(213); SHIFT_IMM(214); SHIFT_IMM(215);
++                SHIFT_IMM(216); SHIFT_IMM(217); SHIFT_IMM(218); SHIFT_IMM(219); SHIFT_IMM(220); SHIFT_IMM(221); SHIFT_IMM(222); SHIFT_IMM(223);
++                SHIFT_IMM(224); SHIFT_IMM(225); SHIFT_IMM(226); SHIFT_IMM(227); SHIFT_IMM(228); SHIFT_IMM(229); SHIFT_IMM(230); SHIFT_IMM(231);
++                SHIFT_IMM(232); SHIFT_IMM(233); SHIFT_IMM(234); SHIFT_IMM(235); SHIFT_IMM(236); SHIFT_IMM(237); SHIFT_IMM(238); SHIFT_IMM(239);
++                SHIFT_IMM(240); SHIFT_IMM(241); SHIFT_IMM(242); SHIFT_IMM(243); SHIFT_IMM(244); SHIFT_IMM(245); SHIFT_IMM(246); SHIFT_IMM(247);
++                SHIFT_IMM(248); SHIFT_IMM(249); SHIFT_IMM(250); SHIFT_IMM(251); SHIFT_IMM(252); SHIFT_IMM(253); SHIFT_IMM(254); SHIFT_IMM(255);
++            }
++#undef SHIFT_IMM
++            break;
++        case 11:
++            if(width==64)
++                __asm__ volatile("pushq %[seed]; popfq; shlq %%cl,%[left]; pushfq; popq %[flags]"
++                    : [left] "+&r"(left),[flags] "=&r"(observed)
++                    : "c"(right),[seed] "r"(seed) : "cc","memory");
++            else
++                __asm__ volatile("pushq %[seed]; popfq; shll %%cl,%k[left]; pushfq; popq %[flags]"
++                    : [left] "+&r"(left),[flags] "=&r"(observed)
++                    : "c"(right),[seed] "r"(seed) : "cc","memory");
++            break;
++        /* Rosetta can materialize undefined OF differently for immediate
++         * versus CL shifts. Execute the original immediate form, including
++         * its complete imm8 value; do not substitute a CL instruction. */
++        case 12:
++#define SHIFT_IMM(n) case n: \
++            if(width==64) \
++                __asm__ volatile("pushq %[seed]; popfq; shlq $" #n ",%[left]; pushfq; popq %[flags]" \
++                    : [left] "+&r"(left),[flags] "=&r"(observed) : [seed] "r"(seed) : "cc","memory"); \
++            else \
++                __asm__ volatile("pushq %[seed]; popfq; shll $" #n ",%k[left]; pushfq; popq %[flags]" \
++                    : [left] "+&r"(left),[flags] "=&r"(observed) : [seed] "r"(seed) : "cc","memory"); \
++            break
++            switch((unsigned int)right & 255)
++            {
++                SHIFT_IMM(0); SHIFT_IMM(1); SHIFT_IMM(2); SHIFT_IMM(3); SHIFT_IMM(4); SHIFT_IMM(5); SHIFT_IMM(6); SHIFT_IMM(7);
++                SHIFT_IMM(8); SHIFT_IMM(9); SHIFT_IMM(10); SHIFT_IMM(11); SHIFT_IMM(12); SHIFT_IMM(13); SHIFT_IMM(14); SHIFT_IMM(15);
++                SHIFT_IMM(16); SHIFT_IMM(17); SHIFT_IMM(18); SHIFT_IMM(19); SHIFT_IMM(20); SHIFT_IMM(21); SHIFT_IMM(22); SHIFT_IMM(23);
++                SHIFT_IMM(24); SHIFT_IMM(25); SHIFT_IMM(26); SHIFT_IMM(27); SHIFT_IMM(28); SHIFT_IMM(29); SHIFT_IMM(30); SHIFT_IMM(31);
++                SHIFT_IMM(32); SHIFT_IMM(33); SHIFT_IMM(34); SHIFT_IMM(35); SHIFT_IMM(36); SHIFT_IMM(37); SHIFT_IMM(38); SHIFT_IMM(39);
++                SHIFT_IMM(40); SHIFT_IMM(41); SHIFT_IMM(42); SHIFT_IMM(43); SHIFT_IMM(44); SHIFT_IMM(45); SHIFT_IMM(46); SHIFT_IMM(47);
++                SHIFT_IMM(48); SHIFT_IMM(49); SHIFT_IMM(50); SHIFT_IMM(51); SHIFT_IMM(52); SHIFT_IMM(53); SHIFT_IMM(54); SHIFT_IMM(55);
++                SHIFT_IMM(56); SHIFT_IMM(57); SHIFT_IMM(58); SHIFT_IMM(59); SHIFT_IMM(60); SHIFT_IMM(61); SHIFT_IMM(62); SHIFT_IMM(63);
++                SHIFT_IMM(64); SHIFT_IMM(65); SHIFT_IMM(66); SHIFT_IMM(67); SHIFT_IMM(68); SHIFT_IMM(69); SHIFT_IMM(70); SHIFT_IMM(71);
++                SHIFT_IMM(72); SHIFT_IMM(73); SHIFT_IMM(74); SHIFT_IMM(75); SHIFT_IMM(76); SHIFT_IMM(77); SHIFT_IMM(78); SHIFT_IMM(79);
++                SHIFT_IMM(80); SHIFT_IMM(81); SHIFT_IMM(82); SHIFT_IMM(83); SHIFT_IMM(84); SHIFT_IMM(85); SHIFT_IMM(86); SHIFT_IMM(87);
++                SHIFT_IMM(88); SHIFT_IMM(89); SHIFT_IMM(90); SHIFT_IMM(91); SHIFT_IMM(92); SHIFT_IMM(93); SHIFT_IMM(94); SHIFT_IMM(95);
++                SHIFT_IMM(96); SHIFT_IMM(97); SHIFT_IMM(98); SHIFT_IMM(99); SHIFT_IMM(100); SHIFT_IMM(101); SHIFT_IMM(102); SHIFT_IMM(103);
++                SHIFT_IMM(104); SHIFT_IMM(105); SHIFT_IMM(106); SHIFT_IMM(107); SHIFT_IMM(108); SHIFT_IMM(109); SHIFT_IMM(110); SHIFT_IMM(111);
++                SHIFT_IMM(112); SHIFT_IMM(113); SHIFT_IMM(114); SHIFT_IMM(115); SHIFT_IMM(116); SHIFT_IMM(117); SHIFT_IMM(118); SHIFT_IMM(119);
++                SHIFT_IMM(120); SHIFT_IMM(121); SHIFT_IMM(122); SHIFT_IMM(123); SHIFT_IMM(124); SHIFT_IMM(125); SHIFT_IMM(126); SHIFT_IMM(127);
++                SHIFT_IMM(128); SHIFT_IMM(129); SHIFT_IMM(130); SHIFT_IMM(131); SHIFT_IMM(132); SHIFT_IMM(133); SHIFT_IMM(134); SHIFT_IMM(135);
++                SHIFT_IMM(136); SHIFT_IMM(137); SHIFT_IMM(138); SHIFT_IMM(139); SHIFT_IMM(140); SHIFT_IMM(141); SHIFT_IMM(142); SHIFT_IMM(143);
++                SHIFT_IMM(144); SHIFT_IMM(145); SHIFT_IMM(146); SHIFT_IMM(147); SHIFT_IMM(148); SHIFT_IMM(149); SHIFT_IMM(150); SHIFT_IMM(151);
++                SHIFT_IMM(152); SHIFT_IMM(153); SHIFT_IMM(154); SHIFT_IMM(155); SHIFT_IMM(156); SHIFT_IMM(157); SHIFT_IMM(158); SHIFT_IMM(159);
++                SHIFT_IMM(160); SHIFT_IMM(161); SHIFT_IMM(162); SHIFT_IMM(163); SHIFT_IMM(164); SHIFT_IMM(165); SHIFT_IMM(166); SHIFT_IMM(167);
++                SHIFT_IMM(168); SHIFT_IMM(169); SHIFT_IMM(170); SHIFT_IMM(171); SHIFT_IMM(172); SHIFT_IMM(173); SHIFT_IMM(174); SHIFT_IMM(175);
++                SHIFT_IMM(176); SHIFT_IMM(177); SHIFT_IMM(178); SHIFT_IMM(179); SHIFT_IMM(180); SHIFT_IMM(181); SHIFT_IMM(182); SHIFT_IMM(183);
++                SHIFT_IMM(184); SHIFT_IMM(185); SHIFT_IMM(186); SHIFT_IMM(187); SHIFT_IMM(188); SHIFT_IMM(189); SHIFT_IMM(190); SHIFT_IMM(191);
++                SHIFT_IMM(192); SHIFT_IMM(193); SHIFT_IMM(194); SHIFT_IMM(195); SHIFT_IMM(196); SHIFT_IMM(197); SHIFT_IMM(198); SHIFT_IMM(199);
++                SHIFT_IMM(200); SHIFT_IMM(201); SHIFT_IMM(202); SHIFT_IMM(203); SHIFT_IMM(204); SHIFT_IMM(205); SHIFT_IMM(206); SHIFT_IMM(207);
++                SHIFT_IMM(208); SHIFT_IMM(209); SHIFT_IMM(210); SHIFT_IMM(211); SHIFT_IMM(212); SHIFT_IMM(213); SHIFT_IMM(214); SHIFT_IMM(215);
++                SHIFT_IMM(216); SHIFT_IMM(217); SHIFT_IMM(218); SHIFT_IMM(219); SHIFT_IMM(220); SHIFT_IMM(221); SHIFT_IMM(222); SHIFT_IMM(223);
++                SHIFT_IMM(224); SHIFT_IMM(225); SHIFT_IMM(226); SHIFT_IMM(227); SHIFT_IMM(228); SHIFT_IMM(229); SHIFT_IMM(230); SHIFT_IMM(231);
++                SHIFT_IMM(232); SHIFT_IMM(233); SHIFT_IMM(234); SHIFT_IMM(235); SHIFT_IMM(236); SHIFT_IMM(237); SHIFT_IMM(238); SHIFT_IMM(239);
++                SHIFT_IMM(240); SHIFT_IMM(241); SHIFT_IMM(242); SHIFT_IMM(243); SHIFT_IMM(244); SHIFT_IMM(245); SHIFT_IMM(246); SHIFT_IMM(247);
++                SHIFT_IMM(248); SHIFT_IMM(249); SHIFT_IMM(250); SHIFT_IMM(251); SHIFT_IMM(252); SHIFT_IMM(253); SHIFT_IMM(254); SHIFT_IMM(255);
++            }
++#undef SHIFT_IMM
++            break;
++        default: *result=left;*flags=initial_flags;return;
++    }
++    *result=left;*flags=(initial_flags & ~0x8d5) | (observed & 0x8d5);
++#undef ALU_CASE
++#undef ALU_ASM
++}
++static BOOL software_bridge_arithmetic(const BYTE *code,CONTEXT *c,struct software_bridge_effect *e)
++{
++    unsigned int p=0,rex=0,op,m,reg,rm,width,operation=0,dst=0,no_write=0;
++    ULONG64 left=0,right=0;LONG imm32; signed char imm8;
++    memset(e,0,sizeof(*e));
++    if(code[p]>=0x40 && code[p]<=0x4f)rex=code[p++];
++    width=(rex&8)?64:32;op=code[p++];
++    if(op>=0xb8 && op<=0xbf)
++    {
++        dst=op-0xb8+((rex&1)?8:0);if(dst==4 || (rex&6))return FALSE;
++        if(width==64){memcpy(&e->value[0],code+p,8);p+=8;}
++        else{ULONG value;memcpy(&value,code+p,4);e->value[0]=value;p+=4;}
++        e->dst=dst;e->length=p;return TRUE;
++    }
++    if(op==0x81 || op==0x83 || op==0xc1 || op==0xd3 || op==0xf7)
++    {
++        m=code[p++];if((m&0xc0)!=0xc0 || (rex&6))return FALSE;
++        operation=(m>>3)&7;dst=(m&7)+((rex&1)?8:0);
++        no_write=(op==0x81 || op==0x83) && operation==7;
++        if(dst==4 && !no_write)return FALSE;
++        left=*software_bridge_gpr(c,dst);
++        if(op==0xf7)
++        {
++            if(operation!=2)return FALSE;
++            e->value[0]=width==64?~left:(ULONG)~left;e->dst=dst;e->length=p;return TRUE;
++        }
++        if(op==0xc1 || op==0xd3)
++        {
++            if(operation!=4 && operation!=5)return FALSE;
++            operation=operation==4?(op==0xc1?12:11):(op==0xc1?10:9);
++            right=op==0xc1?code[p++]:c->Rcx;
++        }
++        else
++        {
++            if(operation==2 || operation==3)return FALSE;
++            if(op==0x83){memcpy(&imm8,code+p,1);p++;right=(LONG64)imm8;}
++            else{memcpy(&imm32,code+p,4);p+=4;right=(LONG64)imm32;}
++        }
++    }
++    else if(op==0x05 || op==0x0d || op==0x25 || op==0x2d || op==0x35 || op==0x3d)
++    {
++        if(rex&7)return FALSE;
++        operation=(op>>3)&7;dst=0;no_write=operation==7;left=c->Rax;
++        memcpy(&imm32,code+p,4);p+=4;right=(LONG64)imm32;
++    }
++    else
++    {
++        switch(op)
++        {
++            case 0x01:case 0x03:operation=0;break;
++            case 0x09:case 0x0b:operation=1;break;
++            case 0x21:case 0x23:operation=4;break;
++            case 0x29:case 0x2b:operation=5;break;
++            case 0x31:case 0x33:operation=6;break;
++            case 0x39:case 0x3b:operation=7;no_write=1;break;
++            case 0x85:operation=8;no_write=1;break;
++            default:return FALSE;
++        }
++        m=code[p++];if((m&0xc0)!=0xc0 || (rex&2))return FALSE;
++        reg=((m>>3)&7)+((rex&4)?8:0);rm=(m&7)+((rex&1)?8:0);
++        dst=(op&2)?reg:rm;right=*software_bridge_gpr(c,(op&2)?rm:reg);
++        if(dst==4 && !no_write)return FALSE;
++        left=*software_bridge_gpr(c,dst);
++    }
++    e->dst=dst;e->length=p;e->no_write=no_write;e->flags_valid=1;
++    software_bridge_alu(operation,width,left,right,c->EFlags,&e->value[0],&e->flags);
++    return TRUE;
++}
+--- a/dlls/ntdll/exception.c
++++ b/dlls/ntdll/exception.c
+@@ -189,6 +189,8 @@
+ /*******************************************************************
+  *		dispatch_exception
+  */
++#include "software_exception_chain.h"
++
+ NTSTATUS WINAPI dispatch_exception( EXCEPTION_RECORD *rec, CONTEXT *context )
+ {
+     NTSTATUS status;
+@@ -246,6 +248,14 @@
+         TRACE( " info[%ld]=%p\n", i, (void *)rec->ExceptionInformation[i] );
+     TRACE_CONTEXT( context );
+ 
++#if defined(__x86_64__) && !defined(__arm64ec__)
++    if (rec->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION && software_chain_enabled())
++    {
++        if (call_vectored_handlers_with_chain(rec, context) == EXCEPTION_CONTINUE_EXECUTION)
++            NtContinue(context, FALSE);
++    }
++    else
++#endif
+     if (call_vectored_handlers( rec, context ) == EXCEPTION_CONTINUE_EXECUTION)
+         NtContinue( context, FALSE );
+ 
+--- /dev/null
++++ b/dlls/ntdll/exception_observer.h
+@@ -0,0 +1,82 @@
++/* Local, bounded diagnostic. Observes dispatch without changing exception semantics.
++ * No game instruction, exception status or supplied CONTEXT is modified. */
++#if defined(__x86_64__) && !defined(__arm64ec__)
++static LONG observation_enabled = -1;
++static void *observation_sites[32];
++static LONG observation_counts[32];
++static LONG observation_sequence;
++
++static LONG observation_begin(EXCEPTION_RECORD *rec)
++{
++    unsigned i;
++    if (rec->ExceptionCode != STATUS_ILLEGAL_INSTRUCTION &&
++        rec->ExceptionCode != STATUS_PRIVILEGED_INSTRUCTION) return 0;
++    if (observation_enabled == -1)
++    {
++        WCHAR buffer[4];
++        UNICODE_STRING key, value;
++        RtlInitUnicodeString(&key, L"FH6_EXCEPTION_OBSERVE");
++        value.Buffer = buffer; value.Length = 0; value.MaximumLength = sizeof(buffer);
++        InterlockedCompareExchange(&observation_enabled,
++            !RtlQueryEnvironmentVariable_U(NULL, &key, &value) &&
++            value.Length == sizeof(WCHAR) && buffer[0] == '1', -1);
++    }
++    if (!observation_enabled) return 0;
++    /* Follow-up is restricted to the seven sites from the prior exception-frequency capture. */
++    {
++        static const ULONG_PTR selected[] = {0x4941fe0,0x494220c,0x44d85ad,0x44d7ff0,0x44d518c,0x44d5090,0x44d7870};
++        ULONG_PTR rva = (ULONG_PTR)rec->ExceptionAddress - (ULONG_PTR)NtCurrentTeb()->Peb->ImageBaseAddress;
++        for (i=0; i<ARRAY_SIZE(selected); ++i) if (rva == selected[i]) break;
++        if (i == ARRAY_SIZE(selected)) return 0;
++    }
++
++    /* Delay this final capture to separate startup work from the later steady workload. */
++    {
++        static LONGLONG first_tick;
++        LARGE_INTEGER tick, frequency;
++        NtQueryPerformanceCounter(&tick, &frequency);
++        InterlockedCompareExchange64(&first_tick, tick.QuadPart, 0);
++        if (tick.QuadPart - first_tick < 100 * frequency.QuadPart) return 0;
++    }
++    for (i = 0; i < ARRAY_SIZE(observation_sites); ++i)
++    {
++        void *previous = InterlockedCompareExchangePointer(&observation_sites[i], rec->ExceptionAddress, NULL);
++        if (!previous || previous == rec->ExceptionAddress)
++            return InterlockedIncrement(&observation_counts[i]) <= 4 ?
++                   InterlockedIncrement(&observation_sequence) : 0;
++    }
++    return 0;
++}
++
++static void observation_code(LONG id, const char *phase, ULONG_PTR address)
++{
++    BYTE bytes[16]; SIZE_T got = 0; unsigned i;
++    char hex[33]; static const char digits[] = "0123456789abcdef";
++    NTSTATUS status = NtReadVirtualMemory(GetCurrentProcess(), (void *)address, bytes, sizeof(bytes), &got);
++    for (i = 0; i < got && i < sizeof(bytes); ++i)
++    { hex[2*i] = digits[bytes[i] >> 4]; hex[2*i+1] = digits[bytes[i] & 15]; }
++    hex[2*i] = 0;
++    MESSAGE("EXOBS id=%ld phase=%s address=%p status=%08lx bytes=%s\n", id, phase, (void *)address, status, hex);
++}
++
++static void observation_context(LONG id, const char *phase, const CONTEXT *ctx, const CONTEXT *before)
++{
++#define OBS_REG(reg) if (!before || ctx->reg != before->reg) \
++    MESSAGE("EXOBS id=%ld phase=%s reg=" #reg " value=%016I64x\n", id, phase, (ULONGLONG)ctx->reg)
++    unsigned i;
++    OBS_REG(Rip); OBS_REG(Rsp); OBS_REG(Rax); OBS_REG(Rbx); OBS_REG(Rcx); OBS_REG(Rdx);
++    OBS_REG(Rsi); OBS_REG(Rdi); OBS_REG(Rbp); OBS_REG(R8); OBS_REG(R9); OBS_REG(R10);
++    OBS_REG(R11); OBS_REG(R12); OBS_REG(R13); OBS_REG(R14); OBS_REG(R15);
++    OBS_REG(EFlags); OBS_REG(MxCsr); OBS_REG(ContextFlags);
++    for (i=0; i<16; ++i)
++    {
++        const M128A *v = &ctx->FltSave.XmmRegisters[i];
++        const M128A *b = before ? &before->FltSave.XmmRegisters[i] : NULL;
++        if (!b || v->Low != b->Low || v->High != b->High)
++            MESSAGE("EXOBS id=%ld phase=%s xmm=%u value=%016I64x%016I64x\n", id, phase, i, (ULONGLONG)v->High, v->Low);
++    }
++#undef OBS_REG
++}
++#else
++static LONG observation_begin(EXCEPTION_RECORD *rec) { return 0; }
++#endif
+--- /dev/null
++++ b/dlls/ntdll/guaranteed_ud.h
+@@ -0,0 +1,24 @@
++/* Unprefixed first-byte proof only, for the guarded 64-bit dispatcher.
++ * D5 is AAD only when APX is absent; with APX it is the REX2 prefix.
++ * Do not add 62/C4/C5 or other prefixes without decoding their full encoding. */
++static int software_guaranteed_ud_byte(unsigned int opcode,int legacy_d5)
++{
++    switch(opcode)
++    {
++        case 0x06:case 0x07:case 0x0e:case 0x16:case 0x17:case 0x1e:case 0x1f:
++        case 0x27:case 0x2f:case 0x37:case 0x3f:case 0x60:case 0x61:case 0xce:
++        case 0xea:case 0x9a:case 0xd4:return 1;
++        case 0xd5:return legacy_d5;
++        default:return 0;
++    }
++}
++static int software_legacy_d5_available(void)
++{
++    unsigned int a,b,c,d;
++    __asm__ volatile("cpuid":"=a"(a),"=b"(b),"=c"(c),"=d"(d):"a"(0),"c"(0));
++    if(a<7)return 1;
++    __asm__ volatile("cpuid":"=a"(a),"=b"(b),"=c"(c),"=d"(d):"a"(7),"c"(0));
++    if(a<1)return 1;
++    __asm__ volatile("cpuid":"=a"(a),"=b"(b),"=c"(c),"=d"(d):"a"(7),"c"(1));
++    return !(d & (1u<<21)); /* Intel APX_F: CPUID.7.1:EDX[21]. */
++}
+--- a/dlls/ntdll/ntdll.spec
++++ b/dlls/ntdll/ntdll.spec
+@@ -1771,3 +1771,18 @@
+ 
+ # CW HACK 22435
+ @ stdcall __wine_unix_call(int64 long ptr) __wine_unix_call_exported
++
++@ extern -arch=x86_64 __wine_software_exception_chain_stats
++
++@ extern -arch=x86_64 __wine_software_exception_chain_diagnostics
++
++@ extern -arch=x86_64 __wine_software_exception_bridge_census
++
++@ extern -arch=x86_64 __wine_software_exception_chain_configuration
++@ stdcall -arch=x86_64 __wine_software_exception_chain_context_valid(long)
++
++@ extern -arch=x86_64 __wine_exception_burst_control
++@ extern -arch=x86_64 __wine_exception_burst_records
++
++@ extern -arch=x86_64 __wine_bridge_refusal_control
++@ extern -arch=x86_64 __wine_bridge_refusal_records
+--- /dev/null
++++ b/dlls/ntdll/refusal_trace.inc
+@@ -0,0 +1,39 @@
++/* Diagnostic-only bounded trace. Existing validator bytes/results are copied;
++ * no extra guest reads, handler calls, memory queries or context changes.
++ * Publication follows the PE timing recorder: reserve, populate, ready, drain.
++ * control: opt-in, reserved count, dropped, active, capacity, record size,
++ * version, reserved. All storage is prefaulted before the capture window. */
++#define REFUSAL_CAPACITY 262144
++LONG64 __wine_bridge_refusal_control[8]={0,0,0,0,REFUSAL_CAPACITY,80,1,0};
++struct bridge_refusal_record
++{
++    LONG64 begin,end;
++    ULONG64 rip,target;
++    BYTE code[16];
++    ULONG64 detail;
++    ULONG tid,outcome,valid,length,next;
++    LONG ready;
++};
++C_ASSERT(sizeof(struct bridge_refusal_record)==80);
++struct bridge_refusal_record __wine_bridge_refusal_records[REFUSAL_CAPACITY];
++extern LONG64 __wine_exception_burst_control[8];
++static LONG64 burst_clock(void);
++static struct bridge_refusal_record *bridge_refusal_begin(CONTEXT *context)
++{
++    LONG64 index;struct bridge_refusal_record *r;
++    if(!__wine_bridge_refusal_control[0] || !__wine_exception_burst_control[0])return NULL;
++    InterlockedIncrement64(&__wine_bridge_refusal_control[3]);
++    if(!__wine_bridge_refusal_control[0] || !__wine_exception_burst_control[0])goto unreserved;
++    index=InterlockedIncrement64(&__wine_bridge_refusal_control[1])-1;
++    if(index>=REFUSAL_CAPACITY){InterlockedIncrement64(&__wine_bridge_refusal_control[2]);goto unreserved;}
++    r=&__wine_bridge_refusal_records[index];r->begin=burst_clock();r->rip=context->Rip;
++    r->tid=HandleToULong(NtCurrentTeb()->ClientId.UniqueThread);return r;
++unreserved:
++    InterlockedDecrement64(&__wine_bridge_refusal_control[3]);return NULL;
++}
++static void bridge_refusal_end(struct bridge_refusal_record *r,ULONG outcome,ULONG64 detail)
++{
++    if(!r)return;
++    r->outcome=outcome;r->detail=detail;r->end=burst_clock();
++    InterlockedExchange(&r->ready,1);InterlockedDecrement64(&__wine_bridge_refusal_control[3]);
++}
+--- /dev/null
++++ b/dlls/ntdll/register_extra.inc
+@@ -0,0 +1,78 @@
++/* Staged register-only extensions. No guest memory access or context mutation.
++ * A single canonical REX and default 64-bit address size are supported; other
++ * prefixes and stack destinations retain ordinary execution. */
++static BOOL software_bridge_extra(const BYTE *code, CONTEXT *c, struct software_bridge_effect *e)
++{
++    unsigned int p=0,rex=0,op,m,mod,reg,rm,dst,width,shift=0,srcshift=0;
++    ULONG64 value=0,left,right=0,seed,observed;
++    LONG disp32; signed char disp8;
++    memset(e,0,sizeof(*e));
++    if(code[p]>=0x40 && code[p]<=0x4f)rex=code[p++];
++    op=code[p++];
++    if(op!=0x8d && op!=0xff && op!=0x30 && op!=0x32 && op!=0x84)return FALSE;
++    m=code[p++];mod=m>>6;reg=((m>>3)&7)+((rex&4)?8:0);rm=(m&7)+((rex&1)?8:0);
++    if(op==0x8d)
++    {
++        BOOL rip_relative=FALSE;
++        if(mod==3 || reg==4)return FALSE;
++        if((m&7)==4)
++        {
++            unsigned int sib=code[p++],base=(sib&7)+((rex&1)?8:0);
++            unsigned int index=((sib>>3)&7)+((rex&2)?8:0);
++            if(index!=4)value=*software_bridge_gpr(c,index) << (sib>>6);
++            if(mod==0 && (sib&7)==5)
++            {memcpy(&disp32,code+p,4);p+=4;value+=(LONG64)disp32;}
++            else value+=*software_bridge_gpr(c,base);
++        }
++        else if(mod==0 && (m&7)==5)
++        {memcpy(&disp32,code+p,4);p+=4;value=(LONG64)disp32;rip_relative=TRUE;}
++        else value=*software_bridge_gpr(c,rm);
++        if(mod==1){memcpy(&disp8,code+p,1);p++;value+=(LONG64)disp8;}
++        else if(mod==2){memcpy(&disp32,code+p,4);p+=4;value+=(LONG64)disp32;}
++        if(rip_relative)value+=c->Rip+p;
++        e->length=p;e->dst=reg;e->value[0]=(rex&8)?value:(ULONG)value;
++        return TRUE;
++    }
++    if(mod!=3)return FALSE;
++    if(op==0xff)
++    {
++        if(((m>>3)&7)!=0 || (rex&6) || rm==4)return FALSE;
++        dst=rm;width=(rex&8)?64:32;left=*software_bridge_gpr(c,dst);
++    }
++    else
++    {
++        unsigned int src;
++        dst=op==0x32?reg:rm;src=op==0x32?rm:reg;
++        if(!rex && dst>=4){dst-=4;shift=8;}
++        if(!rex && src>=4){src-=4;srcshift=8;}
++        if(dst==4 && op!=0x84)return FALSE;
++        left=(*software_bridge_gpr(c,dst)>>shift)&255;
++        right=(*software_bridge_gpr(c,src)>>srcshift)&255;width=8;
++    }
++    __asm__ volatile("pushfq; popq %0":"=r"(seed)::"memory");
++    seed=(seed & ~(ULONG64)0x8d5) | (c->EFlags & 0x8d5);
++    if(op==0xff)
++    {
++        if(width==64)
++            __asm__ volatile("pushq %[seed]; popfq; incq %[left]; pushfq; popq %[flags]"
++                :[left]"+&r"(left),[flags]"=&r"(observed):[seed]"r"(seed):"cc","memory");
++        else
++            __asm__ volatile("pushq %[seed]; popfq; incl %k[left]; pushfq; popq %[flags]"
++                :[left]"+&r"(left),[flags]"=&r"(observed):[seed]"r"(seed):"cc","memory");
++        e->value[0]=width==64?left:(ULONG)left;
++    }
++    else
++    {
++        if(op==0x84)
++            __asm__ volatile("pushq %[seed]; popfq; testb %b[right],%b[left]; pushfq; popq %[flags]"
++                :[left]"+&r"(left),[flags]"=&r"(observed):[right]"r"(right),[seed]"r"(seed):"cc","memory");
++        else
++            __asm__ volatile("pushq %[seed]; popfq; xorb %b[right],%b[left]; pushfq; popq %[flags]"
++                :[left]"+&r"(left),[flags]"=&r"(observed):[right]"r"(right),[seed]"r"(seed):"cc","memory");
++        e->value[0]=(*software_bridge_gpr(c,dst)&~((ULONG64)255<<shift))|((left&255)<<shift);
++        e->no_write=op==0x84;
++    }
++    e->length=p;e->dst=dst;e->flags_valid=1;
++    e->flags=(c->EFlags&~0x8d5)|(observed&0x8d5);
++    return TRUE;
++}
+--- /dev/null
++++ b/dlls/ntdll/register_mul.inc
+@@ -0,0 +1,35 @@
++/* Experimental register-only unsigned MUL. No guest memory access and no
++ * context mutation. Both implicit destinations and flags are staged together.
++ * Execute MUL on temporary operands so runtime-observed undefined arithmetic
++ * flags are captured as well; full equivalence still requires the real-opcode
++ * oracle under the target Wine/Rosetta runtime before deployment. */
++static BOOL software_bridge_mul(const BYTE *code, CONTEXT *c, struct software_bridge_effect *e)
++{
++    unsigned int p=0,rex=0,m,src,width;
++    ULONG64 low,high,right,seed,observed;
++    memset(e,0,sizeof(*e));
++    if(code[p]>=0x40 && code[p]<=0x4f)rex=code[p++];
++    if(code[p++]!=0xf7)return FALSE;
++    m=code[p++];
++    /* F7 /4, canonical REX.W/B only. Memory, other operations, operand-size
++     * prefixes and stack-source forms remain on the ordinary path. */
++    if((m&0xf8)!=0xe0 || (rex&6))return FALSE;
++    src=(m&7)+((rex&1)?8:0);
++    if(src==4)return FALSE;
++    width=(rex&8)?64:32;
++    low=c->Rax;right=*software_bridge_gpr(c,src);
++    __asm__ volatile("pushfq; popq %0":"=r"(seed)::"memory");
++    seed=(seed&~(ULONG64)0x8d5)|(c->EFlags&0x8d5);
++    if(width==64)
++        __asm__ volatile("pushq %[seed]; popfq; mulq %[right]; pushfq; popq %[flags]"
++            :[low]"+&a"(low),[high]"=&d"(high),[flags]"=&r"(observed)
++            :[right]"r"(right),[seed]"r"(seed):"cc","memory");
++    else
++        __asm__ volatile("pushq %[seed]; popfq; mull %k[right]; pushfq; popq %[flags]"
++            :[low]"+&a"(low),[high]"=&d"(high),[flags]"=&r"(observed)
++            :[right]"r"(right),[seed]"r"(seed):"cc","memory");
++    e->length=p;e->dst=0;e->value[0]=width==64?low:(ULONG)low;
++    e->gpr2_valid=1;e->gpr2_dst=2;e->gpr2_value=width==64?high:(ULONG)high;
++    e->flags_valid=1;e->flags=(c->EFlags&~0x8d5)|(observed&0x8d5);
++    return TRUE;
++}
+--- /dev/null
++++ b/dlls/ntdll/software_exception_chain.h
+@@ -0,0 +1,762 @@
++/* Experimental opt-in PE dispatcher optimization, not enabled in normal runners.
++ * Re-dispatch only a known unconditional one-byte #UD after a handled #UD.
++ * Original instructions and handler effects remain intact. No result is cached.
++ * A separate explicit-context prototype does not establish this path's correctness:
++ * nested dispatch, extended state and real-game behavior still require testing. */
++#if defined(__x86_64__) && !defined(__arm64ec__)
++/* Public only in this experimental DLL, for the authored validation probe.
++ * [0] eligible deliveries, [1] synthesized links, [2] bounded-chain exits. */
++LONG64 __wine_software_exception_chain_stats[6];
++/* Readable activation state, even when all hot-path aggregate counters are off. */
++LONG __wine_software_exception_chain_configuration[4] = {-1, -1, -1, -1};
++#define software_chain_mode __wine_software_exception_chain_configuration[0]
++#define software_chain_statistics __wine_software_exception_chain_configuration[1]
++#define software_bridge_resume __wine_software_exception_chain_configuration[2]
++#define software_alu_enabled __wine_software_exception_chain_configuration[3]
++#include "guaranteed_ud.h"
++static LONG software_legacy_d5;
++
++/* The fast path reads every group below; equality of two incomplete contexts
++ * does not make absent fields valid. An unsupported context uses normal dispatch. */
++BOOL WINAPI __wine_software_exception_chain_context_valid( DWORD flags )
++{
++    const DWORD required = CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS |
++                           CONTEXT_FLOATING_POINT | CONTEXT_DEBUG_REGISTERS;
++    return (flags & required) == required;
++}
++
++static void software_chain_count( unsigned int index )
++{
++    if (software_chain_statistics) InterlockedIncrement64(&__wine_software_exception_chain_stats[index]);
++}
++
++static void burst_configure(void);
++
++static BOOL software_chain_enabled(void)
++{
++    LONG mode = software_chain_mode;
++    if (mode == -1)
++    {
++        WCHAR buffer[16];
++        UNICODE_STRING name = RTL_CONSTANT_STRING(L"WINE_SOFTWARE_EXCEPTION_CHAIN");
++        UNICODE_STRING value = {0, sizeof(buffer), buffer};
++        IMAGE_NT_HEADERS *nt = RtlImageNtHeader(NtCurrentTeb()->Peb->ImageBaseAddress);
++        UNICODE_STRING *path = &NtCurrentTeb()->Peb->ProcessParameters->ImagePathName;
++        UNICODE_STRING base = *path;
++        UNICODE_STRING probe = RTL_CONSTANT_STRING(L"exception_chain_probe.exe");
++        UNICODE_STRING game = RTL_CONSTANT_STRING(L"forzahorizon6.exe");
++        unsigned int i;
++        LONG statistics = 1, resume_bridge = 0;
++        mode = 0;
++        for (i = 0; i < path->Length / sizeof(WCHAR); ++i)
++            if (path->Buffer[i] == '\\' || path->Buffer[i] == '/')
++            {
++                base.Buffer = path->Buffer + i + 1;
++                base.Length = path->Length - (i + 1) * sizeof(WCHAR);
++            }
++        base.MaximumLength = base.Length;
++        if (nt)
++        {
++            NTSTATUS chain_status = RtlQueryEnvironmentVariable_U(NULL, &name, &value);
++            BOOL chain_set = !chain_status;
++            if (chain_set && value.Length == 5 * sizeof(WCHAR) && !memcmp(buffer, L"probe", value.Length)
++                && RtlEqualUnicodeString(&base, &probe, TRUE)) mode = 1;
++            if (chain_set && value.Length == 11 * sizeof(WCHAR) && !memcmp(buffer, L"probe-clean", value.Length)
++                && RtlEqualUnicodeString(&base, &probe, TRUE)) mode = 3;
++            /* Header guard is additional to deployment's full executable SHA256.
++             * No fixed instruction RVA is used by this optimization.
++             * The guarded FH6 build has the chain by default: the variable
++             * absent or "1" turns it on, any other value ("0") leaves it off. */
++            if ((chain_status == STATUS_VARIABLE_NOT_FOUND
++                 || (chain_set && value.Length == 1 * sizeof(WCHAR) && buffer[0] == '1'))
++                && RtlEqualUnicodeString(&base, &game, TRUE)
++                && nt->FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64
++                && nt->FileHeader.TimeDateStamp == 0x6aea6132
++                && nt->OptionalHeader.SizeOfImage == 0x0b3fd000
++                && nt->OptionalHeader.CheckSum == 0x0afc4fc1) mode = 2;
++        }
++        {
++            UNICODE_STRING stats_name = RTL_CONSTANT_STRING(L"WINE_SOFTWARE_EXCEPTION_STATS");
++            value.Length = 0;
++            if (!RtlQueryEnvironmentVariable_U(NULL, &stats_name, &value)
++                && value.Length == sizeof(WCHAR) && buffer[0] == '0') statistics = 0;
++        }
++        {
++            UNICODE_STRING resume_name = RTL_CONSTANT_STRING(L"WINE_SOFTWARE_BRIDGE_RESUME");
++            value.Length = 0;
++            if (!RtlQueryEnvironmentVariable_U(NULL, &resume_name, &value)
++                && value.Length == sizeof(WCHAR) && buffer[0] == '1') resume_bridge = 1;
++        }
++        {
++            /* On wherever the chain is on; WINE_SOFTWARE_ALU_BRIDGE=0 or 1 overrides. */
++            LONG enabled=(mode==1 || mode==2 || mode==3);
++            UNICODE_STRING alu_name = RTL_CONSTANT_STRING(L"WINE_SOFTWARE_ALU_BRIDGE");
++            value.Length=0;
++            if(!RtlQueryEnvironmentVariable_U(NULL,&alu_name,&value) && value.Length==sizeof(WCHAR))
++            {
++                if(buffer[0]=='0')enabled=0;
++                else if(buffer[0]=='1')enabled=1;
++            }
++            InterlockedCompareExchange(&software_alu_enabled,enabled,-1);
++        }
++        InterlockedExchange(&software_legacy_d5,software_legacy_d5_available());
++        InterlockedCompareExchange(&software_bridge_resume, resume_bridge, -1);
++        /* Publish policy before the mode. Every initializer reads the same
++         * immutable startup environment; no per-exception environment lookup. */
++        InterlockedCompareExchange(&software_chain_statistics, statistics, -1);
++        InterlockedCompareExchange(&software_chain_mode, mode, -1);
++        mode = software_chain_mode;
++    }
++    if (mode) burst_configure();
++    return mode != 0 && !NtCurrentTeb()->Peb->BeingDebugged;
++}
++
++
++/* Bounded in-memory diagnostic. No synchronous per-exception log output.
++ * Per row: thread ID, then twenty {count, before RIP, after RIP, a, b} groups.
++ * Reasons are mutually exclusive first-exit reasons, not independent predicates.
++ * These captures are for classification, not unbiased performance measurement. */
++LONG64 __wine_software_exception_chain_diagnostics[64][101];
++static LONG64 *software_chain_diag_row(void)
++{
++    LONG64 tid;
++    unsigned int i;
++    /* Detailed diagnostics are private-probe-only in this build. FH6 keeps
++     * aggregate counters but performs no per-thread scan or opcode census. */
++    if (software_chain_mode != 1) return NULL;
++    tid = HandleToULong(NtCurrentTeb()->ClientId.UniqueThread);
++    for (i=0;i<64;i++)
++    {
++        LONG64 seen=InterlockedCompareExchange64(&__wine_software_exception_chain_diagnostics[i][0],tid,0);
++        if (!seen || seen==tid) return __wine_software_exception_chain_diagnostics[i];
++    }
++    return NULL;
++}
++static void software_chain_diag(LONG64 *row,unsigned int reason,const CONTEXT *before,
++                                const CONTEXT *after,ULONG64 a,ULONG64 b)
++{
++    LONG64 *p;
++    if (!row) return;
++    p=row+1+reason*5;
++    if (InterlockedIncrement64(p)==1)
++    {
++        p[1]=before->Rip; p[2]=after->Rip; p[3]=a; p[4]=b;
++    }
++}
++static unsigned int software_chain_state_reason(const CONTEXT *before,const CONTEXT *after,
++                                                ULONG64 *a,ULONG64 *b)
++{
++    const DWORD arithmetic_and_direction=0xcd5;
++    USHORT current_cs;
++    __asm__("movw %%cs,%0":"=r"(current_cs));
++#define REJECT_IF(test,reason,x,y) if(test){*a=(x);*b=(y);return reason;}
++    REJECT_IF(!__wine_software_exception_chain_context_valid(before->ContextFlags)
++        || !__wine_software_exception_chain_context_valid(after->ContextFlags),7,before->ContextFlags,after->ContextFlags);
++    REJECT_IF(after->SegCs!=current_cs,5,current_cs,after->SegCs);
++    REJECT_IF(before->Rsp!=after->Rsp,6,before->Rsp,after->Rsp);
++    REJECT_IF(before->ContextFlags!=after->ContextFlags,7,before->ContextFlags,after->ContextFlags);
++    REJECT_IF((after->ContextFlags & CONTEXT_XSTATE)==CONTEXT_XSTATE,8,before->ContextFlags,after->ContextFlags);
++    REJECT_IF(after->EFlags & 0x100,9,before->EFlags,after->EFlags);
++    REJECT_IF((before->EFlags ^ after->EFlags) & ~arithmetic_and_direction,10,before->EFlags,after->EFlags);
++    REJECT_IF(after->Dr7 & 0x20ff,11,before->Dr7,after->Dr7);
++    REJECT_IF(before->Dr0!=after->Dr0 || before->Dr1!=after->Dr1 || before->Dr2!=after->Dr2
++        || before->Dr3!=after->Dr3 || before->Dr6!=after->Dr6 || before->Dr7!=after->Dr7,12,before->Dr7,after->Dr7);
++    REJECT_IF(before->SegCs!=after->SegCs || before->SegSs!=after->SegSs || before->SegDs!=after->SegDs
++        || before->SegEs!=after->SegEs || before->SegFs!=after->SegFs || before->SegGs!=after->SegGs,13,before->SegSs,after->SegSs);
++    REJECT_IF(before->MxCsr!=after->MxCsr || memcmp(&before->FltSave,&after->FltSave,sizeof(after->FltSave)),14,before->MxCsr,after->MxCsr);
++#undef REJECT_IF
++    return 0;
++}
++
++
++/* Diagnostic-only bounded trace. Existing validator bytes/results are copied;
++ * no extra guest reads, handler calls, memory queries or context changes.
++ * Publication follows the PE timing recorder: reserve, populate, ready, drain.
++ * control: opt-in, reserved count, dropped, active, capacity, record size,
++ * version, reserved. All storage is prefaulted before the capture window. */
++#define REFUSAL_CAPACITY 262144
++LONG64 __wine_bridge_refusal_control[8]={0,0,0,0,REFUSAL_CAPACITY,80,1,0};
++struct bridge_refusal_record
++{
++    LONG64 begin,end;
++    ULONG64 rip,target;
++    BYTE code[16];
++    ULONG64 detail;
++    ULONG tid,outcome,valid,length,next;
++    LONG ready;
++};
++C_ASSERT(sizeof(struct bridge_refusal_record)==80);
++struct bridge_refusal_record __wine_bridge_refusal_records[REFUSAL_CAPACITY];
++extern LONG64 __wine_exception_burst_control[8];
++static LONG64 burst_clock(void);
++static struct bridge_refusal_record *bridge_refusal_begin(CONTEXT *context)
++{
++    LONG64 index;struct bridge_refusal_record *r;
++    if(!__wine_bridge_refusal_control[0] || !__wine_exception_burst_control[0])return NULL;
++    InterlockedIncrement64(&__wine_bridge_refusal_control[3]);
++    if(!__wine_bridge_refusal_control[0] || !__wine_exception_burst_control[0])goto unreserved;
++    index=InterlockedIncrement64(&__wine_bridge_refusal_control[1])-1;
++    if(index>=REFUSAL_CAPACITY){InterlockedIncrement64(&__wine_bridge_refusal_control[2]);goto unreserved;}
++    r=&__wine_bridge_refusal_records[index];r->begin=burst_clock();r->rip=context->Rip;
++    r->tid=HandleToULong(NtCurrentTeb()->ClientId.UniqueThread);return r;
++unreserved:
++    InterlockedDecrement64(&__wine_bridge_refusal_control[3]);return NULL;
++}
++static void bridge_refusal_end(struct bridge_refusal_record *r,ULONG outcome,ULONG64 detail)
++{
++    if(!r)return;
++    r->outcome=outcome;r->detail=detail;r->end=burst_clock();
++    InterlockedExchange(&r->ready,1);InterlockedDecrement64(&__wine_bridge_refusal_control[3]);
++}
++
++/* Diagnostic census reads bytes at handler-return time. Opcode family buckets
++ * ignore operand-size/REX prefixes for grouping only, not for execution.
++ * [attempts, accepted, template refusal, target refusal, data refusal, RIP, bytes0, bytes1]. */
++LONG64 __wine_software_exception_bridge_census[64][512][8];
++static LONG64 *software_bridge_census(CONTEXT *context,LONG64 *row)
++{
++    BYTE code[16];SIZE_T bytes;unsigned int n=0,key;LONG64 *entry;
++    if(!row || NtReadVirtualMemory(GetCurrentProcess(),(void*)context->Rip,code,sizeof code,&bytes) || bytes!=sizeof code)return NULL;
++    while(n<8 && ((code[n]>=0x40 && code[n]<=0x4f) || code[n]==0x66 || code[n]==0xf2 || code[n]==0xf3))n++;
++    key=code[n]==0x0f?256+code[n+1]:code[n];
++    entry=__wine_software_exception_bridge_census[(row-&__wine_software_exception_chain_diagnostics[0][0])/101][key];
++    if(InterlockedIncrement64(entry)==1){entry[5]=context->Rip;memcpy(entry+6,code,16);}
++    return entry;
++}
++
++/* No-flag-change register bridge evaluator. Supports only complete canonical
++ * legacy encodings with register operands; never executes a memory store.
++ * Effects remain staged until the current relative-jump target is validated. */
++struct software_bridge_effect {unsigned int length,dst,vector,no_write,flags_valid;DWORD flags;ULONG64 value[2];unsigned int gpr2_valid,gpr2_dst;ULONG64 gpr2_value;};
++static ULONG64 *software_bridge_gpr(CONTEXT *c,unsigned int n)
++{
++    switch(n){case 0:return &c->Rax;case 1:return &c->Rcx;case 2:return &c->Rdx;case 3:return &c->Rbx;
++    case 4:return &c->Rsp;case 5:return &c->Rbp;case 6:return &c->Rsi;case 7:return &c->Rdi;
++    case 8:return &c->R8;case 9:return &c->R9;case 10:return &c->R10;case 11:return &c->R11;
++    case 12:return &c->R12;case 13:return &c->R13;case 14:return &c->R14;case 15:return &c->R15;default:return NULL;}
++}
++#include "register_extra.inc"
++#include "register_mul.inc"
++
++/* Execute register-only arithmetic on temporary values. Seed only arithmetic
++ * flags: never load guest TF/DF/IF or other control bits into the host handler.
++ * The operation and PUSHFQ materialization run in one asm block so undefined
++ * arithmetic bits follow this x86 runtime too, rather than invented C values.
++ * No guest context effects are committed until the existing jump/target checks
++ * succeed. Unsupported widths, memory operands, stack writes and prefixes fall
++ * back unchanged. */
++static void software_bridge_alu(unsigned int operation,unsigned int width,
++                                ULONG64 left,ULONG64 right,DWORD initial_flags,
++                                ULONG64 *result,DWORD *flags)
++{
++    ULONG64 seed, observed;
++    __asm__ volatile("pushfq; popq %0" : "=r"(seed) :: "memory");
++    seed=(seed & ~(ULONG64)0x8d5) | (initial_flags & 0x8d5);
++#define ALU_ASM(insn,suffix,operand) \
++    __asm__ volatile("pushq %[seed]; popfq; " insn suffix " " operand "; pushfq; popq %[flags]" \
++                     : [left] "+&r"(left), [flags] "=&r"(observed) \
++                     : [right] "r"(right), [seed] "r"(seed) : "cc","memory")
++#define ALU_CASE(op,insn) case op: if(width==64){ALU_ASM(insn,"q","%[right],%[left]");} \
++                                  else{ALU_ASM(insn,"l","%k[right],%k[left]");} break
++    switch(operation)
++    {
++        ALU_CASE(0,"add"); ALU_CASE(1,"or"); ALU_CASE(4,"and");
++        ALU_CASE(5,"sub"); ALU_CASE(6,"xor"); ALU_CASE(7,"cmp");
++        ALU_CASE(8,"test");
++        case 9:
++            if(width==64)
++                __asm__ volatile("pushq %[seed]; popfq; shrq %%cl,%[left]; pushfq; popq %[flags]"
++                    : [left] "+&r"(left),[flags] "=&r"(observed)
++                    : "c"(right),[seed] "r"(seed) : "cc","memory");
++            else
++                __asm__ volatile("pushq %[seed]; popfq; shrl %%cl,%k[left]; pushfq; popq %[flags]"
++                    : [left] "+&r"(left),[flags] "=&r"(observed)
++                    : "c"(right),[seed] "r"(seed) : "cc","memory");
++            break;
++        /* Rosetta can materialize undefined OF differently for immediate
++         * versus CL shifts. Execute the original immediate form, including
++         * its complete imm8 value; do not substitute a CL instruction. */
++        case 10:
++#define SHIFT_IMM(n) case n: \
++            if(width==64) \
++                __asm__ volatile("pushq %[seed]; popfq; shrq $" #n ",%[left]; pushfq; popq %[flags]" \
++                    : [left] "+&r"(left),[flags] "=&r"(observed) : [seed] "r"(seed) : "cc","memory"); \
++            else \
++                __asm__ volatile("pushq %[seed]; popfq; shrl $" #n ",%k[left]; pushfq; popq %[flags]" \
++                    : [left] "+&r"(left),[flags] "=&r"(observed) : [seed] "r"(seed) : "cc","memory"); \
++            break
++            switch((unsigned int)right & 255)
++            {
++                SHIFT_IMM(0); SHIFT_IMM(1); SHIFT_IMM(2); SHIFT_IMM(3); SHIFT_IMM(4); SHIFT_IMM(5); SHIFT_IMM(6); SHIFT_IMM(7);
++                SHIFT_IMM(8); SHIFT_IMM(9); SHIFT_IMM(10); SHIFT_IMM(11); SHIFT_IMM(12); SHIFT_IMM(13); SHIFT_IMM(14); SHIFT_IMM(15);
++                SHIFT_IMM(16); SHIFT_IMM(17); SHIFT_IMM(18); SHIFT_IMM(19); SHIFT_IMM(20); SHIFT_IMM(21); SHIFT_IMM(22); SHIFT_IMM(23);
++                SHIFT_IMM(24); SHIFT_IMM(25); SHIFT_IMM(26); SHIFT_IMM(27); SHIFT_IMM(28); SHIFT_IMM(29); SHIFT_IMM(30); SHIFT_IMM(31);
++                SHIFT_IMM(32); SHIFT_IMM(33); SHIFT_IMM(34); SHIFT_IMM(35); SHIFT_IMM(36); SHIFT_IMM(37); SHIFT_IMM(38); SHIFT_IMM(39);
++                SHIFT_IMM(40); SHIFT_IMM(41); SHIFT_IMM(42); SHIFT_IMM(43); SHIFT_IMM(44); SHIFT_IMM(45); SHIFT_IMM(46); SHIFT_IMM(47);
++                SHIFT_IMM(48); SHIFT_IMM(49); SHIFT_IMM(50); SHIFT_IMM(51); SHIFT_IMM(52); SHIFT_IMM(53); SHIFT_IMM(54); SHIFT_IMM(55);
++                SHIFT_IMM(56); SHIFT_IMM(57); SHIFT_IMM(58); SHIFT_IMM(59); SHIFT_IMM(60); SHIFT_IMM(61); SHIFT_IMM(62); SHIFT_IMM(63);
++                SHIFT_IMM(64); SHIFT_IMM(65); SHIFT_IMM(66); SHIFT_IMM(67); SHIFT_IMM(68); SHIFT_IMM(69); SHIFT_IMM(70); SHIFT_IMM(71);
++                SHIFT_IMM(72); SHIFT_IMM(73); SHIFT_IMM(74); SHIFT_IMM(75); SHIFT_IMM(76); SHIFT_IMM(77); SHIFT_IMM(78); SHIFT_IMM(79);
++                SHIFT_IMM(80); SHIFT_IMM(81); SHIFT_IMM(82); SHIFT_IMM(83); SHIFT_IMM(84); SHIFT_IMM(85); SHIFT_IMM(86); SHIFT_IMM(87);
++                SHIFT_IMM(88); SHIFT_IMM(89); SHIFT_IMM(90); SHIFT_IMM(91); SHIFT_IMM(92); SHIFT_IMM(93); SHIFT_IMM(94); SHIFT_IMM(95);
++                SHIFT_IMM(96); SHIFT_IMM(97); SHIFT_IMM(98); SHIFT_IMM(99); SHIFT_IMM(100); SHIFT_IMM(101); SHIFT_IMM(102); SHIFT_IMM(103);
++                SHIFT_IMM(104); SHIFT_IMM(105); SHIFT_IMM(106); SHIFT_IMM(107); SHIFT_IMM(108); SHIFT_IMM(109); SHIFT_IMM(110); SHIFT_IMM(111);
++                SHIFT_IMM(112); SHIFT_IMM(113); SHIFT_IMM(114); SHIFT_IMM(115); SHIFT_IMM(116); SHIFT_IMM(117); SHIFT_IMM(118); SHIFT_IMM(119);
++                SHIFT_IMM(120); SHIFT_IMM(121); SHIFT_IMM(122); SHIFT_IMM(123); SHIFT_IMM(124); SHIFT_IMM(125); SHIFT_IMM(126); SHIFT_IMM(127);
++                SHIFT_IMM(128); SHIFT_IMM(129); SHIFT_IMM(130); SHIFT_IMM(131); SHIFT_IMM(132); SHIFT_IMM(133); SHIFT_IMM(134); SHIFT_IMM(135);
++                SHIFT_IMM(136); SHIFT_IMM(137); SHIFT_IMM(138); SHIFT_IMM(139); SHIFT_IMM(140); SHIFT_IMM(141); SHIFT_IMM(142); SHIFT_IMM(143);
++                SHIFT_IMM(144); SHIFT_IMM(145); SHIFT_IMM(146); SHIFT_IMM(147); SHIFT_IMM(148); SHIFT_IMM(149); SHIFT_IMM(150); SHIFT_IMM(151);
++                SHIFT_IMM(152); SHIFT_IMM(153); SHIFT_IMM(154); SHIFT_IMM(155); SHIFT_IMM(156); SHIFT_IMM(157); SHIFT_IMM(158); SHIFT_IMM(159);
++                SHIFT_IMM(160); SHIFT_IMM(161); SHIFT_IMM(162); SHIFT_IMM(163); SHIFT_IMM(164); SHIFT_IMM(165); SHIFT_IMM(166); SHIFT_IMM(167);
++                SHIFT_IMM(168); SHIFT_IMM(169); SHIFT_IMM(170); SHIFT_IMM(171); SHIFT_IMM(172); SHIFT_IMM(173); SHIFT_IMM(174); SHIFT_IMM(175);
++                SHIFT_IMM(176); SHIFT_IMM(177); SHIFT_IMM(178); SHIFT_IMM(179); SHIFT_IMM(180); SHIFT_IMM(181); SHIFT_IMM(182); SHIFT_IMM(183);
++                SHIFT_IMM(184); SHIFT_IMM(185); SHIFT_IMM(186); SHIFT_IMM(187); SHIFT_IMM(188); SHIFT_IMM(189); SHIFT_IMM(190); SHIFT_IMM(191);
++                SHIFT_IMM(192); SHIFT_IMM(193); SHIFT_IMM(194); SHIFT_IMM(195); SHIFT_IMM(196); SHIFT_IMM(197); SHIFT_IMM(198); SHIFT_IMM(199);
++                SHIFT_IMM(200); SHIFT_IMM(201); SHIFT_IMM(202); SHIFT_IMM(203); SHIFT_IMM(204); SHIFT_IMM(205); SHIFT_IMM(206); SHIFT_IMM(207);
++                SHIFT_IMM(208); SHIFT_IMM(209); SHIFT_IMM(210); SHIFT_IMM(211); SHIFT_IMM(212); SHIFT_IMM(213); SHIFT_IMM(214); SHIFT_IMM(215);
++                SHIFT_IMM(216); SHIFT_IMM(217); SHIFT_IMM(218); SHIFT_IMM(219); SHIFT_IMM(220); SHIFT_IMM(221); SHIFT_IMM(222); SHIFT_IMM(223);
++                SHIFT_IMM(224); SHIFT_IMM(225); SHIFT_IMM(226); SHIFT_IMM(227); SHIFT_IMM(228); SHIFT_IMM(229); SHIFT_IMM(230); SHIFT_IMM(231);
++                SHIFT_IMM(232); SHIFT_IMM(233); SHIFT_IMM(234); SHIFT_IMM(235); SHIFT_IMM(236); SHIFT_IMM(237); SHIFT_IMM(238); SHIFT_IMM(239);
++                SHIFT_IMM(240); SHIFT_IMM(241); SHIFT_IMM(242); SHIFT_IMM(243); SHIFT_IMM(244); SHIFT_IMM(245); SHIFT_IMM(246); SHIFT_IMM(247);
++                SHIFT_IMM(248); SHIFT_IMM(249); SHIFT_IMM(250); SHIFT_IMM(251); SHIFT_IMM(252); SHIFT_IMM(253); SHIFT_IMM(254); SHIFT_IMM(255);
++            }
++#undef SHIFT_IMM
++            break;
++        case 11:
++            if(width==64)
++                __asm__ volatile("pushq %[seed]; popfq; shlq %%cl,%[left]; pushfq; popq %[flags]"
++                    : [left] "+&r"(left),[flags] "=&r"(observed)
++                    : "c"(right),[seed] "r"(seed) : "cc","memory");
++            else
++                __asm__ volatile("pushq %[seed]; popfq; shll %%cl,%k[left]; pushfq; popq %[flags]"
++                    : [left] "+&r"(left),[flags] "=&r"(observed)
++                    : "c"(right),[seed] "r"(seed) : "cc","memory");
++            break;
++        /* Rosetta can materialize undefined OF differently for immediate
++         * versus CL shifts. Execute the original immediate form, including
++         * its complete imm8 value; do not substitute a CL instruction. */
++        case 12:
++#define SHIFT_IMM(n) case n: \
++            if(width==64) \
++                __asm__ volatile("pushq %[seed]; popfq; shlq $" #n ",%[left]; pushfq; popq %[flags]" \
++                    : [left] "+&r"(left),[flags] "=&r"(observed) : [seed] "r"(seed) : "cc","memory"); \
++            else \
++                __asm__ volatile("pushq %[seed]; popfq; shll $" #n ",%k[left]; pushfq; popq %[flags]" \
++                    : [left] "+&r"(left),[flags] "=&r"(observed) : [seed] "r"(seed) : "cc","memory"); \
++            break
++            switch((unsigned int)right & 255)
++            {
++                SHIFT_IMM(0); SHIFT_IMM(1); SHIFT_IMM(2); SHIFT_IMM(3); SHIFT_IMM(4); SHIFT_IMM(5); SHIFT_IMM(6); SHIFT_IMM(7);
++                SHIFT_IMM(8); SHIFT_IMM(9); SHIFT_IMM(10); SHIFT_IMM(11); SHIFT_IMM(12); SHIFT_IMM(13); SHIFT_IMM(14); SHIFT_IMM(15);
++                SHIFT_IMM(16); SHIFT_IMM(17); SHIFT_IMM(18); SHIFT_IMM(19); SHIFT_IMM(20); SHIFT_IMM(21); SHIFT_IMM(22); SHIFT_IMM(23);
++                SHIFT_IMM(24); SHIFT_IMM(25); SHIFT_IMM(26); SHIFT_IMM(27); SHIFT_IMM(28); SHIFT_IMM(29); SHIFT_IMM(30); SHIFT_IMM(31);
++                SHIFT_IMM(32); SHIFT_IMM(33); SHIFT_IMM(34); SHIFT_IMM(35); SHIFT_IMM(36); SHIFT_IMM(37); SHIFT_IMM(38); SHIFT_IMM(39);
++                SHIFT_IMM(40); SHIFT_IMM(41); SHIFT_IMM(42); SHIFT_IMM(43); SHIFT_IMM(44); SHIFT_IMM(45); SHIFT_IMM(46); SHIFT_IMM(47);
++                SHIFT_IMM(48); SHIFT_IMM(49); SHIFT_IMM(50); SHIFT_IMM(51); SHIFT_IMM(52); SHIFT_IMM(53); SHIFT_IMM(54); SHIFT_IMM(55);
++                SHIFT_IMM(56); SHIFT_IMM(57); SHIFT_IMM(58); SHIFT_IMM(59); SHIFT_IMM(60); SHIFT_IMM(61); SHIFT_IMM(62); SHIFT_IMM(63);
++                SHIFT_IMM(64); SHIFT_IMM(65); SHIFT_IMM(66); SHIFT_IMM(67); SHIFT_IMM(68); SHIFT_IMM(69); SHIFT_IMM(70); SHIFT_IMM(71);
++                SHIFT_IMM(72); SHIFT_IMM(73); SHIFT_IMM(74); SHIFT_IMM(75); SHIFT_IMM(76); SHIFT_IMM(77); SHIFT_IMM(78); SHIFT_IMM(79);
++                SHIFT_IMM(80); SHIFT_IMM(81); SHIFT_IMM(82); SHIFT_IMM(83); SHIFT_IMM(84); SHIFT_IMM(85); SHIFT_IMM(86); SHIFT_IMM(87);
++                SHIFT_IMM(88); SHIFT_IMM(89); SHIFT_IMM(90); SHIFT_IMM(91); SHIFT_IMM(92); SHIFT_IMM(93); SHIFT_IMM(94); SHIFT_IMM(95);
++                SHIFT_IMM(96); SHIFT_IMM(97); SHIFT_IMM(98); SHIFT_IMM(99); SHIFT_IMM(100); SHIFT_IMM(101); SHIFT_IMM(102); SHIFT_IMM(103);
++                SHIFT_IMM(104); SHIFT_IMM(105); SHIFT_IMM(106); SHIFT_IMM(107); SHIFT_IMM(108); SHIFT_IMM(109); SHIFT_IMM(110); SHIFT_IMM(111);
++                SHIFT_IMM(112); SHIFT_IMM(113); SHIFT_IMM(114); SHIFT_IMM(115); SHIFT_IMM(116); SHIFT_IMM(117); SHIFT_IMM(118); SHIFT_IMM(119);
++                SHIFT_IMM(120); SHIFT_IMM(121); SHIFT_IMM(122); SHIFT_IMM(123); SHIFT_IMM(124); SHIFT_IMM(125); SHIFT_IMM(126); SHIFT_IMM(127);
++                SHIFT_IMM(128); SHIFT_IMM(129); SHIFT_IMM(130); SHIFT_IMM(131); SHIFT_IMM(132); SHIFT_IMM(133); SHIFT_IMM(134); SHIFT_IMM(135);
++                SHIFT_IMM(136); SHIFT_IMM(137); SHIFT_IMM(138); SHIFT_IMM(139); SHIFT_IMM(140); SHIFT_IMM(141); SHIFT_IMM(142); SHIFT_IMM(143);
++                SHIFT_IMM(144); SHIFT_IMM(145); SHIFT_IMM(146); SHIFT_IMM(147); SHIFT_IMM(148); SHIFT_IMM(149); SHIFT_IMM(150); SHIFT_IMM(151);
++                SHIFT_IMM(152); SHIFT_IMM(153); SHIFT_IMM(154); SHIFT_IMM(155); SHIFT_IMM(156); SHIFT_IMM(157); SHIFT_IMM(158); SHIFT_IMM(159);
++                SHIFT_IMM(160); SHIFT_IMM(161); SHIFT_IMM(162); SHIFT_IMM(163); SHIFT_IMM(164); SHIFT_IMM(165); SHIFT_IMM(166); SHIFT_IMM(167);
++                SHIFT_IMM(168); SHIFT_IMM(169); SHIFT_IMM(170); SHIFT_IMM(171); SHIFT_IMM(172); SHIFT_IMM(173); SHIFT_IMM(174); SHIFT_IMM(175);
++                SHIFT_IMM(176); SHIFT_IMM(177); SHIFT_IMM(178); SHIFT_IMM(179); SHIFT_IMM(180); SHIFT_IMM(181); SHIFT_IMM(182); SHIFT_IMM(183);
++                SHIFT_IMM(184); SHIFT_IMM(185); SHIFT_IMM(186); SHIFT_IMM(187); SHIFT_IMM(188); SHIFT_IMM(189); SHIFT_IMM(190); SHIFT_IMM(191);
++                SHIFT_IMM(192); SHIFT_IMM(193); SHIFT_IMM(194); SHIFT_IMM(195); SHIFT_IMM(196); SHIFT_IMM(197); SHIFT_IMM(198); SHIFT_IMM(199);
++                SHIFT_IMM(200); SHIFT_IMM(201); SHIFT_IMM(202); SHIFT_IMM(203); SHIFT_IMM(204); SHIFT_IMM(205); SHIFT_IMM(206); SHIFT_IMM(207);
++                SHIFT_IMM(208); SHIFT_IMM(209); SHIFT_IMM(210); SHIFT_IMM(211); SHIFT_IMM(212); SHIFT_IMM(213); SHIFT_IMM(214); SHIFT_IMM(215);
++                SHIFT_IMM(216); SHIFT_IMM(217); SHIFT_IMM(218); SHIFT_IMM(219); SHIFT_IMM(220); SHIFT_IMM(221); SHIFT_IMM(222); SHIFT_IMM(223);
++                SHIFT_IMM(224); SHIFT_IMM(225); SHIFT_IMM(226); SHIFT_IMM(227); SHIFT_IMM(228); SHIFT_IMM(229); SHIFT_IMM(230); SHIFT_IMM(231);
++                SHIFT_IMM(232); SHIFT_IMM(233); SHIFT_IMM(234); SHIFT_IMM(235); SHIFT_IMM(236); SHIFT_IMM(237); SHIFT_IMM(238); SHIFT_IMM(239);
++                SHIFT_IMM(240); SHIFT_IMM(241); SHIFT_IMM(242); SHIFT_IMM(243); SHIFT_IMM(244); SHIFT_IMM(245); SHIFT_IMM(246); SHIFT_IMM(247);
++                SHIFT_IMM(248); SHIFT_IMM(249); SHIFT_IMM(250); SHIFT_IMM(251); SHIFT_IMM(252); SHIFT_IMM(253); SHIFT_IMM(254); SHIFT_IMM(255);
++            }
++#undef SHIFT_IMM
++            break;
++        default: *result=left;*flags=initial_flags;return;
++    }
++    *result=left;*flags=(initial_flags & ~0x8d5) | (observed & 0x8d5);
++#undef ALU_CASE
++#undef ALU_ASM
++}
++static BOOL software_bridge_arithmetic(const BYTE *code,CONTEXT *c,struct software_bridge_effect *e)
++{
++    unsigned int p=0,rex=0,op,m,reg,rm,width,operation=0,dst=0,no_write=0;
++    ULONG64 left=0,right=0;LONG imm32; signed char imm8;
++    memset(e,0,sizeof(*e));
++    if(code[p]>=0x40 && code[p]<=0x4f)rex=code[p++];
++    width=(rex&8)?64:32;op=code[p++];
++    if(op>=0xb8 && op<=0xbf)
++    {
++        dst=op-0xb8+((rex&1)?8:0);if(dst==4 || (rex&6))return FALSE;
++        if(width==64){memcpy(&e->value[0],code+p,8);p+=8;}
++        else{ULONG value;memcpy(&value,code+p,4);e->value[0]=value;p+=4;}
++        e->dst=dst;e->length=p;return TRUE;
++    }
++    if(op==0x81 || op==0x83 || op==0xc1 || op==0xd3 || op==0xf7)
++    {
++        m=code[p++];if((m&0xc0)!=0xc0 || (rex&6))return FALSE;
++        operation=(m>>3)&7;dst=(m&7)+((rex&1)?8:0);
++        no_write=(op==0x81 || op==0x83) && operation==7;
++        if(dst==4 && !no_write)return FALSE;
++        left=*software_bridge_gpr(c,dst);
++        if(op==0xf7)
++        {
++            if(operation!=2)return FALSE;
++            e->value[0]=width==64?~left:(ULONG)~left;e->dst=dst;e->length=p;return TRUE;
++        }
++        if(op==0xc1 || op==0xd3)
++        {
++            if(operation!=4 && operation!=5)return FALSE;
++            operation=operation==4?(op==0xc1?12:11):(op==0xc1?10:9);
++            right=op==0xc1?code[p++]:c->Rcx;
++        }
++        else
++        {
++            if(operation==2 || operation==3)return FALSE;
++            if(op==0x83){memcpy(&imm8,code+p,1);p++;right=(LONG64)imm8;}
++            else{memcpy(&imm32,code+p,4);p+=4;right=(LONG64)imm32;}
++        }
++    }
++    else if(op==0x05 || op==0x0d || op==0x25 || op==0x2d || op==0x35 || op==0x3d)
++    {
++        if(rex&7)return FALSE;
++        operation=(op>>3)&7;dst=0;no_write=operation==7;left=c->Rax;
++        memcpy(&imm32,code+p,4);p+=4;right=(LONG64)imm32;
++    }
++    else
++    {
++        switch(op)
++        {
++            case 0x01:case 0x03:operation=0;break;
++            case 0x09:case 0x0b:operation=1;break;
++            case 0x21:case 0x23:operation=4;break;
++            case 0x29:case 0x2b:operation=5;break;
++            case 0x31:case 0x33:operation=6;break;
++            case 0x39:case 0x3b:operation=7;no_write=1;break;
++            case 0x85:operation=8;no_write=1;break;
++            default:return FALSE;
++        }
++        m=code[p++];if((m&0xc0)!=0xc0 || (rex&2))return FALSE;
++        reg=((m>>3)&7)+((rex&4)?8:0);rm=(m&7)+((rex&1)?8:0);
++        dst=(op&2)?reg:rm;right=*software_bridge_gpr(c,(op&2)?rm:reg);
++        if(dst==4 && !no_write)return FALSE;
++        left=*software_bridge_gpr(c,dst);
++    }
++    e->dst=dst;e->length=p;e->no_write=no_write;e->flags_valid=1;
++    software_bridge_alu(operation,width,left,right,c->EFlags,&e->value[0],&e->flags);
++    return TRUE;
++}
++
++static BOOL software_bridge_registers(const BYTE *code,CONTEXT *c,struct software_bridge_effect *e)
++{
++    unsigned int p=0,p66=0,rex=0,op,m,reg,rm,width,i;
++    ULONG64 value,src[2],dst[2];ULONG lanes[4],output[4];
++    memset(e,0,sizeof(*e));
++    if(code[p]==0x66){p66=1;p++;}
++    if(code[p]>=0x40 && code[p]<=0x4f)rex=code[p++];
++    op=code[p++];
++    if(op==0x8b || op==0x89){
++        m=code[p++];if((m&0xc0)!=0xc0)return FALSE;
++        reg=((m>>3)&7)+((rex&4)?8:0);rm=(m&7)+((rex&1)?8:0);
++        e->dst=op==0x8b?reg:rm;if(e->dst==4)return FALSE;
++        value=*software_bridge_gpr(c,op==0x8b?rm:reg);width=(rex&8)?64:p66?16:32;
++        e->value[0]=width==64?value:width==32?(ULONG)value:(*software_bridge_gpr(c,e->dst)&~(ULONG64)0xffff)|(value&0xffff);
++        e->length=p;return TRUE;
++    }
++    if(op!=0x0f || !p66)return FALSE;
++    op=code[p++];m=code[p++];if((m&0xc0)!=0xc0)return FALSE;
++    reg=((m>>3)&7)+((rex&4)?8:0);rm=(m&7)+((rex&1)?8:0);
++    if(op==0x7e){
++        e->dst=rm;if(rm==4)return FALSE;
++        value=c->FltSave.XmmRegisters[reg].Low;e->value[0]=(rex&8)?value:(ULONG)value;e->length=p;return TRUE;
++    }
++    if(op!=0x6f && op!=0x70 && op!=0xd4)return FALSE;
++    memcpy(src,&c->FltSave.XmmRegisters[rm],16);memcpy(dst,&c->FltSave.XmmRegisters[reg],16);
++    e->dst=reg;e->vector=1;
++    if(op==0x6f)memcpy(e->value,src,16);
++    else if(op==0xd4){e->value[0]=dst[0]+src[0];e->value[1]=dst[1]+src[1];}
++    else{unsigned int imm=code[p++];memcpy(lanes,src,16);for(i=0;i<4;i++)output[i]=lanes[(imm>>(2*i))&3];memcpy(e->value,output,16);}
++    e->length=p;return TRUE;
++}
++/* Mode-invalid multi-byte instructions still require their encoded bytes to
++ * be fetchable on this runtime. At a page boundary the real fault can be an
++ * execute access violation, not #UD. Never synthesize over that fault.
++ * Rosetta also faults in fixtures where the nominal 2/7-byte encoding fits
++ * but the following page is inaccessible. Conservatively require the complete
++ * 16-byte decoder window inside one executable region and verify readability.
++ * This is an eligibility guard, not a change to the actual fallback fault. */
++static BOOL software_chain_target_ud(BYTE opcode,ULONG_PTR address,const MEMORY_BASIC_INFORMATION *info)
++{
++    SIZE_T size=1,bytes=0;BYTE code[16];ULONG_PTR offset=address-(ULONG_PTR)info->BaseAddress;
++    if(!software_guaranteed_ud_byte(opcode,software_legacy_d5))return FALSE;
++    if(opcode==0xd4 || opcode==0xd5 || opcode==0x9a)size=sizeof code;
++    if(size==1)return TRUE;
++    if(offset>info->RegionSize || info->RegionSize-offset<size)return FALSE;
++    if(NtReadVirtualMemory(GetCurrentProcess(),(void*)address,code,size,&bytes) || bytes!=size)return FALSE;
++    return code[0]==opcode;
++}
++
++/* The seven-byte byte-load bridge remains supported. New register/SIMD cases
++ * read fresh code and preserve legacy SIMD upper lanes, MXCSR and EFLAGS.
++ * VEX/EVEX, memory SIMD operands, memory writes and stack destinations remain
++ * unsupported. Supported arithmetic stages its flags before validation; all
++ * refusal paths leave the original guest context intact. */
++/* 0: fallback unchanged; 1: next real opcode is #UD; 2: resume normal code. */
++static unsigned int software_chain_load_bridge(CONTEXT *context,LONG64 *row)
++{
++    MEMORY_BASIC_INFORMATION info;SIZE_T bytes;BYTE code[16],next,value;
++    LONG64 *entry;LONG displacement;struct software_bridge_effect effect;NTSTATUS status;
++    BOOL byte_load, next_is_ud=TRUE;ULONG_PTR base=(ULONG_PTR)NtCurrentTeb()->Peb->ImageBaseAddress,target;
++    IMAGE_NT_HEADERS *nt=RtlImageNtHeader((void*)base);
++    struct bridge_refusal_record *trace;
++    software_chain_count(3);trace=bridge_refusal_begin(context);
++#define REFUSE_EARLY(reason,detail) do{bridge_refusal_end(trace,reason,detail);return FALSE;}while(0)
++    if(!nt)REFUSE_EARLY(3,0);
++    status=NtQueryVirtualMemory(GetCurrentProcess(),(void*)context->Rip,MemoryBasicInformation,&info,sizeof info,NULL);
++    if(status)REFUSE_EARLY(4,(ULONG)status);
++    if(info.State!=MEM_COMMIT || info.Type!=MEM_PRIVATE || (info.Protect&(PAGE_GUARD|PAGE_NOACCESS)))REFUSE_EARLY(5,((ULONG64)info.State<<32)|info.Protect);
++    if((info.Protect&0xff)!=PAGE_EXECUTE_READ && (info.Protect&0xff)!=PAGE_EXECUTE_READWRITE)REFUSE_EARLY(6,info.Protect);
++    if(context->Rip-(ULONG_PTR)info.BaseAddress>info.RegionSize || info.RegionSize-(context->Rip-(ULONG_PTR)info.BaseAddress)<sizeof code)REFUSE_EARLY(7,info.RegionSize);
++    status=NtReadVirtualMemory(GetCurrentProcess(),(void*)context->Rip,code,sizeof code,&bytes);
++    if(status || bytes!=sizeof code)REFUSE_EARLY(8,(ULONG)status);
++    if(trace){memcpy(trace->code,code,sizeof code);trace->valid|=1;}
++    entry=software_bridge_census(context,row);
++#define BRIDGE_REFUSE(k,reason,detail) do{if(entry)InterlockedIncrement64(entry+(k));REFUSE_EARLY(reason,detail);}while(0)
++    byte_load=code[0]==0x8a && code[1]==0x01;
++    if(byte_load){memset(&effect,0,sizeof effect);effect.length=2;}
++    else if(!(software_alu_enabled && (software_bridge_mul(code,context,&effect) || software_bridge_extra(code,context,&effect) || software_bridge_arithmetic(code,context,&effect))) && !software_bridge_registers(code,context,&effect))BRIDGE_REFUSE(2,9,0);
++    if(trace)trace->length=effect.length;
++    if(effect.length+5>sizeof code || code[effect.length]!=0xe9)BRIDGE_REFUSE(2,10,0);
++    memcpy(&displacement,code+effect.length+1,4);target=context->Rip+effect.length+5+(LONG_PTR)displacement;
++    if(trace){trace->target=target;trace->valid|=2;}
++    if(target<base || target-base>=nt->OptionalHeader.SizeOfImage)BRIDGE_REFUSE(3,11,0);
++    status=NtQueryVirtualMemory(GetCurrentProcess(),(void*)target,MemoryBasicInformation,&info,sizeof info,NULL);
++    if(status)BRIDGE_REFUSE(3,12,(ULONG)status);
++    if(info.State!=MEM_COMMIT || (info.Protect&(PAGE_GUARD|PAGE_NOACCESS)))BRIDGE_REFUSE(3,13,((ULONG64)info.State<<32)|info.Protect);
++    if((info.Protect&0xff)!=PAGE_EXECUTE_READ && (info.Protect&0xff)!=PAGE_EXECUTE_READWRITE && (info.Protect&0xff)!=PAGE_EXECUTE_WRITECOPY)BRIDGE_REFUSE(3,14,info.Protect);
++    status=NtReadVirtualMemory(GetCurrentProcess(),(void*)target,&next,1,&bytes);
++    if(status || bytes!=1)BRIDGE_REFUSE(3,15,(ULONG)status);
++    if(trace){trace->next=next;trace->valid|=4;}
++    next_is_ud=software_chain_target_ud(next,target,&info);
++    if(!next_is_ud && !software_bridge_resume)BRIDGE_REFUSE(3,16,0);
++    if(byte_load){
++        status=NtQueryVirtualMemory(GetCurrentProcess(),(void*)context->Rcx,MemoryBasicInformation,&info,sizeof info,NULL);
++        if(status)BRIDGE_REFUSE(4,17,(ULONG)status);
++        if(info.State!=MEM_COMMIT || (info.Type!=MEM_PRIVATE && info.Type!=MEM_IMAGE) || (info.Protect&(PAGE_GUARD|PAGE_NOACCESS)))BRIDGE_REFUSE(4,18,((ULONG64)info.State<<32)|info.Protect);
++        switch(info.Protect&0xff){case PAGE_READONLY:case PAGE_READWRITE:case PAGE_WRITECOPY:case PAGE_EXECUTE_READ:case PAGE_EXECUTE_READWRITE:case PAGE_EXECUTE_WRITECOPY:break;default:BRIDGE_REFUSE(4,19,info.Protect);}
++        status=NtReadVirtualMemory(GetCurrentProcess(),(void*)context->Rcx,&value,1,&bytes);
++        if(status || bytes!=1)BRIDGE_REFUSE(4,20,(ULONG)status);
++        context->Rax=(context->Rax&~(ULONG64)0xff)|value;
++    }else if(effect.vector)memcpy(&context->FltSave.XmmRegisters[effect.dst],effect.value,16);
++    else if(!effect.no_write)*software_bridge_gpr(context,effect.dst)=effect.value[0];
++    /* Both MUL results remain staged until every code/target check passes.
++     * No fallible guest-memory operation occurs between these commits. */
++    if(effect.gpr2_valid)*software_bridge_gpr(context,effect.gpr2_dst)=effect.gpr2_value;
++    if(effect.flags_valid)context->EFlags=effect.flags;
++    context->Rip=target;
++    software_chain_count(4);if(entry)InterlockedIncrement64(entry+1);
++    if(!next_is_ud)software_chain_count(5);
++    bridge_refusal_end(trace,next_is_ud?1:2,0);
++#undef BRIDGE_REFUSE
++#undef REFUSE_EARLY
++    return next_is_ud ? 1 : 2;
++}
++static unsigned int software_chain_next_reason(CONTEXT *context,ULONG64 *a,ULONG64 *b,LONG64 *row)
++{
++    MEMORY_BASIC_INFORMATION info;
++    SIZE_T bytes=0;
++    BYTE opcode;
++    NTSTATUS status;
++    ULONG_PTR base=(ULONG_PTR)NtCurrentTeb()->Peb->ImageBaseAddress;
++    IMAGE_NT_HEADERS *nt=RtlImageNtHeader((void*)base);
++    if(!nt || context->Rip<base || context->Rip-base>=nt->OptionalHeader.SizeOfImage)
++    {
++        unsigned int bridge=software_chain_load_bridge(context,row);
++        if(bridge==1)return 0;
++        /* The bridge's real effects are committed, but the destination is not
++         * a #UD. Return through the ordinary NtContinue path, without making
++         * an exception record or invoking VEH for that valid instruction. */
++        if(bridge==2){*a=context->Rip;*b=2;return 19;}
++        *a=base;*b=context->Rip;return 15;
++    }
++    status=NtQueryVirtualMemory(GetCurrentProcess(),(void*)context->Rip,MemoryBasicInformation,&info,sizeof(info),NULL);
++    if(status){*a=status;return 16;}
++    *a=info.State;*b=info.Protect;
++    if(info.State!=MEM_COMMIT || (info.Protect & (PAGE_GUARD|PAGE_NOACCESS)))return 17;
++    switch(info.Protect & 0xff){case PAGE_EXECUTE_READ:case PAGE_EXECUTE_READWRITE:case PAGE_EXECUTE_WRITECOPY:break;default:return 17;}
++    status=NtReadVirtualMemory(GetCurrentProcess(),(void*)context->Rip,&opcode,1,&bytes);
++    if(status || bytes!=1){*a=status;*b=bytes;return 18;}
++    *a=opcode;*b=0;
++    return software_chain_target_ud(opcode,context->Rip,&info)?0:19;
++}
++
++/* Bounded diagnostic only. The controller prefaults storage before arming.
++ * One record covers one outer PE delivery, including synthetic links. Nested
++ * deliveries have independent records, so totals can double-count nesting.
++ * No log, allocation, instruction read or additional handler is introduced.
++ * control: enabled, reserved, dropped, active, capacity; remaining reserved. */
++#define BURST_CAPACITY 262144
++LONG64 __wine_exception_burst_control[8] = {0,0,0,0,BURST_CAPACITY};
++struct exception_burst_record
++{
++    LONG64 begin, end, handler, policy;
++    ULONG64 rip_begin, rip_end;
++    ULONG tid, links, reason;
++    LONG ready;
++};
++struct exception_burst_record __wine_exception_burst_records[BURST_CAPACITY];
++static LONG64 burst_clock(void)
++{
++    LARGE_INTEGER q;
++    NtQueryPerformanceCounter(&q, NULL);
++    return q.QuadPart;
++}
++
++/* Automatic bounded activation avoids cross-process writes while FH6 runs.
++ * QPC gating itself remains present in the reference window and is documented. */
++static LONG burst_initialized, burst_gate;
++static LONG64 burst_deadline, burst_duration;
++static void burst_configure(void)
++{
++    WCHAR buffer[16];
++    UNICODE_STRING name = RTL_CONSTANT_STRING(L"WINE_EXCEPTION_BURST_AUTO");
++    UNICODE_STRING value = {0, sizeof(buffer), buffer};
++    LARGE_INTEGER q, frequency;
++    BOOL probe = FALSE;
++    if (burst_initialized || InterlockedCompareExchange(&burst_initialized, 1, 0)) return;
++    if (RtlQueryEnvironmentVariable_U(NULL, &name, &value)) return;
++    if (value.Length == 5*sizeof(WCHAR) && !memcmp(buffer,L"probe",value.Length)) probe=TRUE;
++    else if (value.Length != sizeof(WCHAR) || buffer[0] != '1') return;
++    NtQueryPerformanceCounter(&q, &frequency);
++    memset(__wine_exception_burst_records,0,sizeof(__wine_exception_burst_records));
++    {
++        WCHAR trace_value[4];UNICODE_STRING trace_name=RTL_CONSTANT_STRING(L"WINE_BRIDGE_REFUSAL_TRACE");
++        UNICODE_STRING value={0,sizeof(trace_value),trace_value};
++        if(!RtlQueryEnvironmentVariable_U(NULL,&trace_name,&value) && value.Length==sizeof(WCHAR) && trace_value[0]=='1')
++        {
++            memset(__wine_bridge_refusal_records,0,sizeof(__wine_bridge_refusal_records));
++            InterlockedCompareExchange64(&__wine_bridge_refusal_control[0],1,0);
++        }
++    }
++    __wine_exception_burst_control[5]=frequency.QuadPart;
++    burst_deadline=q.QuadPart+(probe?0:240*frequency.QuadPart);
++    if (!probe)
++    {
++        WCHAR digits[32]; unsigned int i; ULONG64 parsed=0;
++        UNICODE_STRING start_name=RTL_CONSTANT_STRING(L"FH6_TRACE_START");
++        UNICODE_STRING start_value={0,sizeof(digits),digits};
++        if (!RtlQueryEnvironmentVariable_U(NULL,&start_name,&start_value) && start_value.Length && start_value.Length<=20*sizeof(WCHAR))
++        {
++            for(i=0;i<start_value.Length/sizeof(WCHAR);i++)
++            {
++                if(digits[i]<'0'||digits[i]>'9'||parsed>922337203685477580ULL)break;
++                parsed=parsed*10+digits[i]-'0';
++            }
++            if(i==start_value.Length/sizeof(WCHAR) && parsed>q.QuadPart && parsed-q.QuadPart<600*frequency.QuadPart)burst_deadline=parsed;
++        }
++    }
++    burst_duration=probe?frequency.QuadPart/100:20*frequency.QuadPart;
++    InterlockedExchange(&burst_gate,1);
++}
++static void burst_check_gate(void)
++{
++    LONG gate=burst_gate;
++    LONG64 now;
++    if (!gate) return;
++    now=burst_clock();
++    if (gate==1 && now>=burst_deadline && InterlockedCompareExchange(&burst_gate,3,1)==1)
++    {
++        __wine_exception_burst_control[6]=now;
++        __wine_exception_burst_control[7]=now+burst_duration;
++        InterlockedCompareExchange64(&__wine_exception_burst_control[0],1,0);
++        InterlockedExchange(&burst_gate,2);
++    }
++    else if (gate==2 && now>=__wine_exception_burst_control[7])
++    {
++        InterlockedCompareExchange64(&__wine_exception_burst_control[0],0,1);
++        InterlockedExchange(&burst_gate,0);
++    }
++}
++
++static LONG call_vectored_handlers_chain_body(EXCEPTION_RECORD *rec, CONTEXT *context, struct exception_burst_record *timing)
++{
++    unsigned int links = 0;
++    LONG64 *row=software_chain_diag_row();
++    software_chain_diag(row,0,context,context,0,0);
++    software_chain_count(0);
++    for (;;)
++    {
++        CONTEXT before = *context;
++        ULONG64 a=0,b=0;
++        unsigned int reason;
++        LONG64 stamp = timing ? burst_clock() : 0;
++        LONG ret = call_vectored_handlers(rec, context);
++        if (timing) {timing->handler += burst_clock() - stamp; timing->links = links; timing->reason = 3;}
++        if (ret != EXCEPTION_CONTINUE_EXECUTION) {software_chain_diag(row,3,&before,context,ret,0);return ret;}
++        if (links == 64)
++        {
++            if (timing) timing->reason = 2;
++            software_chain_count(2);
++            software_chain_diag(row,2,&before,context,0,0);
++            return ret;
++        }
++        if (rec->ExceptionCode != EXCEPTION_ILLEGAL_INSTRUCTION || rec->ExceptionFlags)
++        {if (timing) timing->reason = 4;software_chain_diag(row,4,&before,context,rec->ExceptionCode,rec->ExceptionFlags);return ret;}
++        stamp = timing ? burst_clock() : 0;
++        reason=software_chain_state_reason(&before,context,&a,&b);
++        if(!reason)reason=software_chain_next_reason(context,&a,&b,row);
++        if (timing) {timing->policy += burst_clock() - stamp; timing->reason = reason;}
++        if(reason){software_chain_diag(row,reason,&before,context,a,b);return ret;}
++        software_chain_diag(row,1,&before,context,a,b);
++        memset(rec, 0, sizeof(*rec));
++        rec->ExceptionCode = EXCEPTION_ILLEGAL_INSTRUCTION;
++        rec->ExceptionAddress = (void *)context->Rip;
++        ++links;
++        software_chain_count(1);
++        /* The next iteration runs the real complete VEH chain. If it declines,
++         * dispatch_exception proceeds to SEH/second chance exactly once. */
++    }
++}
++static LONG call_vectored_handlers_with_chain(EXCEPTION_RECORD *rec, CONTEXT *context)
++{
++    struct exception_burst_record *timing = NULL;
++    LONG ret;
++    burst_check_gate();
++    if (__wine_exception_burst_control[0])
++    {
++        LONG64 index;
++        InterlockedIncrement64(&__wine_exception_burst_control[3]);
++        if (__wine_exception_burst_control[0])
++        {
++            index = InterlockedIncrement64(&__wine_exception_burst_control[1]) - 1;
++            if (index < BURST_CAPACITY)
++            {
++                timing = &__wine_exception_burst_records[index];
++                timing->tid = HandleToULong(NtCurrentTeb()->ClientId.UniqueThread);
++                timing->rip_begin = context->Rip;
++                timing->begin = burst_clock();
++            }
++            else InterlockedIncrement64(&__wine_exception_burst_control[2]);
++        }
++        if (!timing) InterlockedDecrement64(&__wine_exception_burst_control[3]);
++    }
++    ret = call_vectored_handlers_chain_body(rec, context, timing);
++    if (timing)
++    {
++        timing->end = burst_clock();
++        timing->rip_end = context->Rip;
++        InterlockedExchange(&timing->ready, 1);
++        InterlockedDecrement64(&__wine_exception_burst_control[3]);
++    }
++    return ret;
++}
++#endif
+--- a/dlls/ntdll/unix/loader.c
++++ b/dlls/ntdll/unix/loader.c
+@@ -2360,6 +2360,54 @@
+         }
+     }
+ 
++    /* D3DMETAL_FALLBACK: cxcompatdb does not always route a process to D3DMetal (seen with
++     * games started by NotProton's Steam bridge), which then gets wined3d/vkd3d instead.
++     * An explicit CX_GRAPHICS_BACKEND=d3dmetal puts its DLLs first in every 64-bit process.
++     * CrossOver 27 keeps D3DMetal in lib/apple_gptk, and 3.0 in lib/apple_gptk3, chosen by
++     * CX_GRAPHICS_BACKEND_VERSION=3; 26 kept it in lib64/apple_gptk. CX_ACTIVE_GRAPHICS_BACKEND
++     * cannot tell whether the DLLs were routed: a child inherits it from the process that
++     * started it (PBZ's bootstrapper starts the game). */
++    {
++        const char *backend = getenv( "CX_GRAPHICS_BACKEND" ), *active = getenv( "CX_ACTIVE_GRAPHICS_BACKEND" );
++        const char *version = getenv( "CX_GRAPHICS_BACKEND_VERSION" );
++        const char *cx_root = getenv( "CX_ROOT" );
++        const char *dir = (version && !strcmp( version, "3" )) ? "lib/apple_gptk3" : "lib/apple_gptk";
++        char *path = NULL;
++        struct stat st;
++        unsigned int i;
++
++        if (backend && !strcmp( backend, "d3dmetal" ) && cx_root &&
++            main_image_info.Machine == IMAGE_FILE_MACHINE_AMD64 &&
++            asprintf( &path, "%s/%s/wine", cx_root, dir ) > 0)
++        {
++            if (stat( path, &st ))
++            {
++                free( path );
++                if (asprintf( &path, "%s/lib64/apple_gptk/wine", cx_root ) < 0) path = NULL;
++            }
++        }
++        if (path)
++        {
++            for (i = 0; dll_paths[i]; i++) if (!strcmp( dll_paths[i], path )) break;
++            if (dll_paths[i])
++            {
++                TRACE( "d3dmetal-fallback: %s already in the DLL path (active=%s)\n", path, active ? active : "unset" );
++                free( path );
++            }
++            else if (stat( path, &st ) || !S_ISDIR( st.st_mode ))
++            {
++                MESSAGE( "d3dmetal-fallback: %s missing, nothing done\n", path );
++                free( path );
++            }
++            else
++            {
++                prepend_dll_path( path );  /* keeps the string */
++                setenv( "CX_ACTIVE_GRAPHICS_BACKEND", "d3dmetal", 1 );
++                MESSAGE( "d3dmetal-fallback: prepended %s (active was %s)\n", path, active ? active : "unset" );
++            }
++        }
++    }
++
+     server_init_process_done();
+ }
+ 
+--- /dev/null
++++ b/dlls/ntdll/unix/native_timing.h
+@@ -0,0 +1,79 @@
++/* Diagnostic only: prefaulted bounded storage, lock-free publication and a
++ * native worker flushing only after the common capture window. Signal paths
++ * perform no allocation, file access, formatting or dynamic symbol lookup. */
++#include <mach/mach_time.h>
++#include <stdint.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <sys/stat.h>
++#include <time.h>
++#define NT_CAPACITY 2097152
++struct native_timing_record {uint64_t qpc,rip,rsp,aux;uint32_t tid,kind,ready,pad;};
++struct native_timing_header {uint64_t magic,version,record_size,capacity,count,dropped,active,pid,start,end,frequency,complete,reserved[4];};
++_Static_assert(sizeof(struct native_timing_record)==48,"native record ABI");
++_Static_assert(sizeof(struct native_timing_header)==128,"native header ABI");
++_Static_assert(__atomic_always_lock_free(8,0),"signal-safe counters");
++static struct native_timing_header nt_header;
++static struct native_timing_record *nt_records;
++static mach_timebase_info_data_t nt_timebase;
++static unsigned int nt_enabled;
++static int nt_fd=-1;
++static uint64_t nt_clock(void) {return mach_continuous_time()*nt_timebase.numer/nt_timebase.denom/100;}
++static int nt_write_all(const void *data,size_t n)
++{
++    const char *p=data;
++    while(n){ssize_t w=write(nt_fd,p,n);if(w<0&&errno==EINTR)continue;if(w<=0)return 0;p+=w;n-=w;}
++    return 1;
++}
++static void nt_wait_until(uint64_t target)
++{
++    uint64_t now;
++    while((now=nt_clock())<target){uint64_t ticks=target-now;struct timespec ts={(time_t)(ticks/10000000),(long)(ticks%10000000)*100};nanosleep(&ts,NULL);}
++}
++static void *nt_worker(void *unused)
++{
++    (void)unused;nt_wait_until(nt_header.start);__atomic_store_n(&nt_enabled,1,__ATOMIC_RELEASE);
++    nt_wait_until(nt_header.end);__atomic_store_n(&nt_enabled,0,__ATOMIC_RELEASE);
++    while(__atomic_load_n(&nt_header.active,__ATOMIC_ACQUIRE)){struct timespec ts={0,1000000};nanosleep(&ts,NULL);}
++    if(nt_header.count>NT_CAPACITY)nt_header.count=NT_CAPACITY;
++    nt_header.complete=1;lseek(nt_fd,0,SEEK_SET);
++    if(!nt_write_all(&nt_header,sizeof nt_header)||!nt_write_all(nt_records,nt_header.count*sizeof(*nt_records)))nt_header.complete=2;
++    if(nt_header.complete==2){lseek(nt_fd,0,SEEK_SET);nt_write_all(&nt_header,sizeof nt_header);}
++    close(nt_fd);nt_fd=-1;return NULL;
++}
++void fh6_native_mark(unsigned int kind,unsigned int tid,UINT64 rip,UINT64 rsp,UINT64 aux)
++{
++    uint64_t i,q;int saved_errno;
++    struct native_timing_record *r;
++    if(!__atomic_load_n(&nt_enabled,__ATOMIC_RELAXED))return;
++    saved_errno=errno;__atomic_add_fetch(&nt_header.active,1,__ATOMIC_ACQUIRE);
++    if(!__atomic_load_n(&nt_enabled,__ATOMIC_ACQUIRE))goto done;
++    q=nt_clock();if(q<nt_header.start||q>=nt_header.end)goto done;
++    i=__atomic_fetch_add(&nt_header.count,1,__ATOMIC_RELAXED);
++    if(i>=NT_CAPACITY){__atomic_add_fetch(&nt_header.dropped,1,__ATOMIC_RELAXED);goto done;}
++    r=&nt_records[i];r->qpc=q;r->rip=rip;r->rsp=rsp;r->aux=aux;r->tid=tid;r->kind=kind;
++    __atomic_store_n(&r->ready,1,__ATOMIC_RELEASE);
++done:__atomic_sub_fetch(&nt_header.active,1,__ATOMIC_RELEASE);errno=saved_errno;
++}
++static void native_timing_init(void)
++{
++    const char *dir=getenv("FH6_TRACE_DIR"),*start=getenv("FH6_TRACE_START"),*name,*p;
++    uint64_t now;char path[2048],*end;pthread_t worker;struct stat st;
++    if(!dir||dir[0]!='/'||!start||main_argc<1)return;
++    /* init_startup_info has already removed Wine argv[0]. */
++    name=main_argv[0];for(p=name;*p;p++)if(*p=='/'||*p=='\\')name=p+1;
++    if(strcasecmp(name,"forzahorizon6.exe")&&strcasecmp(name,"exception_chain_probe.exe")&&strcasecmp(name,"timer_probe.exe"))return;
++    mach_timebase_info(&nt_timebase);now=nt_clock();
++    nt_header.start=strtoull(start,&end,10);
++    if(*end||nt_header.start<=now||nt_header.start-now>6000000000ULL)return;
++    nt_header.end=nt_header.start+200000000ULL;nt_header.frequency=10000000;nt_header.capacity=NT_CAPACITY;
++    nt_header.magic=UINT64_C(0x4648364e41544956);nt_header.version=1;nt_header.record_size=sizeof(*nt_records);nt_header.pid=getpid();
++    if(snprintf(path,sizeof path,"%s/native-%d.bin",dir,(int)getpid())>=(int)sizeof path)return;
++    nt_fd=open(path,O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW,0600);if(nt_fd<0)return;
++    if(fstat(nt_fd,&st)||!S_ISREG(st.st_mode)){close(nt_fd);nt_fd=-1;return;}
++    nt_records=mmap(NULL,NT_CAPACITY*sizeof(*nt_records),PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);
++    if(nt_records==MAP_FAILED){nt_records=NULL;close(nt_fd);nt_fd=-1;return;}
++    memset(nt_records,0,NT_CAPACITY*sizeof(*nt_records));
++    if(!nt_write_all(&nt_header,sizeof nt_header)||pthread_create(&worker,NULL,nt_worker,NULL)){close(nt_fd);nt_fd=-1;return;}
++    pthread_detach(worker);
++}
+--- a/dlls/ntdll/unix/server.c
++++ b/dlls/ntdll/unix/server.c
+@@ -851,6 +851,7 @@
+     NTSTATUS status;
+     BOOL alertable;
+ 
++    fh6_native_mark(4,GetCurrentThreadId(),context->Rip,context->Rsp,0);
+     if ((UINT_PTR)args > 0xff)
+         alertable = args->ContinueFlags & KCONTINUE_FLAG_TEST_ALERT;
+     else
+@@ -861,7 +862,9 @@
+         status = server_select( NULL, 0, SELECT_INTERRUPTIBLE | SELECT_ALERTABLE, 0, NULL, &apc );
+         if (status == STATUS_USER_APC) return invoke_user_apc( context, &apc, status );
+     }
+-    return signal_set_full_context( context );
++    status = signal_set_full_context( context );
++    fh6_native_mark(5,GetCurrentThreadId(),context->Rip,context->Rsp,status);
++    return status;
+ }
+ 
+ 
+--- a/dlls/ntdll/unix/signal_x86_64.c
++++ b/dlls/ntdll/unix/signal_x86_64.c
+@@ -74,6 +74,7 @@
+ #include "wine/asm.h"
+ #include "unix_private.h"
+ #include "wine/debug.h"
++#include "native_timing.h"
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(unwind);
+ WINE_DECLARE_DEBUG_CHANNEL(seh);
+@@ -84,6 +85,8 @@
+ /* CW Hack 24256 */
+ #include <sys/sysctl.h>
+ static BOOL is_rosetta2;
++static void sync_sw_breakpoints( ULONG_PTR resume_rip );  /* HRAVA_HW_EXEC_BREAKPOINT */
++static unsigned int rosetta_cpuid7_ebx, rosetta_cpuid7_ecx;  /* HRAVA_ROSETTA_CPUID: leaf-7 bits added for this process */
+ 
+ /* CW Hack 23427 */
+ static BOOL sequoia_or_later = FALSE;
+@@ -998,6 +1001,10 @@
+     context->Dr3    = amd64_thread_data()->dr3;
+     context->Dr6    = amd64_thread_data()->dr6;
+     context->Dr7    = amd64_thread_data()->dr7;
++#ifdef __APPLE__
++    /* HRAVA_HW_EXEC_BREAKPOINT: bit 10 of Dr7 reads as set while breakpoints are enabled */
++    if (is_rosetta2 && (context->Dr7 & 0xff)) context->Dr7 |= 0x400;
++#endif
+     if (FPU_sig(sigcontext))
+     {
+         XSAVE_AREA_HEADER *xs;
+@@ -1136,6 +1143,12 @@
+             return STATUS_BUFFER_OVERFLOW;
+     }
+     else flags &= ~CONTEXT_XSTATE;
++
++    if (flags & CONTEXT_DEBUG_REGISTERS)
++        TRACE_(seh)( "debug registers: dr0=%p dr1=%p dr2=%p dr3=%p dr6=%#lx dr7=%#lx rip=%p eflags=%#x\n",
++                     (void *)context->Dr0, (void *)context->Dr1, (void *)context->Dr2, (void *)context->Dr3,
++                     (unsigned long)context->Dr6, (unsigned long)context->Dr7, (void *)context->Rip,
++                     (unsigned int)context->EFlags );
+ 
+     /* debug registers require a server call */
+     if (self && (flags & CONTEXT_DEBUG_REGISTERS))
+@@ -1168,6 +1181,12 @@
+             amd64_thread_data()->dr7 = context->Dr7;
+         }
+     }
++
++#ifdef __APPLE__
++    /* HRAVA_HW_EXEC_BREAKPOINT */
++    if (flags & CONTEXT_DEBUG_REGISTERS)
++        sync_sw_breakpoints( (flags & CONTEXT_CONTROL) ? context->Rip : 0 );
++#endif
+ 
+     if (flags & CONTEXT_INTEGER)
+     {
+@@ -1595,6 +1614,10 @@
+          * single step interrupt. try to avoid as much overhead as possible
+          * and only do a server call if there is any hw bp enabled. */
+ 
++#ifdef __APPLE__
++        /* HRAVA_HW_EXEC_BREAKPOINT: under Rosetta the registers live in thread data only */
++        if (!is_rosetta2)
++#endif
+         if (!(context->EFlags & 0x100) || (context->Dr7 & 0xff))
+         {
+             /* (possible) hardware breakpoint, fetch the debug registers */
+@@ -1606,6 +1629,7 @@
+         context->EFlags &= ~0x100;  /* clear single-step flag */
+     }
+ 
++    fh6_native_mark(2, GetCurrentThreadId(), context->Rip, context->Rsp, rec->ExceptionCode);
+     status = send_debug_event( rec, context, TRUE, TRUE );
+     if (status == DBG_CONTINUE || status == DBG_EXCEPTION_HANDLED)
+     {
+@@ -1649,6 +1673,7 @@
+         R10_sig(sigcontext) = RIP_sig(sigcontext);
+         RIP_sig(sigcontext) = (ULONG64)callback;
+     }
++    fh6_native_mark(3, GetCurrentThreadId(), context->Rip, context->Rsp, rec->ExceptionCode);
+     leave_handler( sigcontext );
+ }
+ 
+@@ -2048,6 +2073,144 @@
+     TRACE_(seh)( "emulated an XGETBV instruction\n" );
+     return TRUE;
+ }
++
++/* Each emulated instruction costs a trap, and with the leaf extended by default a program
++ * may use one in a hot path. Say how often, at 1, 10, 100... times, so that shows in a log. */
++static void note_emulated( const char *what, unsigned int *count )
++{
++    unsigned int n = __atomic_add_fetch( count, 1, __ATOMIC_RELAXED ), p = 1;
++
++    while (p < n && p <= 100000000) p *= 10;
++    if (p == n) ERR_(seh)( "emulated %s %u time%s\n", what, n, n == 1 ? "" : "s" );
++}
++
++/***********************************************************************
++ *           emulate_clwb
++ *
++ * HRAVA_ROSETTA_CLWB: Rosetta 2 has no CLWB (66 0F AE /6 with a memory operand). The
++ * instruction only asks the CPU to write a cache line back; it changes no register, flag
++ * or memory content, so stepping over it is a complete emulation. Active only for a
++ * process whose CPUID leaf 7 was extended with the CLWB bit (see rosetta_extend_cpuid).
++ */
++static inline BOOL emulate_clwb( ucontext_t *sigcontext, CONTEXT *context )
++{
++    BYTE instr[12];
++    unsigned int len = virtual_uninterrupted_read_memory( (BYTE *)context->Rip, instr, sizeof(instr) );
++    unsigned int pos = 1, mod, rm;
++
++    /* only where CPUID says so too: a program must not see CLWB work while leaf 7 denies it */
++    if (!(rosetta_cpuid7_ebx & (1u << 24)) || len < 4 || instr[0] != 0x66) return FALSE;
++    if ((instr[pos] & 0xf0) == 0x40) pos++;                          /* REX */
++    if (len < pos + 3 || instr[pos] != 0x0f || instr[pos + 1] != 0xae) return FALSE;
++    mod = instr[pos + 2] >> 6;
++    rm = instr[pos + 2] & 7;
++    if (mod == 3 || ((instr[pos + 2] >> 3) & 7) != 6) return FALSE;  /* memory operand, /6 */
++    pos += 3;
++    if (rm == 4)                                                     /* SIB */
++    {
++        if (len < pos + 1) return FALSE;
++        if (mod == 0 && (instr[pos] & 7) == 5) pos += 4;             /* disp32, no base */
++        pos++;
++    }
++    else if (mod == 0 && rm == 5) pos += 4;                          /* rip-relative disp32 */
++    if (mod == 1) pos += 1;
++    else if (mod == 2) pos += 4;
++    if (pos > len) return FALSE;
++
++    RIP_sig(sigcontext) += pos;
++    TRACE_(seh)( "emulated a CLWB instruction\n" );
++    { static unsigned int count; note_emulated( "CLWB", &count ); }
++    return TRUE;
++}
++
++/***********************************************************************
++ *           emulate_skipped_cpuid
++ *
++ * ROSETTA_SMC_CPUID: Rosetta 2 runs the instructions of a block as it translated
++ * them, even when an instruction of the block has just rewritten the next one. On
++ * x86 the rewritten instruction runs. Copy protection decrypts a cpuid that way
++ * (add dword [rip+0], key; then the four bytes it changed): Rosetta runs the old
++ * bytes and, when the old first instruction is one byte long, carries on from the
++ * cpuid's second byte, 0xa2, which decodes as mov [imm64], al and faults on the
++ * eight bytes after it. That fault, at RIP, with 0f a2 at RIP - 1 and the address
++ * those eight bytes hold, means the cpuid never ran: it is run here and the thread
++ * resumes after it. A cpuid skipped without a fault cannot be seen from here.
++ */
++static inline BOOL emulate_skipped_cpuid( ucontext_t *sigcontext, siginfo_t *siginfo )
++{
++    BYTE code[10];
++    ULONG64 target;
++    unsigned int eax, ebx, ecx, edx;
++
++    if (!is_rosetta2) return FALSE;
++    if (virtual_uninterrupted_read_memory( (BYTE *)RIP_sig(sigcontext) - 1, code, sizeof(code) ) != sizeof(code))
++        return FALSE;
++    if (code[0] != 0x0f || code[1] != 0xa2) return FALSE;
++    memcpy( &target, code + 2, sizeof(target) );
++    if ((ULONG_PTR)siginfo->si_addr != target) return FALSE;
++
++    eax = RAX_sig(sigcontext);
++    ecx = RCX_sig(sigcontext);
++    __asm__ volatile( "cpuid" : "+a"(eax), "=b"(ebx), "+c"(ecx), "=d"(edx) );
++    RAX_sig(sigcontext) = eax;
++    RBX_sig(sigcontext) = ebx;
++    RCX_sig(sigcontext) = ecx;
++    RDX_sig(sigcontext) = edx;
++    RIP_sig(sigcontext) += 1;
++    TRACE_(seh)( "ran the cpuid Rosetta skipped after self-modifying code at %p\n",
++                 (void *)(RIP_sig(sigcontext) - 2) );
++    return TRUE;
++}
++
++/***********************************************************************
++ *           emulate_rdpid
++ *
++ * HRAVA_ROSETTA_RDPID: Rosetta 2 has no RDPID, and its RDTSCP returns a constant
++ * (0xaaaaaaab) where a CPU returns the processor number the OS keeps in TSC_AUX.
++ * Programs that find RDPID missing fall back to RDTSCP and use the result as a
++ * processor index; copy protection walks off the end of a per-processor table that way.
++ * Executing RDPID here, with the number Windows would report, keeps them off that path.
++ */
++static inline BOOL emulate_rdpid( ucontext_t *sigcontext, CONTEXT *context )
++{
++    BYTE instr[5];
++    unsigned int len = virtual_uninterrupted_read_memory( (BYTE *)context->Rip, instr, sizeof(instr) );
++    unsigned int pos = 1, reg;
++    ULONG_PTR value;
++    BYTE rex = 0;
++
++    /* only where CPUID says so too (see rosetta_extend_cpuid) */
++    if (!(rosetta_cpuid7_ecx & (1u << 22)) || len < 4 || instr[0] != 0xf3) return FALSE;
++    if ((instr[pos] & 0xf0) == 0x40) rex = instr[pos++];
++    if (len < pos + 3 || instr[pos] != 0x0f || instr[pos + 1] != 0xc7) return FALSE;
++    if ((instr[pos + 2] & 0xf8) != 0xf8) return FALSE;   /* mod = 3, reg = 7 */
++    reg = (instr[pos + 2] & 7) | ((rex & 1) << 3);
++    value = NtGetCurrentProcessorNumber();
++
++    switch (reg)
++    {
++    case 0:  RAX_sig(sigcontext) = value; break;
++    case 1:  RCX_sig(sigcontext) = value; break;
++    case 2:  RDX_sig(sigcontext) = value; break;
++    case 3:  RBX_sig(sigcontext) = value; break;
++    case 4:  RSP_sig(sigcontext) = value; break;
++    case 5:  RBP_sig(sigcontext) = value; break;
++    case 6:  RSI_sig(sigcontext) = value; break;
++    case 7:  RDI_sig(sigcontext) = value; break;
++    case 8:  R8_sig(sigcontext)  = value; break;
++    case 9:  R9_sig(sigcontext)  = value; break;
++    case 10: R10_sig(sigcontext) = value; break;
++    case 11: R11_sig(sigcontext) = value; break;
++    case 12: R12_sig(sigcontext) = value; break;
++    case 13: R13_sig(sigcontext) = value; break;
++    case 14: R14_sig(sigcontext) = value; break;
++    case 15: R15_sig(sigcontext) = value; break;
++    }
++    RIP_sig(sigcontext) += pos + 3;
++    TRACE_(seh)( "emulated an RDPID instruction, processor %lu\n", (unsigned long)value );
++    { static unsigned int count; note_emulated( "RDPID", &count ); }
++    return TRUE;
++}
+ #endif
+ 
+ /***********************************************************************
+@@ -2506,6 +2669,257 @@
+ }
+ 
+ 
++#ifdef __APPLE__
++/* HRAVA_HW_EXEC_BREAKPOINT: stand-in for x86 execution breakpoints under Rosetta 2.
++ *
++ * Rosetta gives a thread no debug registers. A program that arms Dr0-3/Dr7 through a
++ * thread context and then runs into the armed address expects a debug exception there;
++ * copy protection steers its control flow that way and falls into a deliberate endless
++ * fault when the exception never comes.
++ *
++ * The program's code is left untouched, since the same protection also checksums it.
++ * While a breakpoint is armed its page loses execute permission. Entering the page
++ * faults; from there the thread is single-stepped with the trap flag until it reaches
++ * the breakpoint, where the debug exception is reported, or leaves the page, which is
++ * then guarded again.
++ */
++struct sw_breakpoint
++{
++    ULONG_PTR addr;
++    HANDLE    tid;
++    int       prot;      /* unix protection of the page, with execute permission */
++    LONG      armed;
++    LONG      guarded;   /* execute permission currently removed */
++};
++static struct sw_breakpoint sw_breakpoints[16];
++static HANDLE sw_stepping[16];   /* threads single-stepping through a breakpoint page */
++static pthread_mutex_t sw_breakpoint_mutex = PTHREAD_MUTEX_INITIALIZER;
++
++#define SW_BP_PAGE(addr) ((ULONG_PTR)(addr) & ~(ULONG_PTR)0xfff)
++
++static void guard_breakpoint_page( struct sw_breakpoint *bp, BOOL guard )
++{
++    if (guard)
++    {
++        if (!InterlockedCompareExchange( &bp->guarded, 1, 0 ))
++            mprotect( (void *)SW_BP_PAGE(bp->addr), 0x1000, bp->prot & ~PROT_EXEC );
++    }
++    else if (InterlockedCompareExchange( &bp->guarded, 0, 1 ) == 1)
++        mprotect( (void *)SW_BP_PAGE(bp->addr), 0x1000, bp->prot );
++}
++
++static BOOL set_sw_stepping( HANDLE tid, BOOL step )
++{
++    unsigned int i;
++
++    for (i = 0; i < ARRAY_SIZE(sw_stepping); i++)
++    {
++        if (sw_stepping[i] != tid) continue;
++        if (!step) InterlockedCompareExchangePointer( (void **)&sw_stepping[i], 0, tid );
++        return TRUE;
++    }
++    if (!step) return FALSE;
++    for (i = 0; i < ARRAY_SIZE(sw_stepping); i++)
++        if (!InterlockedCompareExchangePointer( (void **)&sw_stepping[i], tid, 0 )) return TRUE;
++    return FALSE;
++}
++
++static BOOL is_sw_stepping( HANDLE tid )
++{
++    unsigned int i;
++
++    for (i = 0; i < ARRAY_SIZE(sw_stepping); i++) if (sw_stepping[i] == tid) return TRUE;
++    return FALSE;
++}
++
++/* bring the guarded pages of the current thread in line with its debug registers;
++ * a breakpoint on the address execution resumes at stays out, as with the resume flag */
++static void sync_sw_breakpoints( ULONG_PTR resume_rip )
++{
++    struct amd64_thread_data *data = amd64_thread_data();
++    HANDLE tid = NtCurrentTeb()->ClientId.UniqueThread;
++    DWORD_PTR dr7 = data->dr7, addr[4] = { data->dr0, data->dr1, data->dr2, data->dr3 };
++    ULONG_PTR want[4] = { 0 };
++    unsigned int i, j;
++
++    if (!is_rosetta2) return;
++    for (i = 0; i < 4; i++)
++    {
++        if (!(dr7 & (3 << (i * 2)))) continue;        /* neither L nor G enable bit */
++        if ((dr7 >> (16 + i * 4)) & 0xf) continue;    /* not an execution breakpoint */
++        if (!addr[i] || addr[i] == resume_rip) continue;
++        want[i] = addr[i];
++    }
++
++    pthread_mutex_lock( &sw_breakpoint_mutex );
++    for (j = 0; j < ARRAY_SIZE(sw_breakpoints); j++)
++    {
++        struct sw_breakpoint *bp = &sw_breakpoints[j];
++
++        if (!bp->armed || bp->tid != tid) continue;
++        for (i = 0; i < 4; i++) if (want[i] == bp->addr) break;
++        if (i < 4) { want[i] = 0; continue; }         /* still wanted, already in place */
++        guard_breakpoint_page( bp, FALSE );
++        InterlockedExchange( &bp->armed, 0 );
++        TRACE_(seh)( "removed execution breakpoint at %p\n", (void *)bp->addr );
++    }
++    for (i = 0; i < 4; i++)
++    {
++        MEMORY_BASIC_INFORMATION info;
++
++        if (!want[i]) continue;
++        if (NtQueryVirtualMemory( NtCurrentProcess(), (void *)want[i], MemoryBasicInformation,
++                                  &info, sizeof(info), NULL )) continue;
++        if (info.State != MEM_COMMIT) continue;
++        for (j = 0; j < ARRAY_SIZE(sw_breakpoints); j++)
++        {
++            struct sw_breakpoint *bp = &sw_breakpoints[j];
++
++            if (bp->armed) continue;
++            bp->addr = want[i];
++            bp->tid = tid;
++            bp->prot = PROT_READ | PROT_EXEC;
++            if (info.Protect & (PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))
++                bp->prot |= PROT_WRITE;
++            bp->guarded = 0;
++            InterlockedExchange( &bp->armed, 1 );
++            guard_breakpoint_page( bp, TRUE );
++            TRACE_(seh)( "armed execution breakpoint %u at %p\n", i, (void *)want[i] );
++            break;
++        }
++    }
++    pthread_mutex_unlock( &sw_breakpoint_mutex );
++}
++
++/* report the debug exception of breakpoint bp, hit by its own thread */
++static void raise_sw_breakpoint( struct sw_breakpoint *bp, ucontext_t *ucontext,
++                                 EXCEPTION_RECORD *rec, struct xcontext *xcontext )
++{
++    struct amd64_thread_data *data = amd64_thread_data();
++    DWORD_PTR dr[4] = { data->dr0, data->dr1, data->dr2, data->dr3 };
++    ULONG_PTR addr = bp->addr;
++    unsigned int i;
++
++    guard_breakpoint_page( bp, FALSE );
++    InterlockedExchange( &bp->armed, 0 );
++    for (i = 0; i < 4; i++) if (dr[i] == addr && (data->dr7 & (3 << (i * 2)))) break;
++    TRACE_(seh)( "execution breakpoint %u hit at %p\n", i, (void *)addr );
++    /* what the register reads on hardware: reserved bits set, plus the breakpoint */
++    data->dr6 = 0xffff0ff0 | (i < 4 ? (DWORD_PTR)1 << i : 0);
++    EFL_sig(ucontext) &= ~0x100;
++    save_context( xcontext, ucontext );
++    rec->ExceptionCode = EXCEPTION_SINGLE_STEP;
++    rec->ExceptionAddress = (void *)addr;
++    rec->NumberParameters = 0;
++    setup_raise_exception( ucontext, rec, xcontext );
++}
++
++/* a fault on entering a guarded breakpoint page */
++static BOOL handle_sw_breakpoint_fault( ucontext_t *ucontext, EXCEPTION_RECORD *rec, struct xcontext *xcontext )
++{
++    HANDLE tid = NtCurrentTeb()->ClientId.UniqueThread;
++    ULONG_PTR rip = RIP_sig(ucontext);
++    unsigned int j;
++
++    if (!is_rosetta2) return FALSE;
++    for (j = 0; j < ARRAY_SIZE(sw_breakpoints); j++)
++    {
++        struct sw_breakpoint *bp = &sw_breakpoints[j];
++
++        if (!bp->armed || !bp->guarded || SW_BP_PAGE(bp->addr) != SW_BP_PAGE(rip)) continue;
++        if (bp->addr == rip && bp->tid == tid)
++        {
++            raise_sw_breakpoint( bp, ucontext, rec, xcontext );
++            return TRUE;
++        }
++        guard_breakpoint_page( bp, FALSE );
++        if (set_sw_stepping( tid, TRUE )) EFL_sig(ucontext) |= 0x100;
++        leave_handler( ucontext );
++        return TRUE;
++    }
++    return FALSE;
++}
++
++/* a single-step trap of a thread walking through a breakpoint page */
++static BOOL handle_sw_breakpoint_step( ucontext_t *ucontext, EXCEPTION_RECORD *rec, struct xcontext *xcontext )
++{
++    HANDLE tid = NtCurrentTeb()->ClientId.UniqueThread;
++    ULONG_PTR rip = RIP_sig(ucontext);
++    BOOL inside = FALSE;
++    unsigned int j;
++
++    if (!is_rosetta2 || !is_sw_stepping( tid )) return FALSE;
++    for (j = 0; j < ARRAY_SIZE(sw_breakpoints); j++)
++    {
++        struct sw_breakpoint *bp = &sw_breakpoints[j];
++
++        if (!bp->armed) continue;
++        if (bp->addr == rip && bp->tid == tid)
++        {
++            set_sw_stepping( tid, FALSE );
++            raise_sw_breakpoint( bp, ucontext, rec, xcontext );
++            return TRUE;
++        }
++        if (SW_BP_PAGE(bp->addr) == SW_BP_PAGE(rip)) inside = TRUE;
++    }
++    if (inside) EFL_sig(ucontext) |= 0x100;
++    else
++    {
++        /* left the page: stop stepping and guard it again */
++        set_sw_stepping( tid, FALSE );
++        EFL_sig(ucontext) &= ~0x100;
++        for (j = 0; j < ARRAY_SIZE(sw_breakpoints); j++)
++            if (sw_breakpoints[j].armed) guard_breakpoint_page( &sw_breakpoints[j], TRUE );
++    }
++    leave_handler( ucontext );
++    return TRUE;
++}
++#endif
++
++#ifdef __APPLE__
++/***********************************************************************
++ *           emulate_hw_exec_breakpoint
++ *
++ * HRAVA_HW_EXEC_BREAKPOINT: Rosetta 2 has no x86 debug registers, so an execution
++ * breakpoint a program arms through its exception context (Dr0-3 + Dr7) never fires.
++ * Copy protection relies on it: the handler of a deliberate fault arms a breakpoint on
++ * the faulting instruction and continues, expecting the debug exception that precedes
++ * the instruction on real hardware. Without it the same fault repeats forever.
++ * When a fault arrives at an address an enabled execution breakpoint covers, deliver
++ * the debug exception the CPU would have raised first.
++ */
++static BOOL emulate_hw_exec_breakpoint( ucontext_t *ucontext, EXCEPTION_RECORD *rec, struct xcontext *xcontext )
++{
++    struct amd64_thread_data *data = amd64_thread_data();
++    DWORD_PTR dr7 = data->dr7, addr[4] = { data->dr0, data->dr1, data->dr2, data->dr3 };
++    unsigned int i;
++
++    if (!is_rosetta2 || !(dr7 & 0xff)) return FALSE;
++    for (i = 0; i < 4; i++)
++    {
++        if (!(dr7 & (3 << (i * 2)))) continue;        /* neither L nor G enable bit */
++        if ((dr7 >> (16 + i * 4)) & 0xf) continue;    /* not an execution breakpoint */
++        if (addr[i] != RIP_sig(ucontext)) continue;
++        if (EFL_sig(ucontext) & 0x10000)              /* resume flag: skip the breakpoint once */
++        {
++            EFL_sig(ucontext) &= ~0x10000;
++            xcontext->c.EFlags &= ~0x10000;
++            return FALSE;
++        }
++        TRACE_(seh)( "emulating execution breakpoint %u at %p (dr7 %#lx)\n",
++                     i, (void *)addr[i], (unsigned long)dr7 );
++        data->dr6 = 0xffff0ff0 | ((DWORD_PTR)1 << i);
++        xcontext->c.Dr6 = data->dr6;
++        rec->ExceptionCode = EXCEPTION_SINGLE_STEP;
++        rec->ExceptionAddress = (void *)RIP_sig(ucontext);
++        rec->NumberParameters = 0;
++        setup_raise_exception( ucontext, rec, xcontext );
++        return TRUE;
++    }
++    return FALSE;
++}
++#endif
++
+ /**********************************************************************
+  *		segv_handler
+  *
+@@ -2519,6 +2933,11 @@
+ 
+     rec.ExceptionAddress = (void *)RIP_sig(ucontext);
+     save_context( &context, ucontext );
++
++#ifdef __APPLE__
++    if (handle_sw_breakpoint_fault( ucontext, &rec, &context )) return;
++    if (emulate_hw_exec_breakpoint( ucontext, &rec, &context )) return;
++#endif
+ 
+     switch(TRAP_sig(ucontext))
+     {
+@@ -2534,6 +2953,10 @@
+         if (handle_cet_nop( ucontext, &context.c )) return;
+         /* CW HACK 23427 */
+         if (emulate_xgetbv( ucontext, &context.c )) return;
++        /* HRAVA_ROSETTA_RDPID */
++        if (emulate_rdpid( ucontext, &context.c )) return;
++        /* HRAVA_ROSETTA_CLWB */
++        if (emulate_clwb( ucontext, &context.c )) return;
+ #endif
+         rec.ExceptionCode = EXCEPTION_ILLEGAL_INSTRUCTION;
+         break;
+@@ -2555,6 +2978,31 @@
+         }
+         break;
+     case TRAP_x86_PAGEFLT:  /* Page fault */
++#ifdef __APPLE__
++        /* ROSETTA_SMC_CPUID */
++        if (emulate_skipped_cpuid( sigcontext, siginfo ))
++        {
++            leave_handler( sigcontext );
++            return;
++        }
++        /* HRAVA_NONCANONICAL_GP: an x86 CPU raises a general protection fault, not a page
++         * fault, for an access through a non-canonical address, and Windows reports it as an
++         * access violation with no usable address (read, -1). Rosetta 2 delivers a page fault
++         * carrying the real address instead. Copy protection dereferences such pointers on
++         * purpose and recognises its own trap by the -1; given anything else its handler
++         * resumes the same instruction and the fault repeats forever. */
++        if (is_rosetta2 && ((INT64)(ULONG_PTR)siginfo->si_addr >> 47) != 0 &&
++            ((INT64)(ULONG_PTR)siginfo->si_addr >> 47) != -1)
++        {
++            TRACE_(seh)( "non-canonical address %p at %p, reporting a general protection fault\n",
++                         siginfo->si_addr, (void *)RIP_sig(ucontext) );
++            rec.ExceptionCode = EXCEPTION_ACCESS_VIOLATION;
++            rec.NumberParameters = 2;
++            rec.ExceptionInformation[0] = 0;
++            rec.ExceptionInformation[1] = 0xffffffffffffffff;
++            break;
++        }
++#endif
+         rec.NumberParameters = 2;
+         rec.ExceptionInformation[0] = (ERROR_sig(ucontext) >> 1) & 0x09;
+         rec.ExceptionInformation[1] = (ULONG_PTR)siginfo->si_addr;
+@@ -2615,6 +3063,10 @@
+ 
+     if (handle_syscall_trap( ucontext, siginfo )) return;
+ 
++#ifdef __APPLE__
++    if (handle_sw_breakpoint_step( ucontext, &rec, &context )) return;
++#endif
++
+     rec.ExceptionAddress = (void *)RIP_sig(ucontext);
+     save_context( &context, ucontext );
+ 
+@@ -2981,6 +3433,142 @@
+ #endif
+ 
+ 
++#ifdef __APPLE__
++#include <mach/mach.h>
++#include <mach/mach_vm.h>
++
++/***********************************************************************
++ *           rosetta_extend_cpuid
++ *
++ * HRAVA_ROSETTA_CPUID: Rosetta 2 reports CPUID leaf 7 as EBX 0x128 (BMI1, AVX2, BMI2) and
++ * ECX 0, the feature level of a 2013 CPU. Programs built for the Skylake/Zen level check
++ * for more and refuse to continue; copy protection built for that level compares the
++ * leaf with what the instructions actually do and falls into an endless fault instead of
++ * saying so (STAR WARS: Galactic Racer, 2026).
++ *
++ * Three of the missing features are really there: Rosetta executes CLFLUSHOPT, and this
++ * file emulates CLWB and RDPID. The Rosetta runtime keeps its CPUID leaves as a table of
++ * {eax, ebx, ecx, edx} rows in its own read-only image inside every translated process,
++ * and reads it for each CPUID a translated program executes. Set the requested bits in
++ * this process's copy of the leaf-7 row.
++ *
++ * WINE_ROSETTA_CPUID7_OR=<ebx bits>[,<ecx bits>] in hex, e.g. 01800000,00400000 for
++ * CLFLUSHOPT + CLWB and RDPID. It is read from the process environment, or for one program
++ * from HKCU\\Software\\Wine\\AppDefaults\\<exe>\\Environment, where a launcher keeps per-game
++ * variables: a game started by a Steam client that was already running does not inherit
++ * the environment of the launch that asked for it. Unset means all three, so a game with
++ * this kind of protection needs no setting of its own; 0 leaves the leaf as Rosetta has it.
++ * A table that does not look exactly as expected is left alone.
++ */
++static const char *rosetta_cpuid_setting( char *buffer, unsigned int size )
++{
++    static const WCHAR valueW[] = {'W','I','N','E','_','R','O','S','E','T','T','A','_','C','P','U','I','D','7','_','O','R',0};
++    static const WCHAR environmentW[] = {'\\','E','n','v','i','r','o','n','m','e','n','t',0};
++    const char *env = getenv( "WINE_ROSETTA_CPUID7_OR" );
++    char tmp[128];
++    KEY_VALUE_PARTIAL_INFORMATION *info = (KEY_VALUE_PARTIAL_INFORMATION *)tmp;
++    UNICODE_STRING nameW, valuenameW;
++    OBJECT_ATTRIBUTES attr;
++    HANDLE root, key = 0;
++    WCHAR *app_name, *path;
++    unsigned int i, len;
++    DWORD count;
++
++    if (env) return env;
++    if (!main_wargv || !main_wargv[0]) return NULL;
++    if ((app_name = ntdll_wcsrchr( main_wargv[0], '\\' ))) app_name++;
++    else app_name = main_wargv[0];
++    if (open_hkcu_key( "Software\\Wine\\AppDefaults", &root )) return NULL;
++
++    len = wcslen( app_name );
++    if ((path = malloc( (len + ARRAY_SIZE(environmentW)) * sizeof(WCHAR) )))
++    {
++        memcpy( path, app_name, len * sizeof(WCHAR) );
++        memcpy( path + len, environmentW, sizeof(environmentW) );
++        nameW.Buffer = path;
++        nameW.Length = (len + ARRAY_SIZE(environmentW) - 1) * sizeof(WCHAR);
++        InitializeObjectAttributes( &attr, &nameW, OBJ_CASE_INSENSITIVE, root, NULL );
++        /* @@ Wine registry key: HKCU\Software\Wine\AppDefaults\app.exe\Environment */
++        NtOpenKey( &key, KEY_READ, &attr );
++        free( path );
++    }
++    NtClose( root );
++    if (!key) return NULL;
++
++    env = NULL;
++    valuenameW.Buffer = (WCHAR *)valueW;
++    valuenameW.Length = sizeof(valueW) - sizeof(WCHAR);
++    if (!NtQueryValueKey( key, &valuenameW, KeyValuePartialInformation, tmp, sizeof(tmp), &count ) &&
++        info->Type == REG_SZ)
++    {
++        const WCHAR *data = (const WCHAR *)info->Data;
++        len = min( info->DataLength / sizeof(WCHAR), size - 1 );
++        for (i = 0; i < len && data[i]; i++) buffer[i] = (char)data[i];
++        buffer[i] = 0;
++        env = buffer;
++    }
++    NtClose( key );
++    return env;
++}
++
++static void rosetta_extend_cpuid(void)
++{
++    static const unsigned int vendor[3] = { 0x756e6547, 0x6c65746e, 0x49656e69 };  /* "Genu" "ntel" "ineI" */
++    char setting[64];
++    const char *env;
++    mach_vm_address_t addr = 0;
++    mach_vm_size_t size = 0;
++    unsigned int patched = 0;
++
++    unsigned int mask, mask_ecx = 0;
++    char *next;
++
++    if (!is_rosetta2) return;
++    if (!(env = rosetta_cpuid_setting( setting, sizeof(setting) ))) env = "01800000,00400000";
++    mask = strtoul( env, &next, 16 ) & 0x01800000;   /* CLFLUSHOPT, CLWB: nothing else is backed */
++    if (*next == ',') mask_ecx = strtoul( next + 1, NULL, 16 ) & 0x00400000;   /* RDPID */
++    if (!mask && !mask_ecx) return;
++    for (;;)
++    {
++        vm_region_basic_info_data_64_t info;
++        mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
++        mach_port_t object;
++        unsigned int *p;
++        size_t i, n;
++
++        if (mach_vm_region( mach_task_self(), &addr, &size, VM_REGION_BASIC_INFO_64,
++                            (vm_region_info_t)&info, &count, &object )) break;
++        /* the runtime image: readable and executable, never writable, a few hundred kB */
++        if ((info.protection & (VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE)) == (VM_PROT_READ | VM_PROT_EXECUTE) &&
++            size <= 0x400000)
++        {
++            p = (unsigned int *)addr;
++            n = size / sizeof(*p);
++            for (i = 4; i + 32 < n; i++)
++            {
++                unsigned int *row1 = p + i, *ebx7 = row1 + 6 * 4 + 1;
++                mach_vm_address_t page;
++
++                /* leaf 0 ends in the vendor string, leaf 1 follows, leaf 7 is six rows on */
++                if (row1[-3] != vendor[0] || row1[-2] != vendor[1] || row1[-1] != vendor[2]) continue;
++                if ((row1[0] & 0xfff00000) || !(row1[3] & (1 << 25))) continue;   /* family/model word, SSE in edx */
++                if (ebx7[-1] || (*ebx7 & ~0x128u) || ebx7[1]) continue;  /* eax 0; only the known bits */
++                page = (mach_vm_address_t)ebx7 & ~(mach_vm_address_t)0x3fff;
++                if (mach_vm_protect( mach_task_self(), page, 0x4000, 0, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY )) continue;
++                *ebx7 |= mask;
++                ebx7[1] |= mask_ecx;
++                mach_vm_protect( mach_task_self(), page, 0x4000, 0, VM_PROT_READ | VM_PROT_EXECUTE );
++                patched++;
++            }
++        }
++        addr += size;
++    }
++    if (patched) { rosetta_cpuid7_ebx = mask; rosetta_cpuid7_ecx = mask_ecx; }
++    if (!patched) WARN_(seh)( "Rosetta CPUID table not found, leaf 7 stays as it is\n" );
++    else TRACE_(seh)( "extended leaf 7 in %u Rosetta CPUID table(s): ebx |= %#x, ecx |= %#x\n", patched, mask, mask_ecx );
++}
++#endif
++
+ /**********************************************************************
+  *		signal_init_process
+  */
+@@ -3026,11 +3614,14 @@
+         else
+             is_rosetta2 = ret;
+     }
++    rosetta_extend_cpuid();  /* HRAVA_ROSETTA_CPUID */
+ 
+     /* CW Hack 23427: __builtin_available presumably isn't signal-safe. */
+     if (__builtin_available( macOS 15.0, * ))
+         sequoia_or_later = TRUE;
+ #endif
++
++    native_timing_init();
+ 
+     sig_act.sa_mask = server_block_set;
+     sig_act.sa_flags = SA_SIGINFO | SA_RESTART | SA_ONSTACK;
+--- a/dlls/ntdll/unix/sync.c
++++ b/dlls/ntdll/unix/sync.c
+@@ -2367,14 +2367,24 @@
+                             void *arg, BOOLEAN resume, ULONG period, BOOLEAN *state )
+ {
+     unsigned int ret = STATUS_SUCCESS;
++    LONGLONG expire = when->QuadPart;
+ 
+     TRACE( "(%p,%p,%p,%p,%08x,0x%08x,%p)\n", handle, when, callback, arg, resume, period, state );
++
++    /* wineserver makes a relative expiry a deadline by subtracting its monotonic clock
++     * (timeout_to_abstime), which overflows when the expiry is within that clock of
++     * -MAXLONGLONG, and the timer is then signalled at once. The threadpool's timer queue
++     * arms its relative timer with such a value, rel_now - MAXLONGLONG, whenever no relative
++     * timer is pending; with absolute timers only, its thread then wakes and re-arms in a
++     * loop (Forza Horizon 6: 88,000 set_timer requests a second, wineserver at 57% of a core).
++     * -2^62, about 14,600 years, cannot overflow and is as good as never. */
++    if (expire < -((LONGLONG)1 << 62)) expire = -((LONGLONG)1 << 62);
+ 
+     SERVER_START_REQ( set_timer )
+     {
+         req->handle   = wine_server_obj_handle( handle );
+         req->period   = period;
+-        req->expire   = when->QuadPart;
++        req->expire   = expire;
+         req->callback = wine_server_client_ptr( callback );
+         req->arg      = wine_server_client_ptr( arg );
+         ret = wine_server_call( req );
+--- a/dlls/ntdll/unix/unix_private.h
++++ b/dlls/ntdll/unix/unix_private.h
+@@ -733,4 +733,6 @@
+ 
+ #endif  /* defined(__i386__) || defined(__x86_64__) */
+ 
++extern void fh6_native_mark(unsigned int kind,unsigned int tid,UINT64 rip,UINT64 rsp,UINT64 aux);
++
+ #endif /* __NTDLL_UNIX_PRIVATE_H */

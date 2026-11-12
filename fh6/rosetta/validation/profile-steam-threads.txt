@@ -1,0 +1,5 @@
+SteamUtils010: interface
+SteamUtils010: interface
+SteamController008: interface
+SteamInput006: interface
+STEAMUSERSTATS_INTERFACE_VERSION012: interface

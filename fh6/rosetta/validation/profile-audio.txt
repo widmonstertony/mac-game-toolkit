@@ -1,0 +1,4 @@
+msync: bootstrapped mach port on wine-18fd494-msync.
+msync: up and running.
+winecoreaudio: 12-channel stream (mask 0x2d63f) rendered by AUSpatialMixer for built-in speakers on a 2-channel device
+Submitted 24000 frames with center and side channels only; front L/R were silent

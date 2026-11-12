@@ -1,0 +1,24 @@
+{
+  "compatible": true,
+  "scope": "FH6 2483190 only",
+  "wine_base": "Highball Wine 11.0 / x64-crossover26.3-r28",
+  "upstream": "ddb2c25fbddaced6abae70f73ae17d408b9e1a08",
+  "compiler": "GCC 16.2.0 PE, Apple clang x86_64 Unix",
+  "files": {
+    "engine/lib/wine/x86_64-unix/ntdll.so": "42f9703c873ff6db122324aa78649c25a2f561d4b6680d8d628d75dc30a49281",
+    "engine/lib/wine/x86_64-windows/ntdll.dll": "3b9eb9760c87ab3e0b61c7c3ac4b259317472d1ebd3e36dee0b42dd87a7b5e2b",
+    "engine/lib/wine/x86_64-windows/winhttp.dll": "a7e74434eeb2177b690b5092898ff2fb67b978e45e195df1115e05254172833b",
+    "engine/lib/wine/x86_64-windows/ws2_32.dll": "e7e1c584bd19667a6ffb63077dd48a6c82b0b81cd2b45f031a10a8da4a02675d",
+    "support/native-bridge/local/steamclient64.dll": "ecab7aa3d819ff71c5896bd507ceafb91fe66c47902a9d1c7189878a49550f4b"
+  },
+  "tests": [
+    "five exception modes: 1090 instruction cases and 132160 full-state comparisons per mode",
+    "native Steam online + main/worker/main query",
+    "GPU clear/copy/fence/readback: 8192 pixels, zero errors",
+    "dual-stack UDP real echo, invalid option failures, six WS workers plus concurrent HTTP and timeout: three rounds and installed profile pass",
+    "12-channel spatial mix: 24000 frames submitted"
+  ],
+  "gameplay_verified": false,
+  "online_session_join_verified": false,
+  "frame_generation_output_verified": false
+}

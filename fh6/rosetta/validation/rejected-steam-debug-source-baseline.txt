@@ -1,0 +1,6 @@
+created client=00006FFFFF005004 vtable=00006FFFFD3A1528
+query thread=36 client=00006FFFFF005004 vtable=00006FFFFD3A1528
+SteamUtils010: interface
+after query client=00006FFFFF005004 vtable=00006FFFFD3A1528
+query thread=204 client=00006FFFFF005004 vtable=FFFFFFFFFD3A1528
+wine: Unhandled page fault on read access to FFFFFFFFFD3A1588 at address 000000014000174F (thread 00cc), starting debugger...
