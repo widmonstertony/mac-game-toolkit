@@ -1,0 +1,15 @@
+Windows Registry Editor Version 5.00
+
+; EA launcher only: the current winegstreamer backend aborts in GLib-GObject
+; during EA startup. Games retain their own media and rendering configuration.
+[HKEY_CURRENT_USER\Software\Wine\AppDefaults\EADesktop.exe\DllOverrides]
+"winegstreamer"=""
+
+[HKEY_CURRENT_USER\Software\Wine\AppDefaults\EASteamLauncher.exe\DllOverrides]
+"winegstreamer"=""
+
+[HKEY_CURRENT_USER\Software\Wine\AppDefaults\EASteamAuthHelper.exe\DllOverrides]
+"winegstreamer"=""
+
+[HKEY_CURRENT_USER\Software\Wine\AppDefaults\EABackgroundService.exe\DllOverrides]
+"winegstreamer"=""

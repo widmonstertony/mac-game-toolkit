@@ -5,11 +5,51 @@ import json
 import os
 from pathlib import Path
 import re
+import struct
 import subprocess
 import sys
 
 APP_ID = '2483190'
 EXE_SHA = '63791d0b686186c23ade10a1ae02efd785045bd818cc89816f472cad9a69fcb9'
+
+
+def is_native_x64(path):
+    """Reject ARM64EC DLLs whose ordinary PE Machine field also says AMD64."""
+    data = path.read_bytes()
+    try:
+        pe = struct.unpack_from('<I', data, 60)[0]
+        if data[:2] != b'MZ' or data[pe:pe + 4] != b'PE\0\0':
+            return False
+        machine, sections = struct.unpack_from('<HH', data, pe + 4)
+        optional = pe + 24
+        if machine != 0x8664 or struct.unpack_from('<H', data, optional)[0] != 0x20b:
+            return False
+        count = struct.unpack_from('<I', data, optional + 108)[0]
+        if count <= 10:
+            return True
+        rva, size = struct.unpack_from('<II', data, optional + 112 + 10 * 8)
+        if not rva or size < 208:
+            return True
+        table = optional + struct.unpack_from('<H', data, pe + 20)[0]
+        for index in range(sections):
+            start = table + index * 40
+            virtual_size, virtual, raw_size, raw = struct.unpack_from('<IIII', data, start + 8)
+            if virtual <= rva < virtual + max(virtual_size, raw_size):
+                offset = raw + rva - virtual
+                if struct.unpack_from('<I', data, offset)[0] < 208:
+                    return True
+                return struct.unpack_from('<Q', data, offset + 200)[0] == 0  # CHPEMetadataPointer
+        return False
+    except (struct.error, IndexError):
+        return False
+
+
+def verify_runtime(profile):
+    system = profile / 'prefix/drive_c/windows/system32'
+    for name in ('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll', 'concrt140.dll'):
+        path = system / name
+        if not path.is_file() or not is_native_x64(path):
+            raise RuntimeError('FH6 needs the official x64 VC++ runtime in its private prefix: ' + name)
 
 
 def environment(profile):
@@ -51,6 +91,7 @@ def launch(log):
     for rel, expected in manifest['files'].items():
         if hashlib.sha256((profile / rel).read_bytes()).hexdigest() != expected:
             raise RuntimeError('FH6 profile module changed: ' + rel)
+    verify_runtime(profile)
     spec = importlib.util.spec_from_file_location('fh6_rosetta_native', support / 'native_steam.py')
     native = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(native)

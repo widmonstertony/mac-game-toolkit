@@ -1,6 +1,6 @@
 # FH6 / Highball Wine 11.0 exception-handling port
 
-地平线6专用的免费 Highball 移植。已完成本机兼容性验证，作为地平线6独占的 Rosetta＋D3DMetal 配置接入原生 Steam。**尚待用户验证实际游戏帧时间、重影和加入在线会话。**它不包含 CrossOver 应用，也不修改 Apple 闭源代码或游戏文件。
+地平线6专用的免费 Highball 移植。CPU、Steam 接口和独立 GPU 检查已通过，作为地平线6独占的 Rosetta＋D3DMetal 配置接入原生 Steam。**实际启动随后暴露了运行库和 NvAPI 初始化缺陷；独立检查通过不代表游戏兼容，仍待实际启动、帧时间、重影和加入在线会话验证。**它不包含 CrossOver 应用，也不修改 Apple 闭源代码或游戏文件。
 
 ## Scope / 范围
 
@@ -35,6 +35,15 @@ Two concrete compatibility defects were found rather than skipping failed checks
 No shared Proton-ish or Highball modules were replaced. The old FEX profile remains available via the per-game selector; its existing game files and user-data/cache location are reused. There is no second game download. Current actual upscaling is **FSR 3.1 via OptiScaler**, with the game's existing DLSS-input/2× frame-generation settings; this port does not relabel that as FSR 4.
 
 No gameplay performance improvement, online-session success or 2× frame output is claimed from these CPU tests. Those require the final compatible profile and the user's game test. Keep native resolution, existing upscaling/2× FG, audio and caches during that test.
+
+### Startup integration repair, 2026-11-12
+
+Actual native-Steam startup revealed two failures missed by the earlier probes:
+
+1. The source container's `vcruntime140_1.dll` has PE Machine `0x8664` but contains ARM64EC code and nonzero `CHPEMetadataPointer`. Copying it by Machine value alone caused `c0000005` during DLL initialization. The existing official Microsoft `vc_redist.x64.exe` installed the x64 runtime into the **private FH6 prefix**. It initially retained the higher-version hybrid DLL; retaining that one file under another name and running the official `/repair /quiet /norestart` installed the correct x64 module. Five real DLL load checks passed afterward. `profile.py` now checks CHPE metadata and rejects that retained ARM64EC file in a real-file regression.
+2. The real game then failed initializing OptiScaler `VERSION.dll`. Loader/exception tracing showed the D3DMetal builtin NvAPI being loaded before a null-code-pointer exception. A separate NvAPI probe also failed with that provider, while the existing game distribution's `fakenvapi.dll` passed initialization and interface queries. The private FH6 prefix now uses that existing provider as native `nvapi64.dll`; default-name loading, queries and initialization return success. This does not assert NVIDIA hardware exists. The game's graphics settings were not disabled or changed for this repair.
+
+`diagnostics/launch-20261112/` retains the authored minimal probes. The installed private manifest records repaired runtime hashes. Do not redistribute Microsoft's runtime DLLs in this repository; use the official installer on another device. These integration checks still do not prove actual game rendering or frame generation. At this checkpoint Heat was running, so another GPU game was not launched concurrently.
 
 
 ## Installed route / 当前入口
