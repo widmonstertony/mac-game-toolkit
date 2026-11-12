@@ -1,0 +1,99 @@
+--- a/dlls/ws2_32/socket.c
++++ b/dlls/ws2_32/socket.c
+@@ -3315,7 +3315,47 @@
+ /***********************************************************************
+  *		setsockopt		(WS2_32.21)
+  */
+-int WINAPI setsockopt( SOCKET s, int level, int optname, const char *optval, int optlen )
++/* Port of MetalHorizon's dual-stack socket option fix to Wine 11.18.
++ * Only retry host-incompatible IPv4 options on actual dual-stack sockets.
++ * Unlike the original patch, do not claim success if the IPv6 operation fails. */
++static int setsockopt_impl( SOCKET s, int level, int optname, const char *optval, int optlen );
++
++static int set_dual_stack_ip_option( SOCKET s, int optname, DWORD code,
++                                     const char *optval, int optlen )
++{
++    WSAPROTOCOL_INFOW info;
++    int ret, mapped, size = sizeof(info), v6only = 1, only_size = sizeof(v6only);
++    DWORD err;
++
++    if (!(ret = server_setsockopt( s, code, optval, optlen ))) return 0;
++    err = WSAGetLastError();
++    if (err != WSAEINVAL && err != WSAENOPROTOOPT && err != WSAEOPNOTSUPP) return ret;
++    if (!ws_protocol_info( s, TRUE, &info, &size ) || info.iAddressFamily != AF_INET6 ||
++        getsockopt( s, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&v6only, &only_size ) || v6only)
++    {
++        WSASetLastError( err );
++        return ret;
++    }
++    switch (optname)
++    {
++    case IP_DONTFRAGMENT:  mapped = IPV6_DONTFRAG; break;
++    case IP_TTL:           mapped = IPV6_UNICAST_HOPS; break;
++    case IP_MULTICAST_TTL: mapped = IPV6_MULTICAST_HOPS; break;
++    case IP_MULTICAST_LOOP:mapped = IPV6_MULTICAST_LOOP; break;
++    default:
++        WSASetLastError( err );
++        return ret;
++    }
++    ret = setsockopt_impl( s, IPPROTO_IPV6, mapped, optval, optlen );
++    if (!ret)
++    {
++        TRACE( "FH6 dual-stack: socket %#Ix IPv4 option %d applied as IPv6 option %d\n", s, optname, mapped );
++        WSASetLastError( ERROR_SUCCESS );
++    }
++    return ret;
++}
++
++static int setsockopt_impl( SOCKET s, int level, int optname, const char *optval, int optlen )
+ {
+     DWORD value = 0;
+ 
+@@ -3580,7 +3620,7 @@
+             return server_setsockopt( s, IOCTL_AFD_WINE_SET_IP_BLOCK_SOURCE, optval, optlen );
+ 
+         case IP_DONTFRAGMENT:
+-            return server_setsockopt( s, IOCTL_AFD_WINE_SET_IP_DONTFRAGMENT, optval, optlen );
++            return set_dual_stack_ip_option( s, IP_DONTFRAGMENT, IOCTL_AFD_WINE_SET_IP_DONTFRAGMENT, optval, optlen );
+ 
+         case IP_DROP_MEMBERSHIP:
+             return server_setsockopt( s, IOCTL_AFD_WINE_SET_IP_DROP_MEMBERSHIP, optval, optlen );
+@@ -3600,7 +3640,7 @@
+                 SetLastError( WSAEFAULT );
+                 return -1;
+             }
+-            return server_setsockopt( s, IOCTL_AFD_WINE_SET_IP_MULTICAST_LOOP, optval, optlen );
++            return set_dual_stack_ip_option( s, IP_MULTICAST_LOOP, IOCTL_AFD_WINE_SET_IP_MULTICAST_LOOP, optval, optlen );
+ 
+         case IP_MULTICAST_TTL:
+             if (!optlen)
+@@ -3608,7 +3648,7 @@
+                 SetLastError( WSAEFAULT );
+                 return -1;
+             }
+-            return server_setsockopt( s, IOCTL_AFD_WINE_SET_IP_MULTICAST_TTL, optval, optlen );
++            return set_dual_stack_ip_option( s, IP_MULTICAST_TTL, IOCTL_AFD_WINE_SET_IP_MULTICAST_TTL, optval, optlen );
+ 
+         case IP_OPTIONS:
+             return server_setsockopt( s, IOCTL_AFD_WINE_SET_IP_OPTIONS, optval, optlen );
+@@ -3657,7 +3697,7 @@
+                 SetLastError( WSAEFAULT );
+                 return -1;
+             }
+-            return server_setsockopt( s, IOCTL_AFD_WINE_SET_IP_TTL, optval, optlen );
++            return set_dual_stack_ip_option( s, IP_TTL, IOCTL_AFD_WINE_SET_IP_TTL, optval, optlen );
+ 
+         case IP_UNBLOCK_SOURCE:
+             return server_setsockopt( s, IOCTL_AFD_WINE_SET_IP_UNBLOCK_SOURCE, optval, optlen );
+@@ -3781,6 +3821,11 @@
+     } /* end switch(level) */
+ }
+ 
++
++int WINAPI setsockopt( SOCKET s, int level, int optname, const char *optval, int optlen )
++{
++    return setsockopt_impl( s, level, optname, optval, optlen );
++}
+ 
+ /***********************************************************************
+  *      shutdown   (ws2_32.22)

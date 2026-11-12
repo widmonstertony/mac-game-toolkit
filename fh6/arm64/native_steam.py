@@ -159,6 +159,10 @@ def runtime_environment(runner, root, bottle, bridge, engine, client, steam):
         raise RuntimeError("Highball selected a different container")
     env["PATH"] = f"{engine / 'engine/bin'}:/usr/bin:/bin:/usr/sbin:/sbin"
     env["WINEDLLPATH_PREPEND"] = f"{bridge / 'wine-overlay'}:{env['WINEDLLPATH_PREPEND']}"
+    # FH6-only network modules, without changing the bottle's renderer/audio paths.
+    network = bottle / ".fh6-network"
+    if (network / "installed.json").is_file():
+        env["WINEDLLPATH_PREPEND"] = f"{network}:{env['WINEDLLPATH_PREPEND']}"
     env["WINEDLLPATH"] = str(steam)
     env["WINEDLLOVERRIDES"] += ";steamclient,steamclient64=n;lsteamclient=b"
     env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(client)
