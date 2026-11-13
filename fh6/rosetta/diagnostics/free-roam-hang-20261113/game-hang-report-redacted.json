@@ -1,0 +1,20 @@
+{
+  "UI_SCENE": "EmptyScene",
+  "PLM_STATE": "RUNNING",
+  "MEM_AVAILABLE": "68719472640",
+  "AUDIO_API_ERROR_COUNT": "0",
+  "AUDIO_ERROR_COUNT": "0",
+  "UPTIME": "443.122009",
+  "UPTIME_DRIVING": "0.000000",
+  "REASON": "hang34",
+  "REASON_INFO": "0x00000000000007f8",
+  "EXCEPTION_INPROGRESS": "0",
+  "EXCEPTION": "",
+  "VRAM_BUDGET": "55662788608",
+  "VRAM_USED": "11951931392",
+  "MEM_USED": "17767823848",
+  "MEM_LIMIT": "68719472640",
+  "D3D_HR_ERROR": "0x00000000",
+  "RUNNING_UNDER_WINE": "2",
+  "LAST_STATE_MACHINE_STACK": "wait_for_cutscene, wait_for_rollout_part_02_cutscene, run_state, run_state_from_module_method_call, run_custom_transition_flow, wait_for_return_to_freeroam_cutscene, wait_for_rtf_cutscene_and_cleanup, loading_screen_to_freeroam_transition_visual_only, post_functional_location_drive_out, post_functional_location_drive_out, root, root_from_cold_boot_internal, root_from_cold_boot"
+}

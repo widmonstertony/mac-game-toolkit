@@ -1,0 +1,1036 @@
+
+TID=00e8 query=00000000 teb=000000007ffc0000
+Wine saved syscall frame=1000ffd00 syscall=4 rip=6ffffd58ea34 rsp=10fd38 rbp=10fe59 rcx=140000000
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 1449529da forzahorizon6+49529da
+04 1429649ef forzahorizon6+29649ef
+05 140431454 forzahorizon6+431454
+06 145a7bf42 forzahorizon6+5a7bf42
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+
+TID=0128 query=00000000 teb=000000007ffb0000
+Wine saved syscall frame=1001ffc40 syscall=10 rip=6ffffd58eaf4 rsp=fdfd58 rbp=fdfde0 rcx=6ffff9d31f00
+00 6ffffd58eaf4 ntdll+eaf4
+01 6ffffd58eaf4 ntdll+eaf4
+
+TID=012c query=00000000 teb=000000007ffa0000
+Wine saved syscall frame=1002ffc40 syscall=4 rip=6ffffd58ea34 rsp=10dfb68 rbp=10dfcc0 rcx=6ffffcc63880
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 6ffff21043ae nvapi64+243ae
+04 6ffff20e24bf nvapi64+24bf
+05 6ffffcc638ca ucrtbase+238ca
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+
+TID=0130 query=00000000 teb=000000007ff90000
+Wine saved syscall frame=1003ffc40 syscall=52 rip=6ffffd58f034 rsp=19dfee8 rbp=6ffff1eb20f0 rcx=6ffff1e91600
+00 6ffffd58f034 ntdll+f034
+01 6ffffd58f034 ntdll+f034
+02 6ffffcee947c kernelbase!Sleep+24
+03 6ffff1e9165f fh6-fg-chain.asi+165f
+04 6ffffd5114e9 kernel32+114e9
+05 6ffffd590dc3 ntdll+10dc3
+
+TID=013c query=00000000 teb=000000007ff60000
+Wine saved syscall frame=1006ffc40 syscall=4 rip=1c008ea rsp=34cff08 rbp=0 rcx=1c008ea
+00 1c008ea +1c008ea
+
+TID=0140 query=00000000 teb=000000007ff50000
+Wine saved syscall frame=1007ffc40 syscall=4 rip=1c008ea rsp=35cfea8 rbp=0 rcx=1c008ea
+00 1c008ea +1c008ea
+
+TID=0144 query=00000000 teb=000000007ff40000
+Wine saved syscall frame=1008ffc40 syscall=6 rip=6ffffd58ea74 rsp=2cdfba8 rbp=2cdfd09 rcx=7a9007968
+00 6ffffd58ea74 ntdll+ea74
+01 6ffffd58ea74 ntdll+ea74
+
+TID=0148 query=00000000 teb=000000007ff30000
+Wine saved syscall frame=1009ffc40 syscall=91 rip=1c008ea rsp=2defed8 rbp=0 rcx=1c008ea
+00 1c008ea +1c008ea
+
+TID=014c query=00000000 teb=000000007ff20000
+Wine saved syscall frame=100affc40 syscall=91 rip=1c008ea rsp=2eecd48 rbp=2eecea0 rcx=1c008ea
+00 1c008ea +1c008ea
+
+TID=0150 query=00000000 teb=000000007ff10000
+Wine saved syscall frame=100bffc40 syscall=9 rip=6ffffd58ead4 rsp=2ffe8d8 rbp=2ffea70 rcx=3f32d801dafb0000
+00 6ffffd58ead4 ntdll+ead4
+01 6ffffd58ead4 ntdll+ead4
+02 6ffffceb161b kernelbase!GetQueuedCompletionStatus+63
+03 1454b882f forzahorizon6+54b882f
+04 6ffffd5114e9 kernel32+114e9
+05 6ffffd590dc3 ntdll+10dc3
+
+TID=0154 query=00000000 teb=000000007ff00000
+Wine saved syscall frame=100cffc40 syscall=4 rip=6ffffd58ea34 rsp=310fde8 rbp=18c1bb0 rcx=1c008ea
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffd5f70ab ntdll!timer_queue_thread_proc+2b
+03 6ffffd5114e9 kernel32+114e9
+04 6ffffd590dc3 ntdll+10dc3
+05 14545eb6a forzahorizon6+545eb6a
+
+TID=0158 query=00000000 teb=000000007fef0000
+Wine saved syscall frame=100dffc40 syscall=255 rip=6ffffd590994 rsp=e99fd08 rbp=e99fe28 rcx=3f32d801dafb0000
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5b7de4 ntdll!RtlSleepConditionVariableCS+34
+04 6ffffd5f6e93 ntdll!threadpool_worker_proc+83
+05 6ffffd5114e9 kernel32+114e9
+06 6ffffd590dc3 ntdll+10dc3
+07 14545eb6a forzahorizon6+545eb6a
+
+TID=015c query=00000000 teb=000000007fee0000
+Wine saved syscall frame=100effc40 syscall=67 rip=145505b57 rsp=166ae120 rbp=166ae220 rcx=145407a58
+00 145505b57 forzahorizon6+5505b57
+01 145505b57 forzahorizon6+5505b57
+02 145507795 forzahorizon6+5507795
+03 1453d951e forzahorizon6+53d951e
+04 1453b581e forzahorizon6+53b581e
+05 1453b8313 forzahorizon6+53b8313
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=016c query=00000000 teb=000000007fea0000
+Wine saved syscall frame=1012ffc40 syscall=4 rip=6ffffd58ea34 rsp=171bfce8 rbp=171bff79 rcx=171bfba8
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 142966e5a forzahorizon6+2966e5a
+05 14296b216 forzahorizon6+296b216
+06 14042e14b forzahorizon6+42e14b
+07 144951d16 forzahorizon6+4951d16
+08 6ffffd5114e9 kernel32+114e9
+09 6ffffd590dc3 ntdll+10dc3
+10 14545eb6a forzahorizon6+545eb6a
+
+TID=0174 query=00000000 teb=000000007ff70000
+Wine saved syscall frame=1005ffc40 syscall=255 rip=6ffffd590994 rsp=174bfb48 rbp=0 rcx=6ffffcc63880
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5b7e6b ntdll!RtlSleepConditionVariableSRW+6b
+04 6ffffcee957c kernelbase!SleepConditionVariableSRW+24
+05 6ffffae82368 msvcp140+12368
+06 6ffff1c6b81d sl.interposer+3b81d
+07 6ffff1c6f86f sl.interposer+3f86f
+08 6ffffcc638ca ucrtbase+238ca
+09 6ffffd5114e9 kernel32+114e9
+10 6ffffd590dc3 ntdll+10dc3
+11 14545eb6a forzahorizon6+545eb6a
+
+TID=0178 query=00000000 teb=000000007fed0000
+Wine saved syscall frame=100fffc40 syscall=255 rip=6ffffd590994 rsp=167afd38 rbp=167afe48 rcx=6ffffd5f7330
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5b7de4 ntdll!RtlSleepConditionVariableCS+34
+04 6ffffd5f75d4 ntdll!timerqueue_thread_proc+2a4
+05 6ffffd5114e9 kernel32+114e9
+06 6ffffd590dc3 ntdll+10dc3
+07 14545eb6a forzahorizon6+545eb6a
+
+TID=017c query=00000000 teb=000000007fe80000
+Wine saved syscall frame=1014ffc40 syscall=91 rip=6ffffd58f514 rsp=178ef8e8 rbp=2144098 rcx=6ffffd5fb600
+00 6ffffd58f514 ntdll+f514
+01 6ffffd58f514 ntdll+f514
+02 6ffffd5fbae6 ntdll!waitqueue_thread_proc+4e6
+03 6ffffd5114e9 kernel32+114e9
+04 6ffffd590dc3 ntdll+10dc3
+05 14545eb6a forzahorizon6+545eb6a
+
+TID=018c query=00000000 teb=000000007fe70000
+Wine saved syscall frame=1015ffc40 syscall=52 rip=6ffffd58f034 rsp=1c42fd58 rbp=1c42ff79 rcx=1015ffc40
+00 6ffffd58f034 ntdll+f034
+01 6ffffd58f034 ntdll+f034
+02 6ffffcee947c kernelbase!Sleep+24
+03 14495e1d3 forzahorizon6+495e1d3
+04 14495e199 forzahorizon6+495e199
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=0190 query=00000000 teb=000000007fe60000
+Wine saved syscall frame=1016ffc40 syscall=52 rip=6ffffd58f034 rsp=1c52fd08 rbp=0 rcx=1
+00 6ffffd58f034 ntdll+f034
+01 6ffffd58f034 ntdll+f034
+02 6ffffcee947c kernelbase!Sleep+24
+03 142870d1a forzahorizon6+2870d1a
+04 144951d16 forzahorizon6+4951d16
+05 6ffffd5114e9 kernel32+114e9
+06 6ffffd590dc3 ntdll+10dc3
+07 14545eb6a forzahorizon6+545eb6a
+
+TID=0194 query=00000000 teb=000000007fe50000
+Wine saved syscall frame=1017ffc40 syscall=172 rip=6ffffd58ff34 rsp=17aff908 rbp=17affa30 rcx=6fffef1434a0
+00 6ffffd58ff34 ntdll+ff34
+01 6ffffd58ff34 ntdll+ff34
+02 6ffffced986d kernelbase!RegNotifyChangeKeyValue+8d
+03 6fffef143832 mmdevapi+13832
+04 6ffffd5114e9 kernel32+114e9
+05 6ffffd590dc3 ntdll+10dc3
+06 14545eb6a forzahorizon6+545eb6a
+
+TID=0198 query=00000000 teb=000000007fe40000
+Wine saved syscall frame=1018ffc40 syscall=4 rip=6ffffd58ea34 rsp=17bffcd8 rbp=21aa90510 rcx=21aa265c0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 1433d0fbd forzahorizon6+33d0fbd
+05 1433d1379 forzahorizon6+33d1379
+06 144951d16 forzahorizon6+4951d16
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=019c query=00000000 teb=000000007fe30000
+Wine saved syscall frame=1019ffc40 syscall=4 rip=6ffffd58ea34 rsp=17e6fd08 rbp=17e6ff79 rcx=21aa26b00
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 1430a2572 forzahorizon6+30a2572
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01a0 query=00000000 teb=000000007ff80000
+Wine saved syscall frame=1004ffc40 syscall=4 rip=6ffffd58ea34 rsp=1adfd08 rbp=21c1440 rcx=3e5
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+
+TID=01a4 query=00000000 teb=000000007fe20000
+Wine saved syscall frame=101affc40 syscall=70 rip=6ffffd58f274 rsp=179efc98 rbp=7 rcx=6ffffd58ea34
+00 6ffffd58f274 ntdll+f274
+01 6ffffd58f274 ntdll+f274
+02 6ffffd5a4c44 ntdll!RtlEnterCriticalSection+14
+03 1430fb0a9 forzahorizon6+30fb0a9
+04 1430f269b forzahorizon6+30f269b
+05 1431028c5 forzahorizon6+31028c5
+06 144951d16 forzahorizon6+4951d16
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=01a8 query=00000000 teb=000000007fe10000
+Wine saved syscall frame=101bffc40 syscall=91 rip=6ffffd58f514 rsp=18f6fac8 rbp=18f6fb28 rcx=6ffffd58ea34
+00 6ffffd58f514 ntdll+f514
+01 6ffffd58f514 ntdll+f514
+02 6ffffcef9f2c kernelbase!WaitForMultipleObjectsEx+c4
+03 6ffffcef9dae kernelbase!WaitForMultipleObjects+16
+04 1431029ea forzahorizon6+31029ea
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01ac query=00000000 teb=000000007fe00000
+Wine saved syscall frame=101cffc40 syscall=91 rip=6ffffd58f514 rsp=1906faa8 rbp=1906fb00 rcx=4c5b608c0
+00 6ffffd58f514 ntdll+f514
+01 6ffffd58f514 ntdll+f514
+02 6ffffcef9f2c kernelbase!WaitForMultipleObjectsEx+c4
+03 6ffffcef9dae kernelbase!WaitForMultipleObjects+16
+04 14309505e forzahorizon6+309505e
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01b0 query=00000000 teb=000000007fdf0000
+Wine saved syscall frame=101dffc40 syscall=4 rip=6ffffd58ea34 rsp=1916fd08 rbp=1916ff79 rcx=f3915e0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01b4 query=00000000 teb=000000007fde0000
+Wine saved syscall frame=101effc40 syscall=4 rip=6ffffd58ea34 rsp=1926fd08 rbp=1926ff79 rcx=1
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01b8 query=00000000 teb=0000000019460000
+Wine saved syscall frame=101fffc40 syscall=4 rip=6ffffd58ea34 rsp=1956fd08 rbp=1956ff79 rcx=f391ad8
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01bc query=00000000 teb=0000000019450000
+Wine saved syscall frame=1020ffc40 syscall=4 rip=6ffffd58ea34 rsp=1966fd08 rbp=1966ff79 rcx=21aeb4d80
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01c0 query=00000000 teb=0000000019440000
+Wine saved syscall frame=1021ffc40 syscall=4 rip=6ffffd58ea34 rsp=1976fd08 rbp=1976ff79 rcx=12ad218
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01c4 query=00000000 teb=0000000019430000
+Wine saved syscall frame=1022ffc40 syscall=4 rip=6ffffd58ea34 rsp=1986fd08 rbp=1986ff79 rcx=1c008ea
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01c8 query=00000000 teb=0000000019420000
+Wine saved syscall frame=1023ffc40 syscall=4 rip=6ffffd58ea34 rsp=1996fd08 rbp=1996ff79 rcx=14419d0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01cc query=00000000 teb=0000000019410000
+Wine saved syscall frame=1024ffc40 syscall=67 rip=14c461160 rsp=19a63f18 rbp=19a64020 rcx=4c727e340
+00 14c461160 +14c461160
+
+TID=01d0 query=00000000 teb=0000000019400000
+Wine saved syscall frame=1025ffc40 syscall=52 rip=6ffffd58f034 rsp=19b6faf8 rbp=19b6fc09 rcx=4c5b60d80
+00 6ffffd58f034 ntdll+f034
+01 6ffffd58f034 ntdll+f034
+02 6ffffcee947c kernelbase!Sleep+24
+03 1435188f0 forzahorizon6+35188f0
+04 1435073cb forzahorizon6+35073cb
+05 143513763 forzahorizon6+3513763
+06 1426fafcd forzahorizon6+26fafcd
+07 14227a7d1 forzahorizon6+227a7d1
+08 144951d16 forzahorizon6+4951d16
+09 6ffffd5114e9 kernel32+114e9
+10 6ffffd590dc3 ntdll+10dc3
+11 14545eb6a forzahorizon6+545eb6a
+
+TID=01d4 query=00000000 teb=00000000193f0000
+Wine saved syscall frame=1026ffc40 syscall=4 rip=6ffffd58ea34 rsp=19c6fd08 rbp=19c6ff79 rcx=4c5b60dc0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01d8 query=00000000 teb=00000000193e0000
+Wine saved syscall frame=1027ffc40 syscall=4 rip=6ffffd58ea34 rsp=19d6fd08 rbp=19d6ff79 rcx=4c5b60e00
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01dc query=00000000 teb=00000000193d0000
+Wine saved syscall frame=1028ffc40 syscall=4 rip=6ffffd58ea34 rsp=19fdfd08 rbp=19fdff79 rcx=4c5b60e40
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01e0 query=00000000 teb=00000000193c0000
+Wine saved syscall frame=1029ffc40 syscall=4 rip=6ffffd58ea34 rsp=1a0dfd08 rbp=1a0dff79 rcx=4c5b60e80
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01e4 query=00000000 teb=00000000193b0000
+Wine saved syscall frame=102affc40 syscall=4 rip=6ffffd58ea34 rsp=1a1dfd08 rbp=1a1dff79 rcx=4c5b60ec0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01e8 query=00000000 teb=00000000193a0000
+Wine saved syscall frame=102bffc40 syscall=4 rip=6ffffd58ea34 rsp=1a2dfd08 rbp=1a2dff79 rcx=4c5b60f00
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01ec query=00000000 teb=0000000019390000
+Wine saved syscall frame=102cffc40 syscall=4 rip=6ffffd58ea34 rsp=1a3dfd08 rbp=1a3dff79 rcx=f390048
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01f0 query=00000000 teb=0000000019380000
+Wine saved syscall frame=102dffc40 syscall=4 rip=6ffffd58ea34 rsp=1a4def28 rbp=1a4df001 rcx=7a90077e0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 144945875 forzahorizon6+4945875
+04 1449451c7 forzahorizon6+49451c7
+05 14499ce27 forzahorizon6+499ce27
+06 143073cf3 forzahorizon6+3073cf3
+07 14307ec40 forzahorizon6+307ec40
+
+TID=01f4 query=00000000 teb=0000000019370000
+Wine saved syscall frame=102effc40 syscall=52 rip=6ffffd58f034 rsp=1a5df148 rbp=0 rcx=6ffffd58ea34
+00 6ffffd58f034 ntdll+f034
+01 6ffffd58f034 ntdll+f034
+02 6ffffcee947c kernelbase!Sleep+24
+03 1431023a0 forzahorizon6+31023a0
+04 6ffffceb95d2 kernelbase!InitializeCriticalSectionEx+a
+
+TID=01f8 query=00000000 teb=0000000019360000
+Wine saved syscall frame=102fffc40 syscall=4 rip=6ffffd58ea34 rsp=1a6def28 rbp=1a6df001 rcx=7a9007738
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 144945875 forzahorizon6+4945875
+04 1449451c7 forzahorizon6+49451c7
+05 14499ce27 forzahorizon6+499ce27
+06 143073c79 forzahorizon6+3073c79
+07 14307ec40 forzahorizon6+307ec40
+
+TID=01fc query=00000000 teb=0000000019350000
+Wine saved syscall frame=1030ffc40 syscall=52 rip=6ffffd58f034 rsp=1a7df148 rbp=0 rcx=6ffffd58ea34
+00 6ffffd58f034 ntdll+f034
+01 6ffffd58f034 ntdll+f034
+02 6ffffcee947c kernelbase!Sleep+24
+03 1431023a0 forzahorizon6+31023a0
+04 14253440e forzahorizon6+253440e
+05 142552c65 forzahorizon6+2552c65
+06 14311a07c forzahorizon6+311a07c
+07 14311b71d forzahorizon6+311b71d
+08 143118e65 forzahorizon6+3118e65
+09 143117cf7 forzahorizon6+3117cf7
+10 14311a5a2 forzahorizon6+311a5a2
+11 1426fafcd forzahorizon6+26fafcd
+12 14227a7d1 forzahorizon6+227a7d1
+13 144951d16 forzahorizon6+4951d16
+14 6ffffd5114e9 kernel32+114e9
+15 6ffffd590dc3 ntdll+10dc3
+16 14545eb6a forzahorizon6+545eb6a
+
+TID=0200 query=00000000 teb=000000007fec0000
+Wine saved syscall frame=1010ffc40 syscall=4 rip=1c008ea rsp=16fbfaa8 rbp=16fbfc20 rcx=1c008ea
+00 1c008ea +1c008ea
+
+TID=0204 query=00000000 teb=000000007feb0000
+Wine saved syscall frame=1011ffc40 syscall=4 rip=6ffffd58ea34 rsp=1c96fc38 rbp=1c96fd69 rcx=4c73d8d80
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495248f forzahorizon6+495248f
+04 144951e40 forzahorizon6+4951e40
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=020c query=00000000 teb=000000007fe90000
+Wine saved syscall frame=1013ffc40 syscall=4 rip=6ffffd58ea34 rsp=172bfc88 rbp=1d7ee670 rcx=1c008ea
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14320ad69 forzahorizon6+320ad69
+05 1431ee6fb forzahorizon6+31ee6fb
+06 144951d16 forzahorizon6+4951d16
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=0210 query=00000000 teb=0000000019330000
+Wine saved syscall frame=1032ffc40 syscall=4 rip=6ffffd58ea34 rsp=1cb6fd38 rbp=1 rcx=4c7330c80
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 141ea3989 forzahorizon6+1ea3989
+04 141ea39bf forzahorizon6+1ea39bf
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=0214 query=00000000 teb=0000000019320000
+Wine saved syscall frame=1033ffc40 syscall=4 rip=6ffffd58ea34 rsp=1cc6fcd8 rbp=1f4 rcx=3d38440c0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 1431eb4f6 forzahorizon6+31eb4f6
+05 1431ea639 forzahorizon6+31ea639
+06 144951d16 forzahorizon6+4951d16
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=0218 query=00000000 teb=0000000019310000
+Wine saved syscall frame=1034ffc40 syscall=67 rip=14c46c6c0 rsp=1cd6d308 rbp=14 rcx=1466f50
+00 14c46c6c0 +14c46c6c0
+
+TID=0220 query=00000000 teb=0000000019340000
+Wine saved syscall frame=1031ffc40 syscall=13 rip=6fffef145d5c rsp=1d07fe30 rbp=1d07ff79 rcx=6fffef145d20
+00 6fffef145d5c mmdevapi+15d5c
+01 6fffef145d5c mmdevapi+15d5c
+02 6ffffd5114e9 kernel32+114e9
+03 6ffffd590dc3 ntdll+10dc3
+04 14545eb6a forzahorizon6+545eb6a
+
+TID=0224 query=00000000 teb=00000000192f0000
+Wine saved syscall frame=1036ffc40 syscall=52 rip=6ffffd58f034 rsp=1cf6fb08 rbp=1cf6ff79 rcx=6ffffcc63880
+00 6ffffd58f034 ntdll+f034
+01 6ffffd58f034 ntdll+f034
+02 6ffffcee947c kernelbase!Sleep+24
+03 1457d8a0a forzahorizon6+57d8a0a
+04 1457d6fca forzahorizon6+57d6fca
+05 1457d76b9 forzahorizon6+57d76b9
+06 6ffffcc638ca ucrtbase+238ca
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=0228 query=00000000 teb=00000000192e0000
+Wine saved syscall frame=1037ffc40 syscall=4 rip=6ffffd58ea34 rsp=1d34fae8 rbp=1d34ff79 rcx=6ffffcc63880
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 1457d865f forzahorizon6+57d865f
+04 1457d6f91 forzahorizon6+57d6f91
+05 1457d76b9 forzahorizon6+57d76b9
+06 6ffffcc638ca ucrtbase+238ca
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=022c query=00000000 teb=00000000192d0000
+Wine saved syscall frame=1038ffc40 syscall=4 rip=6ffffd58ea34 rsp=1d44fa48 rbp=1d44fb19 rcx=6ffffcc63880
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14588e234 forzahorizon6+588e234
+04 1457d6fb1 forzahorizon6+57d6fb1
+05 1457d76b9 forzahorizon6+57d76b9
+06 6ffffcc638ca ucrtbase+238ca
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=0230 query=00000000 teb=00000000192c0000
+Wine saved syscall frame=1039ffc40 syscall=4 rip=6ffffd58ea34 rsp=2174faa8 rbp=2174ff79 rcx=f390048
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 1457d865f forzahorizon6+57d865f
+04 145971d69 forzahorizon6+5971d69
+05 1457d6fb1 forzahorizon6+57d6fb1
+06 1457d76b9 forzahorizon6+57d76b9
+07 6ffffcc638ca ucrtbase+238ca
+08 6ffffd5114e9 kernel32+114e9
+09 6ffffd590dc3 ntdll+10dc3
+10 14545eb6a forzahorizon6+545eb6a
+
+TID=0234 query=00000000 teb=00000000192b0000
+Wine saved syscall frame=103affc40 syscall=4 rip=6ffffd58ea34 rsp=2184fa98 rbp=2184ff79 rcx=f390048
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 1457d865f forzahorizon6+57d865f
+04 145970a58 forzahorizon6+5970a58
+05 1457d6fb1 forzahorizon6+57d6fb1
+06 1457d76b9 forzahorizon6+57d76b9
+07 6ffffcc638ca ucrtbase+238ca
+08 6ffffd5114e9 kernel32+114e9
+09 6ffffd590dc3 ntdll+10dc3
+10 14545eb6a forzahorizon6+545eb6a
+
+TID=0238 query=00000000 teb=00000000192a0000
+Wine saved syscall frame=103bffc40 syscall=91 rip=6ffffd58f514 rsp=1d54f998 rbp=1d54f9f8 rcx=4c7331240
+00 6ffffd58f514 ntdll+f514
+01 6ffffd58f514 ntdll+f514
+02 6ffffcef9f2c kernelbase!WaitForMultipleObjectsEx+c4
+03 6ffffcef9dae kernelbase!WaitForMultipleObjects+16
+04 1428e3363 forzahorizon6+28e3363
+05 1428e3ca4 forzahorizon6+28e3ca4
+06 144951d16 forzahorizon6+4951d16
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=023c query=00000000 teb=0000000019290000
+Wine saved syscall frame=103cffc40 syscall=4 rip=6ffffd58ea34 rsp=2194fd68 rbp=2194ff79 rcx=4c7330dc0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 1428e8e24 forzahorizon6+28e8e24
+04 144951d16 forzahorizon6+4951d16
+05 6ffffd5114e9 kernel32+114e9
+06 6ffffd590dc3 ntdll+10dc3
+07 14545eb6a forzahorizon6+545eb6a
+
+TID=0240 query=00000000 teb=0000000019280000
+Wine saved syscall frame=103dffc40 syscall=70 rip=6ffffd58f274 rsp=21a4f698 rbp=1 rcx=1c008ea
+00 6ffffd58f274 ntdll+f274
+01 6ffffd58f274 ntdll+f274
+02 6ffffceee1e2 kernelbase!SwitchToThread+a
+03 1435573e2 forzahorizon6+35573e2
+04 143555567 forzahorizon6+3555567
+05 143555cf7 forzahorizon6+3555cf7
+06 1436037eb forzahorizon6+36037eb
+07 143603674 forzahorizon6+3603674
+08 14abbb570 forzahorizon6+abbb570
+
+TID=0244 query=00000000 teb=0000000019270000
+Wine saved syscall frame=103effc40 syscall=4 rip=6ffffd58ea34 rsp=21c6fc78 rbp=21c6fdd0 rcx=6ffff195a960
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 6ffff195ad3c sl.pcl+3ad3c
+04 6ffffd5114e9 kernel32+114e9
+05 6ffffd590dc3 ntdll+10dc3
+06 14545eb6a forzahorizon6+545eb6a
+
+TID=0248 query=00000000 teb=0000000023d40000
+Wine saved syscall frame=103fffc40 syscall=4 rip=6ffffd58ea34 rsp=23e4fce8 rbp=0 rcx=253a00900
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14351fd62 forzahorizon6+351fd62
+05 14351ff14 forzahorizon6+351ff14
+06 144951d16 forzahorizon6+4951d16
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=024c query=00000000 teb=0000000023d30000
+Wine saved syscall frame=1040ffc40 syscall=4 rip=6ffffd58ea34 rsp=23f4fce8 rbp=0 rcx=253a00c40
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14351fd62 forzahorizon6+351fd62
+05 14351ff14 forzahorizon6+351ff14
+06 144951d16 forzahorizon6+4951d16
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=0250 query=00000000 teb=0000000023d20000
+Wine saved syscall frame=1041ffc40 syscall=4 rip=6ffffd58ea34 rsp=2404fce8 rbp=0 rcx=253a00c80
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14351fd62 forzahorizon6+351fd62
+05 14351ff14 forzahorizon6+351ff14
+06 144951d16 forzahorizon6+4951d16
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=0254 query=00000000 teb=0000000023d10000
+Wine saved syscall frame=1042ffc40 syscall=4 rip=6ffffd58ea34 rsp=2414fce8 rbp=0 rcx=253a00cc0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14351fd62 forzahorizon6+351fd62
+05 14351ff14 forzahorizon6+351ff14
+06 144951d16 forzahorizon6+4951d16
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=0258 query=00000000 teb=0000000023d00000
+Wine saved syscall frame=1043ffc40 syscall=4 rip=6ffffd58ea34 rsp=2424fce8 rbp=0 rcx=253a00d00
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14351fd62 forzahorizon6+351fd62
+05 14351fcfc forzahorizon6+351fcfc
+06 144951d16 forzahorizon6+4951d16
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=025c query=00000000 teb=0000000023cf0000
+Wine saved syscall frame=1044ffc40 syscall=255 rip=6ffffd590994 rsp=2496fc38 rbp=0 rcx=6ffffcc63880
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5b7e6b ntdll!RtlSleepConditionVariableSRW+6b
+04 6ffffcee957c kernelbase!SleepConditionVariableSRW+24
+05 6ffffae82368 msvcp140+12368
+06 145e9efb0 forzahorizon6+5e9efb0
+07 145e9ea21 forzahorizon6+5e9ea21
+08 6ffffcc638ca ucrtbase+238ca
+09 6ffffd5114e9 kernel32+114e9
+10 6ffffd590dc3 ntdll+10dc3
+11 14545eb6a forzahorizon6+545eb6a
+
+TID=0260 query=00000000 teb=0000000023ce0000
+Wine saved syscall frame=1045ffc40 syscall=4 rip=6ffffd58ea34 rsp=24d7fae8 rbp=24d7ff79 rcx=6ffffcc63880
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 1457d865f forzahorizon6+57d865f
+04 1457d6f91 forzahorizon6+57d6f91
+05 1457d76b9 forzahorizon6+57d76b9
+06 6ffffcc638ca ucrtbase+238ca
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=0264 query=00000000 teb=0000000023cd0000
+Wine saved syscall frame=1046ffc40 syscall=4 rip=6ffffd58ea34 rsp=24e7fae8 rbp=24e7ff79 rcx=6ffffcc63880
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 1457d865f forzahorizon6+57d865f
+04 1457d6f91 forzahorizon6+57d6f91
+05 1457d76b9 forzahorizon6+57d76b9
+06 6ffffcc638ca ucrtbase+238ca
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+
+TID=0268 query=00000000 teb=0000000023cc0000
+Wine saved syscall frame=1047ffc40 syscall=255 rip=6ffffd590994 rsp=2702fbb8 rbp=0 rcx=6ffffb0c3a00
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5b7de4 ntdll!RtlSleepConditionVariableCS+34
+04 6ffffcee94dc kernelbase!SleepConditionVariableCS+24
+05 6ffffb0c4155 bink2w64+34155
+06 6ffffb09c673 bink2w64+c673
+07 6ffffb09cacd bink2w64+cacd
+08 6ffffb09cb0c bink2w64+cb0c
+09 6ffffb09bd95 bink2w64+bd95
+10 6ffffb09c489 bink2w64+c489
+11 6ffffb0c3a32 bink2w64+33a32
+12 6ffffd5114e9 kernel32+114e9
+13 6ffffd590dc3 ntdll+10dc3
+14 14545eb6a forzahorizon6+545eb6a
+
+TID=026c query=00000000 teb=0000000023cb0000
+Wine saved syscall frame=1048ffc40 syscall=255 rip=6ffffd590994 rsp=2712fbb8 rbp=0 rcx=6ffffb0c3a00
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5b7de4 ntdll!RtlSleepConditionVariableCS+34
+04 6ffffb0b7547 bink2w64+27547
+05 6ffffb09c673 bink2w64+c673
+06 6ffffb09cacd bink2w64+cacd
+07 6ffffb09cb0c bink2w64+cb0c
+08 6ffffb09bd95 bink2w64+bd95
+09 6ffffb09c489 bink2w64+c489
+10 6ffffb0c3a32 bink2w64+33a32
+11 6ffffd5114e9 kernel32+114e9
+12 6ffffd590dc3 ntdll+10dc3
+13 14545eb6a forzahorizon6+545eb6a
+
+TID=0270 query=00000000 teb=0000000023ca0000
+Wine saved syscall frame=1049ffc40 syscall=4 rip=6ffffd58ea34 rsp=2867fca8 rbp=2867ff79 rcx=253c4db80
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 143633a9d forzahorizon6+3633a9d
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=0274 query=00000000 teb=0000000023c90000
+Wine saved syscall frame=104affc40 syscall=4 rip=6ffffd58ea34 rsp=2877fca8 rbp=2877ff79 rcx=253c4dc40
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 143633a9d forzahorizon6+3633a9d
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=0278 query=00000000 teb=0000000023c80000
+Wine saved syscall frame=104bffc40 syscall=91 rip=6ffffd58f514 rsp=2841fb48 rbp=2841fba0 rcx=1c008ea
+00 6ffffd58f514 ntdll+f514
+01 6ffffd58f514 ntdll+f514
+02 6ffffcef9f2c kernelbase!WaitForMultipleObjectsEx+c4
+03 6ffffcef9dae kernelbase!WaitForMultipleObjects+16
+04 6fffe9d0d2f9 xaudio2_9+d2f9
+05 6ffffd5114e9 kernel32+114e9
+06 6ffffd590dc3 ntdll+10dc3
+07 14545eb6a forzahorizon6+545eb6a
+
+TID=027c query=00000000 teb=0000000023c70000
+Wine saved syscall frame=104cffc40 syscall=13 rip=6fffef145d5c rsp=2851fe30 rbp=2851ff79 rcx=6fffef145d20
+00 6fffef145d5c mmdevapi+15d5c
+01 6fffef145d5c mmdevapi+15d5c
+02 6ffffd5114e9 kernel32+114e9
+03 6ffffd590dc3 ntdll+10dc3
+04 14545eb6a forzahorizon6+545eb6a
+
+TID=0280 query=00000000 teb=0000000023c60000
+Wine saved syscall frame=104dffc40 syscall=255 rip=6ffffd590994 rsp=2830fca8 rbp=2830fdc8 rcx=6ffffb0c3a00
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5b7de4 ntdll!RtlSleepConditionVariableCS+34
+04 6ffffcee94dc kernelbase!SleepConditionVariableCS+24
+05 6ffffb0c4210 bink2w64+34210
+06 6ffffb096282 bink2w64+6282
+07 6ffffb0c3a32 bink2w64+33a32
+08 6ffffd5114e9 kernel32+114e9
+09 6ffffd590dc3 ntdll+10dc3
+10 14545eb6a forzahorizon6+545eb6a
+
+TID=0284 query=00000000 teb=0000000023c50000
+Wine saved syscall frame=104effc40 syscall=255 rip=6ffffd590994 rsp=292cfc98 rbp=0 rcx=6ffffb0c3a00
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5b7de4 ntdll!RtlSleepConditionVariableCS+34
+04 6ffffcee94dc kernelbase!SleepConditionVariableCS+24
+05 6ffffb0c4155 bink2w64+34155
+06 6ffffb091572 bink2w64+1572
+07 6ffffb0c3a32 bink2w64+33a32
+08 6ffffd5114e9 kernel32+114e9
+09 6ffffd590dc3 ntdll+10dc3
+10 14545eb6a forzahorizon6+545eb6a
+
+TID=0288 query=00000000 teb=0000000023c40000
+Wine saved syscall frame=104fffc40 syscall=5307 rip=6ffffc6950e4 rsp=293cfae8 rbp=6ffffc7bca80 rcx=1c008ea
+00 6ffffc6950e4 win32u+150e4
+01 6ffffc6950e4 win32u+150e4
+02 6fffe9c8d909 windows.gaming.input+d909
+03 6ffffd5114e9 kernel32+114e9
+04 6ffffd590dc3 ntdll+10dc3
+05 14545eb6a forzahorizon6+545eb6a
+
+TID=028c query=00000000 teb=0000000023c30000
+Wine saved syscall frame=1050ffc40 syscall=4 rip=6ffffd58ea34 rsp=294ce118 rbp=0 rcx=6ffffcd397c0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 6ffffcb14a8d rpcrt4+44a8d
+04 6ffffcafc821 rpcrt4+2c821
+05 6ffffcafb00b rpcrt4+2b00b
+06 6ffffcae4e60 rpcrt4+14e60
+07 6ffffcae53fc rpcrt4+153fc
+08 6ffffcaf361b rpcrt4+2361b
+09 6ffffcb135b4 rpcrt4+435b4
+10 6ffffcaf6de3 rpcrt4+26de3
+11 6ffffcad66ab rpcrt4+66ab
+12 6ffffcd3bcb7 sechost+bcb7
+13 6ffffcd39d38 sechost+9d38
+14 6ffffd5114e9 kernel32+114e9
+15 6ffffd590dc3 ntdll+10dc3
+16 14545eb6a forzahorizon6+545eb6a
+
+TID=0298 query=00000000 teb=0000000023c20000
+Wine saved syscall frame=1051ffc40 syscall=91 rip=6ffffd58f514 rsp=295cfac8 rbp=295cfb28 rcx=1c008ea
+00 6ffffd58f514 ntdll+f514
+01 6ffffd58f514 ntdll+f514
+02 6ffffcef9f2c kernelbase!WaitForMultipleObjectsEx+c4
+03 6ffffcef9dae kernelbase!WaitForMultipleObjects+16
+04 145e9abc0 forzahorizon6+5e9abc0
+05 6ffffd5114e9 kernel32+114e9
+06 6ffffd590dc3 ntdll+10dc3
+07 14545eb6a forzahorizon6+545eb6a
+
+TID=029c query=00000000 teb=0000000023c10000
+Wine saved syscall frame=1052ffc40 syscall=52 rip=6ffffd58f034 rsp=296cfd28 rbp=296cff79 rcx=6fffe9b8d330
+00 6ffffd58f034 ntdll+f034
+01 6ffffd58f034 ntdll+f034
+02 6ffffcee947c kernelbase!Sleep+24
+03 6fffe9b8d49b tm_api_lib_x64+d49b
+04 6ffffd5114e9 kernel32+114e9
+05 6ffffd590dc3 ntdll+10dc3
+06 14545eb6a forzahorizon6+545eb6a
+
+TID=02a0 query=00000000 teb=0000000023c00000
+Wine saved syscall frame=1053ffc40 syscall=91 rip=6ffffd58f514 rsp=297cfae8 rbp=297cfb40 rcx=145e9c970
+00 6ffffd58f514 ntdll+f514
+01 6ffffd58f514 ntdll+f514
+02 6ffffcef9f2c kernelbase!WaitForMultipleObjectsEx+c4
+03 6ffffcef9dae kernelbase!WaitForMultipleObjects+16
+04 145e9ca57 forzahorizon6+5e9ca57
+05 6ffffd5114e9 kernel32+114e9
+06 6ffffd590dc3 ntdll+10dc3
+07 14545eb6a forzahorizon6+545eb6a
+
+TID=02a4 query=00000000 teb=0000000023bf0000
+Wine saved syscall frame=1054ffc40 syscall=4 rip=6ffffd58ea34 rsp=21b4fd78 rbp=21b4ff79 rcx=21aa905a0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 1428ca164 forzahorizon6+28ca164
+04 144951d16 forzahorizon6+4951d16
+05 6ffffd5114e9 kernel32+114e9
+06 6ffffd590dc3 ntdll+10dc3
+07 14545eb6a forzahorizon6+545eb6a
+
+TID=02a8 query=00000000 teb=0000000023be0000
+Wine saved syscall frame=1055ffc40 syscall=4 rip=6ffffd58ea34 rsp=2dfcf548 rbp=0 rcx=47e254c40
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 143d57a8a forzahorizon6+3d57a8a
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=02ac query=00000000 teb=0000000023bd0000
+Wine saved syscall frame=1056ffc40 syscall=255 rip=6ffffd590994 rsp=2d2bfb38 rbp=2d2bfc58 rcx=6ffff2b8b540
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5b7e6b ntdll!RtlSleepConditionVariableSRW+6b
+04 6ffffcee957c kernelbase!SleepConditionVariableSRW+24
+05 6ffff2beffa8 playfabmultiplayerwin+12ffa8
+06 6ffff2b8a6f7 playfabmultiplayerwin+ca6f7
+07 6ffff2b8b365 playfabmultiplayerwin+cb365
+08 6ffff2baa76f playfabmultiplayerwin+ea76f
+09 6ffff2baa58e playfabmultiplayerwin+ea58e
+10 6ffff2b8b5e5 playfabmultiplayerwin+cb5e5
+11 6ffffd5114e9 kernel32+114e9
+12 6ffffd590dc3 ntdll+10dc3
+13 14545eb6a forzahorizon6+545eb6a
+
+TID=02b0 query=00000000 teb=0000000023bc0000
+Wine saved syscall frame=1057ffc40 syscall=255 rip=6ffffd590994 rsp=2d3bfaf8 rbp=2d3bfc18 rcx=6ffff2b8b540
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5b7e6b ntdll!RtlSleepConditionVariableSRW+6b
+04 6ffffcee957c kernelbase!SleepConditionVariableSRW+24
+05 6ffff2beffa8 playfabmultiplayerwin+12ffa8
+06 6ffff2b8a6f7 playfabmultiplayerwin+ca6f7
+07 6ffff2b8b365 playfabmultiplayerwin+cb365
+08 6ffff2b7eb23 playfabmultiplayerwin+beb23
+09 6ffff2b0ce95 playfabmultiplayerwin+4ce95
+10 6ffff2b8b5e5 playfabmultiplayerwin+cb5e5
+11 6ffffd5114e9 kernel32+114e9
+12 6ffffd590dc3 ntdll+10dc3
+13 14545eb6a forzahorizon6+545eb6a
+
+TID=02b4 query=00000000 teb=0000000023bb0000
+Wine saved syscall frame=1058ffc40 syscall=4 rip=6ffffd58ea34 rsp=2d4bfd18 rbp=2d4bff79 rcx=21aa2b600
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14454a4de forzahorizon6+454a4de
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=02b8 query=00000000 teb=0000000023ba0000
+Wine saved syscall frame=1059ffc40 syscall=9 rip=6ffffd58ead4 rsp=2d5bfde8 rbp=2d5bff79 rcx=6ffffd5d92a0
+00 6ffffd58ead4 ntdll+ead4
+01 6ffffd58ead4 ntdll+ead4
+02 6ffffd5d9300 ntdll!ioqueue_thread_proc+60
+03 6ffffd5114e9 kernel32+114e9
+04 6ffffd590dc3 ntdll+10dc3
+05 14545eb6a forzahorizon6+545eb6a
+
+TID=02bc query=00000000 teb=0000000023b90000
+Wine saved syscall frame=105affc40 syscall=4 rip=6ffffd58ea34 rsp=2d6bf6f8 rbp=2d6bf7f8 rcx=21aa2b6c0
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 1426fdd07 forzahorizon6+26fdd07
+05 14311b118 forzahorizon6+311b118
+06 144951d16 forzahorizon6+4951d16
+07 6ffffd5114e9 kernel32+114e9
+08 6ffffd590dc3 ntdll+10dc3
+09 14545eb6a forzahorizon6+545eb6a
+CRT export _execute_onexit_table +26650
+CRT export exit +530a0
+CRT export _cexit +239c0
+CRT export _c_exit +23910
+CRT export _exit +26730
+CRT export abort +46640
+CRT export _beginthreadex +236d0

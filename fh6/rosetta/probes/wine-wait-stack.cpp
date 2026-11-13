@@ -13,6 +13,7 @@ struct ThreadBasic {LONG status;void *teb;struct {HANDLE process,thread;} id;ULO
 struct SavedFrame {ULONG64 rax,rbx,rcx,rdx,rsi,rdi,r8,r9,r10,r11,r12,r13,r14,r15,rip,cs,flags,rsp,ss,rbp,prev,cfa;DWORD syscall,restore;};
 static HANDLE process;
 static bool queryFaultMapping=true;
+static bool scanExceptions=true;
 static BOOL CALLBACK readRemote(HANDLE, DWORD64 address,void *buffer,DWORD size,DWORD *read){SIZE_T done=0;BOOL r=ReadProcessMemory(process,(void*)address,buffer,size,&done);*read=(DWORD)done;return r;}
 static void symbol(ULONG64 address){char storage[sizeof(SYMBOL_INFO)+1024]{};auto s=(SYMBOL_INFO*)storage;s->SizeOfStruct=sizeof(*s);s->MaxNameLen=1024;DWORD64 delta=0;IMAGEHLP_MODULE64 m{};m.SizeOfStruct=sizeof(m);SymGetModuleInfo64(process,address,&m);if(SymFromAddr(process,address,&delta,s))printf("%s!%s+%llx",m.ModuleName,s->Name,(unsigned long long)delta);else printf("%s+%llx",m.ModuleName,(unsigned long long)(address-m.BaseOfImage));}
 
@@ -46,19 +47,35 @@ static void exceptionMetadata(const ThreadBasic &basic,const SavedFrame &f){
  }
  HeapFree(GetProcessHeap(),0,data);
 }
-int main(int argc,char **argv){setvbuf(stdout,nullptr,_IONBF,0);if(argc<3)return 1;DWORD pid=strtoul(argv[1],nullptr,0);process=OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ,FALSE,pid);if(!process){printf("OpenProcess error=%lu\n",GetLastError());return 2;}
+int main(int argc,char **argv){setvbuf(stdout,nullptr,_IONBF,0);
+ if(argc==2&&!strcmp(argv[1],"--self-test")){
+  process=GetCurrentProcess();CRITICAL_SECTION lock{},copy{};InitializeCriticalSection(&lock);EnterCriticalSection(&lock);
+  bool valid=readExact((ULONG64)&lock,&copy,sizeof(copy))&&copy.OwningThread==(HANDLE)(ULONG_PTR)GetCurrentThreadId()&&copy.RecursionCount==1;
+  bool rejected=!readExact(0,&copy,sizeof(copy));LeaveCriticalSection(&lock);DeleteCriticalSection(&lock);
+  printf("critical-owner readback=%s invalid-address=%s\n",valid?"PASS":"FAIL",rejected?"PASS":"FAIL");return valid&&rejected?0:5;
+ }
+ if(argc<3)return 1;DWORD pid=strtoul(argv[1],nullptr,0);process=OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ,FALSE,pid);if(!process){printf("OpenProcess error=%lu\n",GetLastError());return 2;}
  SymSetOptions(SYMOPT_DEFERRED_LOADS|SYMOPT_FAIL_CRITICAL_ERRORS|SYMOPT_NO_PROMPTS|SYMOPT_UNDNAME);if(!SymInitialize(process,nullptr,TRUE)){printf("SymInit error=%lu\n",GetLastError());return 3;}
  auto query=(LONG(WINAPI*)(HANDLE,ULONG,void*,ULONG,ULONG*))GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"NtQueryInformationThread");if(!query)return 4;
- DWORD tids[256]{};unsigned total=0;bool all=argc==3&&!strcmp(argv[2],"all");
+ DWORD tids[256]{};unsigned total=0;bool all=false;
+ for(int i=2;i<argc;i++){
+  if(!strcmp(argv[i],"all"))all=true;
+  if(!strcmp(argv[i],"--no-scan"))scanExceptions=false;
+  if(!strncmp(argv[i],"--critical=",11)){
+   ULONG64 address=strtoull(argv[i]+11,nullptr,16);CRITICAL_SECTION cs{};
+   if(readExact(address,&cs,sizeof(cs)))printf("CRITICAL address=%llx owner=%llx lock=%ld recursion=%ld wait=%p\n",address,(ULONG64)cs.OwningThread,cs.LockCount,cs.RecursionCount,cs.LockSemaphore);
+   else printf("CRITICAL address=%llx unreadable error=%lu\n",address,GetLastError());
+  }
+ }
  if(all){HANDLE snap=CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD,0);THREADENTRY32 entry{};entry.dwSize=sizeof(entry);if(Thread32First(snap,&entry))do{if(entry.th32OwnerProcessID==pid && total<256)tids[total++]=entry.th32ThreadID;entry.dwSize=sizeof(entry);}while(Thread32Next(snap,&entry));CloseHandle(snap);}
- else for(int i=2;i<argc && total<256;i++){if(!strcmp(argv[i],"--no-map")){queryFaultMapping=false;continue;}tids[total++]=strtoul(argv[i],nullptr,0);}
+ else for(int i=2;i<argc && total<256;i++){if(!strcmp(argv[i],"--no-map")){queryFaultMapping=false;continue;}if(!strncmp(argv[i],"--",2))continue;tids[total++]=strtoul(argv[i],nullptr,0);}
  for(unsigned i=0;i<total;i++){DWORD tid=tids[i];HANDLE th=OpenThread(THREAD_QUERY_INFORMATION,FALSE,tid);ThreadBasic basic{};LONG status=th?query(th,0,&basic,sizeof(basic),nullptr):0xc0000022;printf("\nTID=%04lx query=%08lx teb=%p\n",tid,(ULONG)status,basic.teb);if(status){if(th)CloseHandle(th);continue;}
   ULONG64 saved=0;SIZE_T done=0;if(!ReadProcessMemory(process,(BYTE*)basic.teb+0x378,&saved,8,&done)||done!=8){puts("No saved syscall frame");CloseHandle(th);continue;}SavedFrame f{};if(!ReadProcessMemory(process,(void*)saved,&f,sizeof(f),&done)||done!=sizeof(f)){puts("Cannot read saved syscall frame");CloseHandle(th);continue;}
   printf("Wine saved syscall frame=%llx syscall=%lu rip=%llx rsp=%llx rbp=%llx rcx=%llx\n",(unsigned long long)saved,f.syscall,(unsigned long long)f.rip,(unsigned long long)f.rsp,(unsigned long long)f.rbp,(unsigned long long)f.rcx);
   CONTEXT context{};context.ContextFlags=CONTEXT_CONTROL|CONTEXT_INTEGER;context.Rip=f.rip;context.Rsp=f.rsp;context.Rbp=f.rbp;context.Rbx=f.rbx;context.Rsi=f.rsi;context.Rdi=f.rdi;context.R12=f.r12;context.R13=f.r13;context.R14=f.r14;context.R15=f.r15;
   STACKFRAME64 frame{};frame.AddrPC.Offset=f.rip;frame.AddrStack.Offset=f.rsp;frame.AddrFrame.Offset=f.rbp;frame.AddrPC.Mode=frame.AddrStack.Mode=frame.AddrFrame.Mode=AddrModeFlat;
   for(unsigned n=0;n<28;n++){printf("%02u %llx ",n,(unsigned long long)frame.AddrPC.Offset);symbol(frame.AddrPC.Offset);puts("");if(!StackWalk64(IMAGE_FILE_MACHINE_AMD64,process,th,&frame,&context,readRemote,SymFunctionTableAccess64,SymGetModuleBase64,nullptr)||!frame.AddrPC.Offset)break;}
-  if(!all)exceptionMetadata(basic,f);
+  if(!all&&scanExceptions)exceptionMetadata(basic,f);
   CloseHandle(th);
  }
  HMODULE crt=GetModuleHandleW(L"ucrtbase.dll");if(crt)for(const char *name:{"_execute_onexit_table","exit","_cexit","_c_exit","_exit","abort","_lock","_beginthreadex"}){auto fn=GetProcAddress(crt,name);if(!fn)continue;printf("CRT export %s +%llx\n",name,(unsigned long long)((BYTE*)fn-(BYTE*)crt));}
