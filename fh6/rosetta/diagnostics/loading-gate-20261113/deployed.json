@@ -1,0 +1,9 @@
+{
+  "source_commit": "f9196ad",
+  "candidate_sha256": "2a1bbeced8ac1e92390d4c2f1081e42e7369f47d05a9bc298743974dbcbe87af",
+  "observer_sha256": "a4f1b80e4d0d0451a1aa33640432296b4be6111285210e59012a62e86c1241fb",
+  "ini_raw_sha256": "f1c6c212918b1ec6034b7b630de901607386ee90d17142b54c13bdb56387f06f",
+  "ini_bytes_unchanged": true,
+  "gameplay_verified": false,
+  "next_validation": "native Steam launch, load free roam, same-car straight and corner ghost check"
+}
