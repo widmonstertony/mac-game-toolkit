@@ -48,13 +48,15 @@ def main():
     jobs = [(['-shared', str(here / 'streamline-audit.cpp')], 'fh6-fg-chain.asi'),
             (['-shared', str(here / 'provider-audit.cpp')], 'framegeneration-audit.dll'),
             (['-shared', '-DUPSCALER_PROXY', str(here / 'provider-audit.cpp')], 'upscaler-audit.dll'),
+            (['-shared', '-DNATIVE_UI_FIX', str(here / 'provider-audit.cpp'), '-ld3d12', '-ldxguid', '-ld3dcompiler'], 'framegeneration-native-ui.dll'),
             (['-shared', '-DSL_FIXTURE', str(here / 'probe.cpp')], 'sl.interposer.dll'),
             (['-shared', '-DFFX_FIXTURE', str(here / 'probe.cpp')], 'framegeneration-original.dll'),
             ([str(here / 'probe.cpp'), '-ld3d12', '-ldxguid'], 'probe.exe'),
-            (['-municode', str(here / 'provider-versions.cpp'), '-ld3d12', '-ldxguid'], 'provider-versions.exe')]
+            (['-municode', str(here / 'provider-versions.cpp'), '-ld3d12', '-ldxguid'], 'provider-versions.exe'),
+            (['-municode', str(here / 'native-ui-probe.cpp'), '-ld3d12', '-ldxguid', '-ldxgi', '-ld3dcompiler'], 'native-ui-probe.exe')]
     for flags, name in jobs:
         subprocess.run(common + flags + ['-o', str(out / name)], check=True)
-    receipt = {'purpose': 'public-interface observer; no image-quality or FG algorithm repair claimed',
+    receipt = {'purpose': 'audit DLLs are observation only; native-ui candidate changes generated-frame UI composition and requires separate GPU/visual validation',
                'upstream_headers': headers,
                'source_sha256': {x.name: hashlib.sha256(x.read_bytes()).hexdigest() for x in here.iterdir() if x.suffix in ('.h', '.cpp')},
                'artifacts': {name: hashlib.sha256((out / name).read_bytes()).hexdigest() for _, name in jobs}}

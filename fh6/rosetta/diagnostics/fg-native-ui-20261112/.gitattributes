@@ -1,0 +1,2 @@
+# Preserve raw Wine CRLF logs so their recorded SHA256 remains reproducible.
+*.log -text whitespace=cr-at-eol

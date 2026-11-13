@@ -1,0 +1,42 @@
+{
+  "session": {
+    "pid": 228,
+    "tick": 85013768,
+    "abi": 1
+  },
+  "counts": {
+    "observer_ready": 1,
+    "capture_export": 3,
+    "provider_observer_connected": 2,
+    "create": 4,
+    "swapchain_queue": 1,
+    "create_fg": 2,
+    "configure": 1350,
+    "upscale": 1467,
+    "register_ui": 40,
+    "prepare": 1349,
+    "depth_same_native_resource": 1349,
+    "motion_same_native_resource": 1349,
+    "same_frame_sr_and_fg": 1349,
+    "sr_fg_same_depth_and_motion": 1349,
+    "interpolate": 1348,
+    "sdk_default_full_generation_rect": 58,
+    "successful_one_intermediate_request": 1348
+  },
+  "captured_exports": [
+    "slEvaluateFeature",
+    "slSetConstants",
+    "slSetTagForFrame"
+  ],
+  "coverage_complete": true,
+  "findings": [],
+  "finding_count": 0,
+  "limits": "Pointer copies require provenance; timestamps are not frame identity. Successful dispatches do not prove displayed 2x output, pixel correctness or a ghosting repair.",
+  "full_log_snapshot_sha256": "7a014d91c40c567a5e42817d46dc9e47a2cecc0e431ab855f06143dfa29cca95",
+  "native_ui_and_scene_tagged_prepare_samples": 410,
+  "sampled_frames_preserved": [
+    136500,
+    148920
+  ],
+  "source_log": "/Users/tonytan/Library/Application Support/Steam/steamapps/common/ForzaHorizon6/OptiScaler-FH6-SDK/fh6-fg-chain.jsonl"
+}

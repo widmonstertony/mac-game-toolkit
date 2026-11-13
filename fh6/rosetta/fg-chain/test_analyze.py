@@ -46,6 +46,18 @@ class AnalyzeTest(unittest.TestCase):
         self.assertEqual(result['session']['pid'], 2)
         self.assertEqual(result['finding_count'], 0)
 
+    def test_sdk_zero_rectangle_is_full_screen_even_with_offsets(self):
+        rows = records() + [dict(event='interpolate', frame=60, rect=[64,48,0,0],
+                                present=dict(size=[128,96]), frames=1, result=0)]
+        result = run(rows)
+        self.assertEqual(result['finding_count'], 0)
+        self.assertEqual(result['counts']['sdk_default_full_generation_rect'], 1)
+
+    def test_one_zero_dimension_is_not_the_sdk_default(self):
+        rows = records() + [dict(event='interpolate', frame=60, rect=[0,0,128,0],
+                                present=dict(size=[128,96]), frames=1, result=0)]
+        self.assertEqual(run(rows)['findings'][0]['issue'], 'invalid_generation_rect')
+
 
 if __name__ == '__main__':
     unittest.main()

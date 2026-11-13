@@ -23,6 +23,9 @@ static ChainEvaluateFrame getEvaluateFrame;
 static ChainReport report;
 static volatile LONG recordCount;
 static INIT_ONCE observerOnce=INIT_ONCE_STATIC_INIT;
+#ifdef NATIVE_UI_FIX
+#include "native-ui-provider.h"
+#endif
 
 static BOOL CALLBACK initialize(PINIT_ONCE,PVOID,PVOID*)
 {
@@ -120,6 +123,9 @@ extern "C" __declspec(dllexport) ffxReturnCode_t ffxCreateContext(ffxContext *ct
     InitOnceExecuteOnce(&initOnce,initialize,nullptr,nullptr);
     auto result=createContext?createContext(ctx,desc,mem):FFX_API_RETURN_NO_PROVIDER;
     connectObserver();
+#ifdef NATIVE_UI_FIX
+    nativeCreated(ctx?*ctx:nullptr,desc,result);
+#endif
     if(report) { char line[200];snprintf(line,sizeof(line),"{\"event\":\"create\",\"type\":%llu,\"context\":\"%llx\",\"result\":%u}",
         (unsigned long long)(desc?desc->type:0),(unsigned long long)(ctx?*ctx:nullptr),result); report(line); }
     if(report && desc && desc->type==FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATION) {
@@ -144,7 +150,13 @@ extern "C" __declspec(dllexport) ffxReturnCode_t ffxCreateContext(ffxContext *ct
 extern "C" __declspec(dllexport) ffxReturnCode_t ffxDestroyContext(ffxContext *ctx,const ffxAllocationCallbacks *mem)
 {
     InitOnceExecuteOnce(&initOnce,initialize,nullptr,nullptr);
+#ifdef NATIVE_UI_FIX
+    const auto original=ctx?*ctx:nullptr;
+    auto result=destroyContext?destroyContext(ctx,mem):FFX_API_RETURN_NO_PROVIDER;
+    nativeDestroyed(original,result);return result;
+#else
     return destroyContext?destroyContext(ctx,mem):FFX_API_RETURN_NO_PROVIDER;
+#endif
 }
 extern "C" __declspec(dllexport) ffxReturnCode_t ffxQuery(ffxContext *ctx,ffxQueryDescHeader *desc)
 {
@@ -156,6 +168,9 @@ extern "C" __declspec(dllexport) ffxReturnCode_t ffxConfigure(ffxContext *ctx,co
     InitOnceExecuteOnce(&initOnce,initialize,nullptr,nullptr);
     const auto result=configure?configure(ctx,desc):FFX_API_RETURN_NO_PROVIDER;
     connectObserver();
+#ifdef NATIVE_UI_FIX
+    nativeConfigured(ctx?*ctx:nullptr,desc,result);
+#endif
     if(report && desc && desc->type==FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION && sample(((const ffxConfigureDescFrameGeneration*)desc)->frameID)) {
         const auto &p=*(const ffxConfigureDescFrameGeneration*)desc;
         char color[220],line[800];resource(color,sizeof(color),p.HUDLessColor);
@@ -175,7 +190,12 @@ extern "C" __declspec(dllexport) ffxReturnCode_t ffxConfigure(ffxContext *ctx,co
 extern "C" __declspec(dllexport) ffxReturnCode_t ffxDispatch(ffxContext *ctx,const ffxDispatchDescHeader *desc)
 {
     InitOnceExecuteOnce(&initOnce,initialize,nullptr,nullptr);
+#ifdef NATIVE_UI_FIX
+    connectObserver();
+    const auto result=nativeDispatch(ctx,desc);
+#else
     const auto result=dispatch?dispatch(ctx,desc):FFX_API_RETURN_NO_PROVIDER;
+#endif
     if(!desc) return result;
     connectObserver();
     if(desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE)

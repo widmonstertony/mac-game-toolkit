@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "kind": "synthetic real D3DMetal GPU / official FFX 3.1.6 / full candidate provider and real DXGI queue",
+  "game_visual_verified": false,
+  "manifest_sha256": "b973a0cec108c38dffcf7bf84270f6e2ff2eff529520662e837ae2ee2e28fb9c",
+  "artifacts": {
+    "fh6-fg-chain.asi": "acafa9c203f00b8790936fe1bc11f87594bed697a13db3e00065ea1f74147f8c",
+    "framegeneration-audit.dll": "54a9e0a804ed31fd5a9f680354858a06e19e2e01b8d59f25cab72d59a843690f",
+    "upscaler-audit.dll": "a4b28f5f63afb21d693fc93006b471d0a81e919e4ea8198b65a22483d17c0992",
+    "framegeneration-native-ui.dll": "1b33616e2785f8ee680efeafddc1963fd3ac99bc3ab68ffb9ab98be2d1b0f803",
+    "sl.interposer.dll": "2db39f3acd2d9fcb01c47a55269f69723210f9e001ab0564fc05d25b9ebcbb76",
+    "framegeneration-original.dll": "4818553123b882620390271672cec247f4954f68516118b18841ed8c9bbf4011",
+    "probe.exe": "c64b0dc50bbbe2a4520502eacd8905e309fb3ccb8ebc816bcfb5333348c4f393",
+    "provider-versions.exe": "c39f03bfbd807b9f342e090d5a5067c820f20e85458711f9556f5839cf0f9f1b",
+    "native-ui-probe.exe": "eedd91838a136233b6e86bcb975a8820efb4d593ca77d0d06fcd21983a763968"
+  },
+  "original_provider_sha256": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6",
+  "log_sha256": "1ee7d3f8b42f67be93b43711db87fd2856575bedf721087c98bfdad93562f480",
+  "trace_sha256": "3a5f1aab836787adff3f8f5838599911dbce3868700f711494332ed8e986cb30",
+  "native_ui_applied_samples": 8
+}

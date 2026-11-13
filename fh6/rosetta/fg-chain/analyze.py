@@ -75,6 +75,11 @@ def analyze(lines):
         elif kind == 'interpolate':
             left, top, width, height = row['rect']
             output_width, output_height = row['present']['size']
+            # Pinned FFX provider expands BOTH zero dimensions to the full
+            # backbuffer and ignores left/top in that case. It is not empty.
+            if width == 0 and height == 0:
+                counts['sdk_default_full_generation_rect'] += 1
+                left, top, width, height = 0, 0, output_width, output_height
             if width <= 0 or height <= 0 or left < 0 or top < 0 or left + width > output_width or top + height > output_height:
                 findings.append({'line': number, 'frame': row['frame'], 'issue': 'invalid_generation_rect',
                                  'rect': row['rect'], 'present_size': row['present']['size']})
