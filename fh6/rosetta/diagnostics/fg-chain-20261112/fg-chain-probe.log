@@ -1,0 +1,5 @@
+msync: bootstrapped mach port on wine-18fd494-msync.
+msync: up and running.
+PASS actual D3DMetal resource descriptors, original constants/tags unchanged, late frame isolation, untag, evaluate token scope
+PASS FFX descriptor pointer identity, contexts, 2x request, rectangles, data and failure propagation unchanged
+PASS real D3DMetal GPU copy/fence/readback pixels=12288 errors=0

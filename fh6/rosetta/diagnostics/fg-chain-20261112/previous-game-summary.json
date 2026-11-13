@@ -1,0 +1,32 @@
+{
+  "log_sha256": "289a25ddff906f2515ee89304e29321d43c81ef50b9964caa4429c47a12ef01b",
+  "lines": 2164068,
+  "tag_counts": {
+    "0:eValidUntilPresent": 28558,
+    "1:eValidUntilPresent": 28558,
+    "2:eValidUntilPresent": 6306,
+    "23:eValidUntilPresent": 6306
+  },
+  "dispatch_frame_delta_counts": {
+    "0": 28548
+  },
+  "first_dispatch_frame": 516,
+  "last_dispatch_frame": 75749,
+  "callback_intermediate_requests": {
+    "1": 28546
+  },
+  "warnings": {
+    "Depth or Velocity is not ready": 2
+  },
+  "examples": [
+    {
+      "line": 10995,
+      "text": "[15:36:14.467267] [W] FSRFG_Dx12::Dispatch Depth or Velocity is not ready, skipping"
+    },
+    {
+      "line": 11049,
+      "text": "[15:36:14.469268] [W] FSRFG_Dx12::Dispatch Depth or Velocity is not ready, skipping"
+    }
+  ],
+  "limits": "The old log does not contain raw native constants, resource extents, complete copy provenance or GPU pixel contents. Matching frame integers alone cannot prove matching images."
+}

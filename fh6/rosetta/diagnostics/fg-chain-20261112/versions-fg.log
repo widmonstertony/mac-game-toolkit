@@ -1,0 +1,5 @@
+provider=1 result=0 count=1
+  17726168133342859270 3.1.6
+provider=2 result=0 count=1
+  17726168133342859270 3.1.6
+PASS actual provider enumeration identical through observer

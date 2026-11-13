@@ -1,0 +1,9 @@
+msync: bootstrapped mach port on wine-18fd494-msync.
+msync: up and running.
+provider=1 result=0 count=2
+  17700776140660019206 3.1.6
+  17700776140655833092 2.3.4
+provider=2 result=0 count=2
+  17700776140660019206 3.1.6
+  17700776140655833092 2.3.4
+PASS actual provider enumeration identical through observer
