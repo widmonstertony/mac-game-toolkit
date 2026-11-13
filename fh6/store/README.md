@@ -94,6 +94,8 @@ The downloader transferred package metadata, then its real space check failed:
 authorized deleting the two local Time Machine snapshots from 11:24 and 12:24.
 Only these two snapshots were selected; external backups were not modified.
 Available space rose to approximately 380 GiB after reclamation, allowing a download retry.
+The retry passed the space check and was observed downloading/extracting at 1%
+(962.4 MiB / 158.8 GiB, 8.97 MiB/s, application estimate about five hours).
 Download completion and Store gameplay are not yet claimed.
 
 `~/Games/Windows/Steam` is a symlink to the existing Steam `steamapps/common`

@@ -7,12 +7,22 @@
   "settings_mods_and_embedded_caches_retained": true,
   "prefixes_saves_external_caches_untouched": true,
   "free_bytes_after": 149607600128,
-  "store_download_started": false,
+  "store_download_started": true,
   "user_authorized_local_snapshots_removed": [
     "2026-11-13-112421",
     "2026-11-13-122456"
   ],
   "external_backups_unchanged": true,
   "free_bytes_after_snapshot_removal": 442368000000,
-  "store_retry_requested": true
+  "store_retry_requested": true,
+  "observed_download": {
+    "stage": "Downloading and extracting game files",
+    "percent": 1,
+    "downloaded_MiB": 962.4,
+    "total_GiB": 158.8,
+    "rate_MiB_per_second": 8.97,
+    "application_estimated_hours_remaining": 5,
+    "destination": "~/Games/Windows/Xbox/Forza-Horizon-6",
+    "completed": false
+  }
 }
