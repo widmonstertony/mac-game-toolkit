@@ -44,6 +44,19 @@ int main(void)
     printf("dialog glyphs=%lu missing=%d\n", result, missing);
     SelectObject(dc, previous);
     DeleteObject(font);
+    NONCLIENTMETRICSW metrics = {0};
+    metrics.cbSize = sizeof(metrics);
+    if (!SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0)) return 3;
+    font = CreateFontIndirectW(&metrics.lfMessageFont);
+    previous = SelectObject(dc, font);
+    GetTextFaceW(dc, 128, face);
+    WideCharToMultiByte(CP_UTF8, 0, face, -1, utf8face, sizeof(utf8face), NULL, NULL);
+    result = GetGlyphIndicesW(dc, text, 8, glyphs, GGI_MARK_NONEXISTING_GLYPHS);
+    int message_missing = 0;
+    for (int i = 0; i < 8; ++i) message_missing += glyphs[i] == 0xffff;
+    printf("actual message font=%s glyphs=%lu missing=%d\n", utf8face, result, message_missing);
+    SelectObject(dc, previous);
+    DeleteObject(font);
     DeleteDC(dc);
-    return result != 8 || missing || !correct || failures;
+    return result != 8 || missing || message_missing || !correct || failures;
 }

@@ -1,0 +1,8 @@
+msync: bootstrapped mach port on wine-18fd494-msync.
+msync: up and running.
+009c:err:ntoskrnl:ZwLoadDriver failed to create driver L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\winebth": c00000e5
+ANSI dialog ACP=936 UTF8_decoded_correctly=1
+conversion compatibility failures=0
+selected font=MS Shell Dlg
+dialog glyphs=8 missing=0
+actual message font=Arial Unicode MS glyphs=8 missing=0
