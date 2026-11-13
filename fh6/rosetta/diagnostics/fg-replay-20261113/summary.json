@@ -1,0 +1,83 @@
+{
+  "status": "visibility contribution isolated; standalone GPU candidate verified; NOT deployed to game",
+  "route": "Rosetta / private Highball Wine 11 / D3DMetal 4.0b3 / FSR 3.1.6 SR and official 3.1.6 FG; not FSR4, MetalFX or KosmicKrisp",
+  "source_frames": [
+    14902,
+    14903
+  ],
+  "source_inputs": {
+    "purpose": "standalone GPU visibility experiment, not a deployed repair",
+    "source_frames": [
+      14902,
+      14903
+    ],
+    "input_sha256": {
+      "previous-depth.bin": "479859c6fa51789a7e29f25b3247846ee5defe64c9b7bb6347751c5d8050e096",
+      "previous-motion.bin": "ef0203ee95826d2f5b5c706eab1ac5ffd7a6b2bdc77e63cb5693e2b5e4fe4950",
+      "depth.bin": "dfef6d69da229309b1354891666f62d540f103c445b222dbe6fc91e41e056714",
+      "motion.bin": "41119951c6a2e1c4845cc67d21b2c5451390ca7a0a21fd7e16ac19b41efd87c1",
+      "field-x.bin": "91c173d74a9bee3f42703c8fb9934c55a5fcb1e9900dc3de484e5a523c4eebd1",
+      "field-y.bin": "56e2750de37b6889d47f3e64612072f1325238f6fd21854161feb18abdc97b03",
+      "mask.bin": "d5e120f9568d28cfd075981045639d0a1f7adb4be4eb4ba7574cdeb419b8785b"
+    },
+    "limits": [
+      "Conservative heuristic thresholds need broader scene validation.",
+      "Runtime previous-depth ownership and queue ordering are not implemented here."
+    ]
+  },
+  "original_fg_sha256": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6",
+  "interpolation_dxil_sha256": "057069a89d1ef558a80dd67915af288fadc8d0981f17e33802e02983ac22ba90",
+  "actual_shader_debug_hash": "9ecc594b6c2de9bf18e78c1d08658f77",
+  "observations": [
+    "Independent original-provider replay closely reproduces the captured game ghost before UI composition.",
+    "Ghost first visible at stage 30 INTERPOLATION of 33 traced GPU stages.",
+    "Captured previous-source RGB equals frame 14902 scene, not current frame 14903.",
+    "Raw motion agrees with static-background camera projection and several car feature patches.",
+    "A ground sample below the car reprojects behind a previous-frame visible car: actual previous depth is nearer than projected ground; SDK still allows previous color.",
+    "Scalar actual-3.1.6 disocclusion math matches GPU for 15537 sampled valid-vector interior points, zero mismatches. This does not prove the heuristic is visually correct."
+  ],
+  "controls": {
+    "gpu_visibility_corrected_pixels": 56086,
+    "invalid_or_outside_changes": 0,
+    "invalid_camera_corrected_pixels": 0,
+    "old_alternate_existing_316_provider": "nearly same ghost, not swapped in game",
+    "D3DM_MTL4_0_vs_1": "nearly identical independent output; game environment unchanged",
+    "maxRender_display_vs_tight": "did not solve ghost; game dimensions unchanged"
+  },
+  "correction": "Output alpha equals red intentionally in actual 3.1.6 DXIL; inpainting weight is separate UAV u1. Earlier alpha-channel suspicion was false and no patch was made from it.",
+  "positive_control": {
+    "selected_ghost_region_samples": 21174,
+    "baseline_rgb_MAE_to_visible_current_warp": 11.654573352216689,
+    "history_control_rgb_MAE_to_visible_current_warp": 0.24579999643937336,
+    "corrected_samples_still_different_from_current_base_frame": 19800,
+    "scope": "Diagnostic ROI evaluates car-tail ground; control selection itself has no car/screen-region condition.",
+    "limits": [
+      "Two adjacent saved frames only.",
+      "Visibility mask computed by the owned history-visibility.hlsl on the real GPU, then supplied to official FG in an independent replay; no game deployment or runtime GPU performance claim.",
+      "This validates a visibility failure contribution, not all ghosting or all frame-generation defects."
+    ]
+  },
+  "remaining": [
+    "Integrate safe previous-frame depth/MV ownership and ordering into the actual provider path, or a pinned open-source SDK implementation; current test consumes saved history.",
+    "Validate multiple moving-object/occlusion/camera-reset scenes and dynamic resolution; conservative thresholds are experimental.",
+    "Measure runtime GPU overhead and actual game visual output after integration."
+  ],
+  "preserved": [
+    "native Steam",
+    "3472x2266 output",
+    "SR and 2x FG",
+    "audio",
+    "cloud sync",
+    "game settings and caches"
+  ],
+  "game_changes_this_investigation": "No game settings, graphics DLL, Steam session or cache changed. Only standalone helpers ran; current game PID was absent on the first process check; no restart requested.",
+  "private_data": "Raw pixels, screenshots and local absolute capture paths are retained locally, not committed.",
+  "raw_log_sha256_before_LF_normalization": {
+    "visibility-gpu.log": "8192740bd1d1fdb093c7804e627d936b52cbe228798a854a24790f3e057fabc4",
+    "invalid-camera-gpu.log": "bb4c8c4bdd1336000d2e29f058fa75e1903a21d3665bdd5bac79f28135432bea",
+    "baseline-stages.log": "a0a891056d16276f36e81d886f8f3119ed487309803e542769b9e7e873652637",
+    "existing-native-ui-gpu-regression.log": "81d6530b48183c407443bec35e2df45dc49dfc1c59616a889206da02e4864801"
+  },
+  "published_log_line_endings": "LF; original raw logs retained in local build workspace",
+  "shader_source_sha256": "26b9f007ce56a0b0ac6b649846e777dae35d235a73440d6b0d19054a1d866256"
+}

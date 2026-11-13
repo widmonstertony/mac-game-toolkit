@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <winternl.h>
 #include <dbghelp.h>
+#include <tlhelp32.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -40,13 +41,16 @@ static void exceptionMetadata(const ThreadBasic &basic,const SavedFrame &f){
 int main(int argc,char **argv){setvbuf(stdout,nullptr,_IONBF,0);if(argc<3)return 1;DWORD pid=strtoul(argv[1],nullptr,0);process=OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ,FALSE,pid);if(!process){printf("OpenProcess error=%lu\n",GetLastError());return 2;}
  SymSetOptions(SYMOPT_DEFERRED_LOADS|SYMOPT_FAIL_CRITICAL_ERRORS|SYMOPT_NO_PROMPTS|SYMOPT_UNDNAME);if(!SymInitialize(process,nullptr,TRUE)){printf("SymInit error=%lu\n",GetLastError());return 3;}
  auto query=(LONG(WINAPI*)(HANDLE,ULONG,void*,ULONG,ULONG*))GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"NtQueryInformationThread");if(!query)return 4;
- for(int i=2;i<argc;i++){DWORD tid=strtoul(argv[i],nullptr,0);HANDLE th=OpenThread(THREAD_QUERY_INFORMATION,FALSE,tid);ThreadBasic basic{};LONG status=th?query(th,0,&basic,sizeof(basic),nullptr):0xc0000022;printf("\nTID=%04lx query=%08lx teb=%p\n",tid,(ULONG)status,basic.teb);if(status){if(th)CloseHandle(th);continue;}
+ DWORD tids[256]{};unsigned total=0;bool all=argc==3&&!strcmp(argv[2],"all");
+ if(all){HANDLE snap=CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD,0);THREADENTRY32 entry{};entry.dwSize=sizeof(entry);if(Thread32First(snap,&entry))do{if(entry.th32OwnerProcessID==pid && total<256)tids[total++]=entry.th32ThreadID;entry.dwSize=sizeof(entry);}while(Thread32Next(snap,&entry));CloseHandle(snap);}
+ else for(int i=2;i<argc && total<256;i++)tids[total++]=strtoul(argv[i],nullptr,0);
+ for(unsigned i=0;i<total;i++){DWORD tid=tids[i];HANDLE th=OpenThread(THREAD_QUERY_INFORMATION,FALSE,tid);ThreadBasic basic{};LONG status=th?query(th,0,&basic,sizeof(basic),nullptr):0xc0000022;printf("\nTID=%04lx query=%08lx teb=%p\n",tid,(ULONG)status,basic.teb);if(status){if(th)CloseHandle(th);continue;}
   ULONG64 saved=0;SIZE_T done=0;if(!ReadProcessMemory(process,(BYTE*)basic.teb+0x378,&saved,8,&done)||done!=8){puts("No saved syscall frame");CloseHandle(th);continue;}SavedFrame f{};if(!ReadProcessMemory(process,(void*)saved,&f,sizeof(f),&done)||done!=sizeof(f)){puts("Cannot read saved syscall frame");CloseHandle(th);continue;}
   printf("Wine saved syscall frame=%llx syscall=%lu rip=%llx rsp=%llx rbp=%llx rcx=%llx\n",(unsigned long long)saved,f.syscall,(unsigned long long)f.rip,(unsigned long long)f.rsp,(unsigned long long)f.rbp,(unsigned long long)f.rcx);
   CONTEXT context{};context.ContextFlags=CONTEXT_CONTROL|CONTEXT_INTEGER;context.Rip=f.rip;context.Rsp=f.rsp;context.Rbp=f.rbp;context.Rbx=f.rbx;context.Rsi=f.rsi;context.Rdi=f.rdi;context.R12=f.r12;context.R13=f.r13;context.R14=f.r14;context.R15=f.r15;
   STACKFRAME64 frame{};frame.AddrPC.Offset=f.rip;frame.AddrStack.Offset=f.rsp;frame.AddrFrame.Offset=f.rbp;frame.AddrPC.Mode=frame.AddrStack.Mode=frame.AddrFrame.Mode=AddrModeFlat;
   for(unsigned n=0;n<28;n++){printf("%02u %llx ",n,(unsigned long long)frame.AddrPC.Offset);symbol(frame.AddrPC.Offset);puts("");if(!StackWalk64(IMAGE_FILE_MACHINE_AMD64,process,th,&frame,&context,readRemote,SymFunctionTableAccess64,SymGetModuleBase64,nullptr)||!frame.AddrPC.Offset)break;}
-  exceptionMetadata(basic,f);
+  if(!all)exceptionMetadata(basic,f);
   CloseHandle(th);
  }
  HMODULE crt=GetModuleHandleW(L"ucrtbase.dll");if(crt)for(const char *name:{"_execute_onexit_table","exit","_cexit","_c_exit","_exit","abort","_lock","_beginthreadex"}){auto fn=GetProcAddress(crt,name);if(!fn)continue;printf("CRT export %s +%llx\n",name,(unsigned long long)((BYTE*)fn-(BYTE*)crt));}

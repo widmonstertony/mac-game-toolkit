@@ -297,3 +297,67 @@ continuable fixture exceptions across eight threads and verifies execution
 continues. `probes/wine-wait-stack.cpp` (one directory up) reads saved Wine
 syscall frames and bounded stack metadata without debugger attachment, thread
 suspension, process writes, or a full memory dump. None is a game repair claim.
+
+Saved-frame GPU replay and visibility control (2026-11-13)
+---------------------------------------------------------
+
+The rear-car duplicate now has an independent pixel reproduction using the
+unchanged official 3.1.6 FG provider and two adjacent, fenced game captures.
+`replay-capture.exe` creates no game/Steam process and touches no live game
+resources. `prepare_replay.py FIRST_CAPTURE SECOND_CAPTURE --out DIRECTORY`
+links private pixel files and records hashes and row layouts. It rejects HDR,
+unknown depth formats, unfenced captures and nonadjacent frames. Four frozen
+warmups reconstruct history; they do **not** recreate the game's full history.
+
+Replay arguments are `ORIGINAL_FG_DLL INPUT_0 INPUT_1 OUTPUT_DIRECTORY [trace]
+[tight-max-render] [mask-control]`. Default maximum render dimensions match the
+captured display-sized context. The optional `trace` is limited to the actual
+3472×2266 dataset: owned COM forwarding objects record public PSO names, AMD's
+submitted compute-shader inputs and 33 output stages. No Apple code, driver
+object, vtable, protected executable or binary shader input is patched. At most
+64 output-region readbacks and 512 MiB of selected field readbacks are retained.
+Resources transition back to their prior state and are mapped only after the
+owned replay queue's fence completes. Stage crops evaluate where the duplicate
+starts; they do not constrain the visibility rule to a car or screen region.
+
+The duplicate is already in `INTERPOLATION`, before native UI composition.
+Previous-source RGB exactly matches the preceding saved scene. Actual mask
+shader scalar math matches all 15,537 sampled valid-vector interior GPU points
+(`verify_mask_math.py TRACE_DIRECTORY`), while real previous-frame depth shows
+some supposedly valid background samples were hidden by the car. This identifies
+a visibility-error contribution, not a universal verdict on FSR or D3DMetal.
+
+**Discarded suspicion:** actual 3.1.6 interpolation intentionally copies red to
+output alpha and writes inpainting weight into a separate UAV. A different
+cached source revision had a different layout. Alpha=red is not the defect.
+
+`history-visibility.hlsl` is an **experimental saved-frame GPU control**, not an
+installed repair. It clears only the previous-color permission when current
+motion agrees, previous motion disagrees, camera reprojection confirms a static
+world point, and previous visible depth proves an occluder. It retains the
+current branch's half-frame reprojection and official 2× generation. It uses
+conservative experimental thresholds, not game names, car positions or fixed
+screen rectangles. `prepare_visibility.py PREVIOUS CURRENT TRACE OUT` validates
+provenance and preserves actual, potentially different, depth/motion row pitches.
+
+Build `history-visibility-probe.exe` with `build.py`; compile the HLSL using the
+owned `compile-native-ui.exe SOURCE_HLSL OUTPUT_DIRECTORY/history-visibility.cso`.
+Run the probe as `INPUT_DIRECTORY SHADER_DIRECTORY OUTPUT_MASK_FILE` in the
+existing profile. A queue-completed GPU readback is saved with the original
+mask layout. To evaluate it inside official FG, put that file at
+`OUTPUT_DIRECTORY/override-mask.bin` and invoke the independent replay with
+`trace mask-control`. This explicit experiment affects only owned replay textures.
+
+On the saved car-tail case, the GPU rule corrected 56,086 render pixels, changed
+zero unsupported/outside pixels, and declined all changes for an incompatible
+camera-matrix negative control. In 21,174 interior ghost-region samples, RGB
+error against the visible current-warp reference dropped from 11.65 to 0.246;
+19,800 corrected samples still differ from the base frame, confirming this did
+not merely replace the generated frame with the original. These results are
+limited to this captured pair. Raw game pixels remain local; receipts are in
+`../diagnostics/fg-replay-20261113/`.
+
+**Not ready for game deployment:** safe runtime previous-depth/MV ownership,
+queue ordering, scene changes and performance still require integration and
+validation. No game settings, provider DLLs, caches or native Steam session were
+changed during these independent replay experiments.

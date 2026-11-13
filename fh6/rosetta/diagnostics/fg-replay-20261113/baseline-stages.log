@@ -1,0 +1,107 @@
+msync: bootstrapped mach port on wine-18fd494-msync.
+msync: up and running.
+Replay maxRender=3472x2266 actualRender=2480x1618
+GPU completed id=0 captured_source_frame=14902 reset=1 size=3472x2266
+GPU completed id=1 captured_source_frame=14902 reset=0 size=3472x2266
+GPU completed id=2 captured_source_frame=14902 reset=0 size=3472x2266
+GPU completed id=3 captured_source_frame=14902 reset=0 size=3472x2266
+Stage 0 PSO=Opticalflow_Luma dispatch=109,71,1 outputState=8
+Stage 1 PSO=Opticalflow_InputPyramid dispatch=55,36,1 outputState=8
+Stage 2 PSO=Opticalflow_SCD_Histogram dispatch=10,16,9 outputState=8
+Stage 3 PSO=Opticalflow_SCD_Divergence dispatch=9,3,1 outputState=8
+Stage 4 PSO=Opticalflow_Search dispatch=4,3,1 outputState=8
+Stage 5 PSO=Opticalflow_Filter dispatch=1,2,1 outputState=8
+Stage 6 PSO=Opticalflow_Upscale dispatch=4,3,1 outputState=8
+Stage 7 PSO=Opticalflow_Search dispatch=7,5,1 outputState=8
+Stage 8 PSO=Opticalflow_Filter dispatch=1,3,1 outputState=8
+Stage 9 PSO=Opticalflow_Upscale dispatch=7,5,1 outputState=8
+Stage 10 PSO=Opticalflow_Search dispatch=14,9,1 outputState=8
+Stage 11 PSO=Opticalflow_Filter dispatch=2,5,1 outputState=8
+Stage 12 PSO=Opticalflow_Upscale dispatch=14,9,1 outputState=8
+Stage 13 PSO=Opticalflow_Search dispatch=28,18,1 outputState=8
+Stage 14 PSO=Opticalflow_Filter dispatch=4,9,1 outputState=8
+Stage 15 PSO=Opticalflow_Upscale dispatch=28,18,1 outputState=8
+Stage 16 PSO=Opticalflow_Search dispatch=55,36,1 outputState=8
+Stage 17 PSO=Opticalflow_Filter dispatch=7,18,1 outputState=8
+Stage 18 PSO=Opticalflow_Upscale dispatch=55,36,1 outputState=8
+Stage 19 PSO=Opticalflow_Search dispatch=109,71,1 outputState=8
+Stage 20 PSO=Opticalflow_Filter dispatch=14,36,1 outputState=8
+Stage 21 PSO=Opticalflow_Upscale dispatch=109,71,1 outputState=8
+Stage 22 PSO=Opticalflow_Search dispatch=217,142,1 outputState=8
+Stage 23 PSO=Opticalflow_Filter dispatch=28,71,1 outputState=8
+Stage 24 PSO=SETUP dispatch=310,203,1 outputState=8
+Stage 25 PSO=RECONSTRUCT_PREV_DEPTH dispatch=310,203,1 outputState=8
+Saved public AMD shader input bytes=9476
+Stage 26 PSO=GAME_MOTION_VECTOR_FIELD dispatch=310,203,1 outputState=8
+Stage 27 PSO=GAME_VECTOR_FIELD_INPAINTING_PYRAMID dispatch=39,26,1 outputState=8
+Stage 28 PSO=OPTICAL_FLOW_VECTOR_FIELD dispatch=55,36,1 outputState=8
+Saved public AMD shader input bytes=9916
+Stage 29 PSO=DISOCCLUSION_MASK dispatch=310,203,1 outputState=8
+Saved public AMD shader input bytes=13332
+SDK resource name=OPTICALFLOW_OpticalFlowInput1 format=62 size=3472x2266 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput1Level1 format=62 size=1736x1133 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput1Level2 format=62 size=868x566 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput1Level3 format=62 size=434x283 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput1Level4 format=62 size=217x141 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput1Level5 format=62 size=108x70 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput1Level6 format=62 size=54x35 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput2 format=62 size=3472x2266 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput2Level1 format=62 size=1736x1133 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput2Level2 format=62 size=868x566 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput2Level3 format=62 size=434x283 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput2Level4 format=62 size=217x141 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput2Level5 format=62 size=108x70 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowInput2Level6 format=62 size=54x35 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow1 format=38 size=434x284 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow1Level1 format=38 size=217x142 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow1Level2 format=38 size=109x71 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow1Level3 format=38 size=55x36 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow1Level4 format=38 size=28x18 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow1Level5 format=38 size=14x9 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow1Level6 format=38 size=7x5 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow2 format=38 size=434x284 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow2Level1 format=38 size=217x142 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow2Level2 format=38 size=109x71 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow2Level3 format=38 size=55x36 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow2Level4 format=38 size=28x18 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow2Level5 format=38 size=14x9 state=8
+SDK resource name=OPTICALFLOW_OpticalFlow2Level6 format=38 size=7x5 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowSCDHistogram format=42 size=2304x1 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowSCDPreviousHistogram format=41 size=2304x1 state=8
+SDK resource name=OPTICALFLOW_OpticalFlowSCDTemp format=42 size=3x1 state=8
+SDK resource name=FI_ReconstructedDepthInterpolatedFrame format=42 size=3472x2266 state=64
+Field 0 name=FI_ReconstructedDepthInterpolatedFrame format=42 size=3472x2266 pitch=14080 rowBytes=13888 bytes=31905088
+SDK resource name=FI_GameMotionVectorFieldX format=42 size=3472x2266 state=64
+Field 1 name=FI_GameMotionVectorFieldX format=42 size=3472x2266 pitch=14080 rowBytes=13888 bytes=31905088
+SDK resource name=FI_GameMotionVectorFieldY format=42 size=3472x2266 state=64
+Field 2 name=FI_GameMotionVectorFieldY format=42 size=3472x2266 pitch=14080 rowBytes=13888 bytes=31905088
+SDK resource name=FI_OpticalFlowMotionVectorFieldX format=42 size=434x283 state=64
+Field 3 name=FI_OpticalFlowMotionVectorFieldX format=42 size=434x283 pitch=1792 rowBytes=1736 bytes=507080
+SDK resource name=FI_OpticalFlowMotionVectorFieldY format=42 size=434x283 state=64
+Field 4 name=FI_OpticalFlowMotionVectorFieldY format=42 size=434x283 pitch=1792 rowBytes=1736 bytes=507080
+SDK resource name=FI_PreviousInterpolationSouce format=28 size=3472x2266 state=64
+Field 5 name=FI_PreviousInterpolationSouce format=28 size=3472x2266 pitch=14080 rowBytes=13888 bytes=31905088
+SDK resource name=FI_InpaintingMask format=61 size=3472x2266 state=8
+SDK resource name=FI_DisocclusionMask format=49 size=3472x2266 state=64
+Field 6 name=FI_DisocclusionMask format=49 size=3472x2266 pitch=7168 rowBytes=6944 bytes=16242464
+SDK resource name=FI_DefaultDistortionField format=49 size=1x1 state=64
+SDK resource name=OPTICALFLOW_Result format=38 size=434x284 state=64
+Field 7 name=OPTICALFLOW_Result format=38 size=434x284 pitch=1792 rowBytes=1736 bytes=508872
+SDK resource name=OPTICALFLOW_SCDOutput format=42 size=3x1 state=64
+SDK resource name=FISHARED_DilatedDepth0 format=41 size=3472x2266 state=8
+Field 8 name=FISHARED_DilatedDepth0 format=41 size=3472x2266 pitch=14080 rowBytes=13888 bytes=31905088
+SDK resource name=FISHARED_DilatedVelocity0 format=34 size=3472x2266 state=8
+Field 9 name=FISHARED_DilatedVelocity0 format=34 size=3472x2266 pitch=14080 rowBytes=13888 bytes=31905088
+SDK resource name=FISHARED_ReconstructedPrevNearestDepth0 format=42 size=3472x2266 state=8
+Field 10 name=FISHARED_ReconstructedPrevNearestDepth0 format=42 size=3472x2266 pitch=14080 rowBytes=13888 bytes=31905088
+SDK resource name=FISHARED_DilatedDepth1 format=41 size=3472x2266 state=64
+Field 11 name=FISHARED_DilatedDepth1 format=41 size=3472x2266 pitch=14080 rowBytes=13888 bytes=31905088
+SDK resource name=FISHARED_DilatedVelocity1 format=34 size=3472x2266 state=64
+Field 12 name=FISHARED_DilatedVelocity1 format=34 size=3472x2266 pitch=14080 rowBytes=13888 bytes=31905088
+SDK resource name=FISHARED_ReconstructedPrevNearestDepth1 format=42 size=3472x2266 state=64
+Field 13 name=FISHARED_ReconstructedPrevNearestDepth1 format=42 size=3472x2266 pitch=14080 rowBytes=13888 bytes=31905088
+Stage 30 PSO=INTERPOLATION dispatch=434,284,1 outputState=8
+Stage 31 PSO=INPAINTING_PYRAMID dispatch=55,36,1 outputState=64
+Stage 32 PSO=INPAINTING dispatch=434,284,1 outputState=8
+GPU completed id=4 captured_source_frame=14903 reset=0 size=3472x2266
+Completed two-image dataset replay with four warmup submissions. Cold history is reconstructed; not an exact reproduction of the game's long history.

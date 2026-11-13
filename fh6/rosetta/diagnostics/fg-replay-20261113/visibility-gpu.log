@@ -1,0 +1,4 @@
+msync: bootstrapped mach port on wine-18fd494-msync.
+msync: up and running.
+compiled owned UI shader bytes=6580
+GPU fence completed; visibility corrected pixels=56086 invalid-or-outside changes=0 bytes=16242464

@@ -52,7 +52,7 @@ class Image:
             raise ValueError('Unknown depth plane layout')
         return struct.unpack_from('f', self.data, y * self.pitch + x * self.stride)[0]
 
-    def png(self, path):
+    def png(self, path, opaque=False):
         # Readback row layout comes from GetCopyableFootprints; never infer a
         # depth-plane stride from its DXGI format name (the failed probe did).
         if self.info['source_format'] != 28 or self.stride != 4:
@@ -64,7 +64,11 @@ class Image:
             chunk(f, b'IHDR', struct.pack('>2I5B', self.width, self.height, 8, 6, 0, 0, 0))
             compressor = zlib.compressobj(3)
             for y in range(self.height):
-                part = compressor.compress(b'\0' + self.data[y*self.pitch:y*self.pitch+self.width*4])
+                row = self.data[y*self.pitch:y*self.pitch+self.width*4]
+                if opaque:
+                    row = bytearray(row)
+                    row[3::4] = b'\xff' * self.width
+                part = compressor.compress(b'\0' + row)
                 if part:
                     chunk(f, b'IDAT', part)
             chunk(f, b'IDAT', compressor.flush())

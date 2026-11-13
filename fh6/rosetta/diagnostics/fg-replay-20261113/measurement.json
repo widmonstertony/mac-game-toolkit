@@ -1,0 +1,12 @@
+{
+  "selected_ghost_region_samples": 21174,
+  "baseline_rgb_MAE_to_visible_current_warp": 11.654573352216689,
+  "history_control_rgb_MAE_to_visible_current_warp": 0.24579999643937336,
+  "corrected_samples_still_different_from_current_base_frame": 19800,
+  "scope": "Diagnostic ROI evaluates car-tail ground; control selection itself has no car/screen-region condition.",
+  "limits": [
+    "Two adjacent saved frames only.",
+    "Visibility mask computed by the owned history-visibility.hlsl on the real GPU, then supplied to official FG in an independent replay; no game deployment or runtime GPU performance claim.",
+    "This validates a visibility failure contribution, not all ghosting or all frame-generation defects."
+  ]
+}
