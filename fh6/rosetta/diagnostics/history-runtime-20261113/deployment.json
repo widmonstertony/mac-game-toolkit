@@ -1,0 +1,21 @@
+{
+  "installed": true,
+  "candidate_sha256": "a18775ceef092881661dd076f901b11614a5aa1f2a62b3db6ac69a4834ab112d",
+  "kind": "FH6-only GPU history visibility repair plus native premultiplied UI",
+  "ini_bytes_unchanged": true,
+  "ini_raw_sha256": "f1c6c212918b1ec6034b7b630de901607386ee90d17142b54c13bdb56387f06f",
+  "ini_normalized_text_sha256": "c2744e9ccd73076a839d3fdd8e3a6299df52c7d5a9e536df0bb68e6000ae1a84",
+  "ini_hash_note": "Old receipt text hashes normalize CRLF. Raw on-disk INI still matches the previous working checkpoint; it was not rewritten. Installer now records both kinds explicitly.",
+  "original_fg_sha256": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6",
+  "game_visual_verified": false,
+  "source_commit": "04764df",
+  "preserved": [
+    "native Steam launch entry",
+    "existing SR and 2x FG configuration",
+    "native output settings",
+    "audio",
+    "cloud sync",
+    "caches"
+  ],
+  "next_validation": "User opens native Steam entry, tests same car on straight road and sharp bends, leaves game open for log verification."
+}

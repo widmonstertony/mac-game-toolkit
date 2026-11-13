@@ -65,6 +65,7 @@ def main():
     if sha(original) != verification['original_provider_sha256']:
         raise RuntimeError('Official provider changed since GPU validation')
     ini = game / 'OptiScaler.ini'
+    original_ini_bytes = ini.read_bytes()
     before = ini.read_text()
     config = parse(before)
     required = {'Enabled': 'true', 'FGInput': 'dlssg', 'FGOutput': 'fsrfg', 'DrawUIOverFG': 'false'}
@@ -98,6 +99,8 @@ def main():
                'previous_fg_path': previous['previous_fg_path'] if previous else old,
                'candidate_sha256': sha(artifacts / candidate_name),
                'original_provider_sha256': sha(original), 'gpu_verification': verification,
+               'ini_on_disk_before_sha256': hashlib.sha256(original_ini_bytes).hexdigest(),
+               'ini_on_disk_after_sha256': hashlib.sha256(original_ini_bytes if changed == before else changed.encode()).hexdigest(),
                'ini_before_sha256': hashlib.sha256(before.encode()).hexdigest(),
                'ini_after_sha256': hashlib.sha256(changed.encode()).hexdigest()}
     print(json.dumps(receipt, indent=2))
@@ -106,7 +109,7 @@ def main():
     processes = subprocess.check_output(['/bin/ps', '-axo', 'comm='], text=True).lower()
     if 'forzahorizon6.exe' in processes:
         raise RuntimeError('FH6 is still running. Do not replace this round or its DLL.')
-    if ini.read_text() != before:
+    if ini.read_bytes() != original_ini_bytes:
         raise RuntimeError('Configuration changed during preparation')
     dest.mkdir(parents=True, exist_ok=True)
     if not link.exists():

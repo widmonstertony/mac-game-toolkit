@@ -1,5 +1,5 @@
 {
-  "status": "GPU regressions passed; prepared for scoped FH6 provider installation; user gameplay verification pending",
+  "status": "Installed FH6-only candidate; complete GPU regressions passed; user gameplay verification pending",
   "candidate_sha256": "a18775ceef092881661dd076f901b11614a5aa1f2a62b3db6ac69a4834ab112d",
   "game_visual_verified": false,
   "runtime_correction": "Generated-frame visibility postpass using caller-owned depth/MV snapshots; no SDK-private resource/name dependency",
@@ -39,5 +39,5 @@
     "Reported timestamp query is one probe, not a reliable general FPS cost estimate."
   ],
   "previous_source_checkpoint": "bccc884",
-  "installed": false
+  "installed": true
 }
