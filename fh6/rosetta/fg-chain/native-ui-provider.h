@@ -163,6 +163,9 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
         if(result==FFX_API_RETURN_OK) {
             #ifdef HISTORY_VISIBILITY_FIX
             historyCorrected=c->history.record(frame,c->prepared[p.frameID%8],p,binding->scene);
+            // Same verified direct queue: previous color is read before this
+            // frame's copy overwrites it; no CPU wait or borrowed game lifetime.
+            c->history.rememberScene(p.frameID,(ID3D12GraphicsCommandList*)p.commandList,binding->scene);
             if(report&&(c->applied<8||p.frameID%600==0)){char line[250];snprintf(line,sizeof(line),"{\"event\":\"history_post\",\"frame\":%llu,\"dispatched\":%s,\"reason\":\"%s\"}",(unsigned long long)p.frameID,historyCorrected?"true":"false",c->history.reason);report(line);}
 #endif
             auto job=c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p);

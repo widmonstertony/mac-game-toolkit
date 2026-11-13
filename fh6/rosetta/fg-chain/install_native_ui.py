@@ -118,7 +118,7 @@ def main():
     if changed != before:
         atomic(ini, changed.encode())
     atomic(receipt_file, (json.dumps(receipt, indent=2) + '\n').encode())
-    print('Selected FH6 native-UI candidate only; same native Steam, official SR/FG algorithms, resolution, audio, cache, saves and cloud.')
+    print('Selected FH6 generated-frame visibility/UI candidate; official SR/FG providers retained. Native Steam, resolution, audio, cache, saves and cloud unchanged.')
 
 
 if __name__ == '__main__':

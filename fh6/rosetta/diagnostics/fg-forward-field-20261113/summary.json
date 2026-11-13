@@ -1,0 +1,55 @@
+{
+  "status": "GPU-validated candidate; not yet deployed or game-visual verified",
+  "route": "FH6-only Rosetta / private Highball Wine 11 / D3DMetal / FSR 3.1.6 SR and 2x FG",
+  "mac_pid": 50947,
+  "wine_pid": 228,
+  "source_frames": [
+    104186,
+    104187
+  ],
+  "live_lock_observation": {
+    "section": "0x2538e04b0",
+    "waiter": "0x1f0",
+    "reported_owner": "0x1ec",
+    "owner_at_readback": "0",
+    "lock_count_at_readback": -1,
+    "recursion_at_readback": 0,
+    "interpretation": "Released before remote stack read; not evidence of an ongoing lock cycle. Earlier all-thread stacks are not owner-at-timeout proof."
+  },
+  "wine_timeout_correction": "RtlpWaitForCriticalSection starts with 5 seconds. retrying (60 sec) is the NEXT wait interval, not proof the first wait already lasted 60 seconds.",
+  "pixel_findings": [
+    "The current real generated frame has a duplicate below the car; the base scene does not.",
+    "Captured car-light motion matches measured inter-frame image displacement within pixel rounding at checked points.",
+    "SDK prepared previous/current depth matched reversed-Z 3x3 maxima at all 62418 sampled points each. This check is from the owned replay, not every live GPU resource.",
+    "The inverse current-motion solver can select the wrong branch or decline at disocclusions.",
+    "A forward primary field improves depth-proven samples but leaves a viewport-border residual. The final candidate adds conservative stale-dark border inpainting using actual previous scene color."
+  ],
+  "forward_only_control": {
+    "depth_proven_tail_samples": 5858,
+    "old_live_RGB_MAE_to_current_warp": 2.7099351775332674,
+    "forward_RGB_MAE": 0.26793076222513457,
+    "samples_changed": 900,
+    "samples_still_different_from_base": 4798,
+    "limits": "Selected depth/camera-proven diagnostic region only, not a whole-frame quality score. This is before the separate border-fill extension."
+  },
+  "final_current_capture_gpu": {
+    "frames": 18,
+    "slot_wraps": 2,
+    "rotating_outputs": 3,
+    "allocated_bytes": 356319232,
+    "changed_generated_pixels": 151846,
+    "changed_pixels_still_not_current_base": 110834,
+    "reset_nan_overwrite_guards": true,
+    "no_outstanding_history_references": true
+  },
+  "policy_limits": [
+    "Viewport-border fill is photometric confidence/inpainting; outside-frame detail is not observable and cannot be proved exact.",
+    "Only this two-capture current scene plus separate synthetic/older-capture regressions; no universal zero-ghost guarantee.",
+    "Warm replay is reconstructed history, not a faithful recording of all live prior frames.",
+    "Reported timestamp timing is not a gameplay FPS measurement.",
+    "No game restart, setting, cache, save, cloud or other-game change yet."
+  ],
+  "candidate_sha256": "4b3b9a6ff9b21120ac17452f06b065d8bf245743a12224a68942a8bf4ab9e506",
+  "older_capture_full_provider_pass": true,
+  "older_capture_changed_rgb_pixels": 337773
+}

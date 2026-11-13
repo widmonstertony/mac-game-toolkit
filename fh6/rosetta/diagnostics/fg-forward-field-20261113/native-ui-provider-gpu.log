@@ -1,0 +1,9 @@
+compositor pipeline stage=create-pipeline status=00000000
+PASS native premultiplied UI real GPU pixels=12065 errors=0 alpha=0/128/255 odd-size=127x95; stale/lifetime/offset/format guards
+Depth copy layout: format=39 rowPitch=512 rowBytes=512 total=49152
+Native game depth format19 plane0 readback: copyFormat=39 pixelStride=4 errors=0 pixels=12288
+REAL provider=3.1.6
+PASS 10-bit opening context with FG disabled forwarded without native UI initialization
+Enabled FG loading screen: owned history pipelines=0 expected=0
+GPU contrast: reference_errors=0 non_ui_difference_components=3072 generated_differs_from_base_components=192 ui_errors=0 frames=12 contexts=3
+PASS official FFX generated output + native UI; postprocess difference outside native UI triggers old extraction; candidate matches scene-only reference. This is synthetic GPU evidence, not proof FH6 car ghosting is fixed.

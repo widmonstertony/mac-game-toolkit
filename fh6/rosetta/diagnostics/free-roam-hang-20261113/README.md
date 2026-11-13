@@ -2,6 +2,13 @@
 
 Not fixed yet. This is a diagnosis receipt, not a successful gameplay test.
 
+Correction after inspecting Wine's implementation: the first critical-section
+wait is **5 seconds**. `retrying (60 sec)` announces the **next** wait interval;
+it does not establish that the first logged stall already lasted 60 seconds.
+In the following live run the reported section was already unlocked at readback
+(owner 0, count -1, recursion 0). That run reached free roam. These observations
+do not establish a persistent lock cycle as the cause of its remaining ghost.
+
 - Native macOS Steam launched the existing FH6 build 483970 once, macOS PID
   97075, Wine PID 228, observer start tick 6330014. The player explicitly
   confirms they did not click Stop, close the window, or request exit.

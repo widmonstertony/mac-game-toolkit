@@ -1,0 +1,56 @@
+{
+  "passed": true,
+  "kind": "synthetic real D3DMetal GPU / official FFX 3.1.6 / full candidate provider and real DXGI queue",
+  "game_visual_verified": false,
+  "manifest_sha256": "8e16180488d0d6529710928d988abd9162d6e577e14dbacf23a262c0f1cce022",
+  "artifacts": {
+    "exit-observer-probe.exe": "d5262c3a7ba6f4a1562baa2abd180493f24f74a1b605b9a7e08db4821d855f33",
+    "history-post-probe.exe": "378a055e48d16904543b590f74950be48cf288e9341459575524c4c124f7e9ce",
+    "history-visibility-probe.exe": "5b1b158388c33df364dfaee12d684cb67748415ccc93e3031cd29a9375d7b139",
+    "replay-capture.exe": "f00ae376e52d52f014e4d78bda63c480b1fd09c9bbfc64510c9a4ece47901527",
+    "first-fault-probe.exe": "2bcc3d292b0fc2b0e00a6c8dc717c4c5bd4ace52902142b702020ef92aabb5ad",
+    "fh6-fg-chain.asi": "227e8a5ba252bbe23a56254b1caf017d6d01c14be6a82ebf5859887620373c12",
+    "framegeneration-audit.dll": "80a9a51796291979ac892d2643375a9fd7bedf768d9c62791833af5bc2887920",
+    "upscaler-audit.dll": "2c7116f9e80cc16a42cb543a6d4c09acbf10116269fb754ba15a1b789b2f3970",
+    "framegeneration-native-ui.dll": "38252a5d12c16f854f87d825e9d05345ca97c50992522f16155b2d943b6adf0d",
+    "framegeneration-history-ui.dll": "4b3b9a6ff9b21120ac17452f06b065d8bf245743a12224a68942a8bf4ab9e506",
+    "sl.interposer.dll": "bf0ad3329ceca572dacd73e21e1d629ebf257f10bf49b1d1a5291163255a1bb4",
+    "framegeneration-original.dll": "f5f22642b0d7e9138952ce976d64b7ea188ea6c7da53e29b1ea0f57de7716692",
+    "probe.exe": "d80d567ff70160bead920786e40b9b94221dd954dfe3bb2d869b62f2604b49fc",
+    "provider-versions.exe": "77f41df6d16a94272a82e26484c587651d9ea18bb93160bbcafa072702b753c7",
+    "native-ui-probe.exe": "a2090b798da96c835956e795da8c60167519aba56ade42ec461897cd9451364c",
+    "compile-native-ui.exe": "505f8c16be0a974e512d41fbdcdafd63faf6fbd4c7870875a14ad627afa011ef"
+  },
+  "original_provider_sha256": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6",
+  "log_sha256": "6d82d64e2b4dd53ebf20e40f64d44de9d7ba56b3a7ad0926c8409cf8d1db8546",
+  "trace_sha256": "60d2a733bdfad048981cbb6a432aabbe5209afa86c91d6523c070250b25c0851",
+  "native_ui_applied_samples": 8,
+  "opening_context_deferred": true,
+  "runtime_imports": [
+    "api-ms-win-crt-convert-l1-1-0.dll",
+    "api-ms-win-crt-heap-l1-1-0.dll",
+    "api-ms-win-crt-locale-l1-1-0.dll",
+    "api-ms-win-crt-private-l1-1-0.dll",
+    "api-ms-win-crt-runtime-l1-1-0.dll",
+    "api-ms-win-crt-stdio-l1-1-0.dll",
+    "api-ms-win-crt-string-l1-1-0.dll",
+    "kernel32.dll"
+  ],
+  "same_imports_as_audit": true,
+  "synthetic_pixel_captures": [
+    {
+      "frame": 1,
+      "images": 7,
+      "gpu_fence_completed": true,
+      "bytes": 344064
+    },
+    {
+      "frame": 2,
+      "images": 7,
+      "gpu_fence_completed": true,
+      "bytes": 344064
+    }
+  ],
+  "history_dispatched_samples": 7,
+  "enabled_loading_frames_forwarded_without_history_initialization": 20
+}

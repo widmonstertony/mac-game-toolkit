@@ -76,7 +76,25 @@ retained until the user decides which installation to keep.
 中文：商店环境已准备，复用真实 Highball/Wine 11 和 D3DMetal，不修改或重签
 MACxus，也不影响 Steam。独立 GPU 队列及读回检查通过；这不等于商店版地平线
 已经跑通。先在 MACxus 完成微软账号登录和正版下载，再验证游戏及云存档，之后
-才能接入原生 Steam 快捷入口。不会下载第二份游戏或删除 Steam 游戏来冒充验证。
+才能接入原生 Steam 快捷入口。不以下载或安装环境成功冒充游戏验证成功。
+
+### Download and storage update, 2026-11-13
+
+The user has now authorized downloading the owned Store edition. MACxus game
+storage was selected as `~/Games/Windows/Xbox`. Its official PC/MSIXVC offer
+reports a **159.9 GiB download**, with installed size unreported. At preflight
+the local volume had approximately **140 GiB free**, so the package selection
+was cancelled before downloading; more space or a suitable local disk is needed.
+The Steam installation was not removed.
+
+`~/Games/Windows/Steam` is a symlink to the existing Steam `steamapps/common`
+directory. This gives one management entry without copying or relocating game
+data, changing launcher manifests, moving prefixes, or touching saves/caches.
+It is not a claim that all game files have physically migrated to one directory.
+
+中文：已获准下载商店版；统一入口为 `~/Games/Windows`，其中 `Steam` 指向
+原有游戏库，`Xbox` 是新下载位置。官方 PC 包需下载 159.9 GiB，当前本机空间
+不足，因此尚未开始下载。未删除 Steam 版；腾出空间后再继续官方安装流程。
 
 ## Upstream provenance
 

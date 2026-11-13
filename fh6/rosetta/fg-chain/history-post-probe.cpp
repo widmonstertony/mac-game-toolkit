@@ -30,7 +30,7 @@ int wmain(int argc,wchar_t **argv){
   // Reset/NaN guards must not record GPU work or acquire a previous reader.
   if(id==17){auto f=frame;f.clipToPrevious[0]=NAN;CHECK(!history.record(f,captured,fg,scene.gpu));auto bad=fg;bad.reset=true;CHECK(!history.record(frame,captured,bad,scene.gpu));}
   if(id==17)g.l->EndQuery(query,D3D12_QUERY_TYPE_TIMESTAMP,0);
-  bool corrected=history.record(frame,captured,fg,scene.gpu);if(id==17){g.l->EndQuery(query,D3D12_QUERY_TYPE_TIMESTAMP,1);g.l->ResolveQueryData(query,D3D12_QUERY_TYPE_TIMESTAMP,0,2,timing,0);}CHECK(corrected==(id>0));history.submitted(id,o.gpu,corrected);
+  bool corrected=history.record(frame,captured,fg,scene.gpu);history.rememberScene(id,g.l,scene.gpu);if(id==17){g.l->EndQuery(query,D3D12_QUERY_TYPE_TIMESTAMP,1);g.l->ResolveQueryData(query,D3D12_QUERY_TYPE_TIMESTAMP,0,2,timing,0);}CHECK(corrected==(id>0));history.submitted(id,o.gpu,corrected);
   auto blocked=prep;blocked.frameID=id+8;CHECK(!history.prepare(blocked));CHECK(!strcmp(history.reason,"history-still-in-flight"));
   if(id==17)o.copyOut(g.l);CHECK(g.end());printf("GPU history frame=%u dispatched=%u allocated=%llu\n",id,corrected,(unsigned long long)history.allocated);
  }

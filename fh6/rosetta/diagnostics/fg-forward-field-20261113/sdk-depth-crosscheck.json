@@ -1,0 +1,30 @@
+{
+  "field8_input0": {
+    "total": 62418,
+    "equals_any_3x3": 62418,
+    "equals_reversedZ_max": 62418,
+    "mean_relative": 0.0,
+    "p99_relative": 0.0
+  },
+  "field8_input1": {
+    "total": 62418,
+    "equals_any_3x3": 5327,
+    "equals_reversedZ_max": 5401,
+    "mean_relative": 0.027180136915571262,
+    "p99_relative": 0.6433596008583985
+  },
+  "field11_input0": {
+    "total": 62418,
+    "equals_any_3x3": 5422,
+    "equals_reversedZ_max": 5401,
+    "mean_relative": 0.027180136915571262,
+    "p99_relative": 0.6433596008583985
+  },
+  "field11_input1": {
+    "total": 62418,
+    "equals_any_3x3": 62418,
+    "equals_reversedZ_max": 62418,
+    "mean_relative": 0.0,
+    "p99_relative": 0.0
+  }
+}

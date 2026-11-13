@@ -379,6 +379,45 @@ This runtime approximation has different error from the earlier SDK-mask control
 about 12.07→2.90 RGB units in the saved tail-ground evaluation, not 11.65→0.246.
 It needs actual gameplay validation; neither number proves all ghosts are gone.
 
+### Forward-source and viewport-border revision (2026-11-13)
+
+The current source supersedes that inverse solver. A depth-prioritized forward
+field assigns each halfway pixel a current source. An atomic 32-bit entry keeps
+source index and priority together; it cannot combine X/Y from different source
+pixels. The following resolve still requires actual motion agreement, camera
+projection and previous visible depth before changing a generated RGB sample.
+The extra R32_UINT field is cleared, scattered and read with explicit UAV
+ordering, including the previous frame's read before the next clear.
+
+The new capture also contains a separate viewport-border residual: a current
+source is outside the image and the previous dark source leaves a duplicated
+outline. Missing primary sources may use a conservative photometric border fill
+only with consecutive previous color, strong stale-dark disagreement and static
+camera/motion agreement. This is **inpainting**, not a proof of the unseen
+outside-frame texture. It can leave fill/stretching artifacts; it is not a
+universal zero-ghost guarantee. Neither a car mask nor diagnostic ROI coordinates
+are used by the runtime shader.
+
+One owned previous-color texture is copied only after this frame's resolve on
+the already verified single direct queue. Nonconsecutive color history declines
+border fill. Snapshot/field/color allocations remain below 512 MiB; the captured
+2480×1618 render / 3472×2266 output uses 356,319,232 bytes. Source-index packing
+supports at most 4,194,304 **render** pixels; larger or unsupported inputs retain
+the original FG result. The output can still be the native 3472×2266 resolution.
+
+On 5,858 depth/camera-proven tail samples in the new actual game capture, the
+forward-only revision lowered old live-output RGB error from 2.71 to 0.27.
+That selected metric does not cover every pixel or measure the border heuristic.
+The final border revision changed 151,846 actual generated pixels; 110,834 of
+those still differed from the current base, so this does not replace FG with
+duplicate base frames. Full-provider UI/format/startup checks, 18-frame history
+wrap/rotation tests, and another older real-capture regression also passed.
+Actual gameplay after deployment still requires the player's visual check.
+
+The owned replay additionally accepts `warmup=N` (4–64). A longer warmup changes
+the SDK's early-history/optical-flow policy; it does not reproduce missing live
+history. Do not equate a cold two-frame replay with every live internal field.
+
 `HistoryPost` records depth/motion GPU snapshots inside Prepare's input lifetime.
 Eight fixed slots and 32 immutable descriptor bindings are bounded by 512 MiB
 of snapshot allocations (306,708,480 bytes at the captured render size). GPU

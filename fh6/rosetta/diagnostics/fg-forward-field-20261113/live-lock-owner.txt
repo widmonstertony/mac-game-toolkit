@@ -1,0 +1,32 @@
+CRITICAL address=2538e04b0 owner=0 lock=-1 recursion=0 wait=0000000000000000
+
+TID=01ec query=00000000 teb=00000000195b0000
+Wine saved syscall frame=1029ffc40 syscall=4 rip=6ffffd58ea34 rsp=1a15fd08 rbp=1a15ff79 rcx=4c5b70e40
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+
+TID=01f0 query=00000000 teb=00000000195a0000
+Wine saved syscall frame=102affc40 syscall=4 rip=6ffffd58ea34 rsp=1a25fd08 rbp=1a25ff79 rcx=4c5b70e80
+00 6ffffd58ea34 ntdll+ea34
+01 6ffffd58ea34 ntdll+ea34
+02 6ffffcef9fed kernelbase!WaitForSingleObject+45
+03 14495296d forzahorizon6+495296d
+04 14227a730 forzahorizon6+227a730
+05 144951d16 forzahorizon6+4951d16
+06 6ffffd5114e9 kernel32+114e9
+07 6ffffd590dc3 ntdll+10dc3
+08 14545eb6a forzahorizon6+545eb6a
+CRT export _execute_onexit_table +26650
+CRT export exit +530a0
+CRT export _cexit +239c0
+CRT export _c_exit +23910
+CRT export _exit +26730
+CRT export abort +46640
+CRT export _beginthreadex +236d0

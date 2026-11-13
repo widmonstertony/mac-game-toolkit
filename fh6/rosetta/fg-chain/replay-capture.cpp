@@ -8,6 +8,7 @@
 #include <sl_consts.h>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <api/include/dx12/ffx_api_dx12.h>
 #include <framegeneration/include/dx12/ffx_api_framegeneration_dx12.h>
 #include <framegeneration/include/ffx_framegeneration.h>
@@ -22,7 +23,7 @@ struct Token:sl::FrameToken{uint32_t id;Token(uint32_t i):id(i){}operator uint32
 #include "trace-command-list.h"
 static FfxApiResource res(Texture &t){return ffxApiGetResourceDX12(t.gpu,FFX_API_RESOURCE_STATE_PIXEL_COMPUTE_READ);}
 int wmain(int argc,wchar_t **argv){
- setvbuf(stdout,nullptr,_IONBF,0);CHECK(argc>=5 && argc<=9);bool tight=false,trace=false,maskControl=false,provider=false;for(int i=5;i<argc;i++){if(!wcscmp(argv[i],L"tight-max-render"))tight=true;else if(!wcscmp(argv[i],L"trace"))trace=true;else if(!wcscmp(argv[i],L"mask-control"))maskControl=true;else if(!wcscmp(argv[i],L"provider"))provider=true;else CHECK(false);}Input in[2];CHECK(load(argv[2],in[0]));CHECK(load(argv[3],in[1]));
+ setvbuf(stdout,nullptr,_IONBF,0);CHECK(argc>=5 && argc<=10);UINT warmup=4;bool tight=false,trace=false,maskControl=false,provider=false;for(int i=5;i<argc;i++){if(!wcscmp(argv[i],L"tight-max-render"))tight=true;else if(!wcscmp(argv[i],L"trace"))trace=true;else if(!wcscmp(argv[i],L"mask-control"))maskControl=true;else if(!wcscmp(argv[i],L"provider"))provider=true;else if(!wcsncmp(argv[i],L"warmup=",7)){warmup=wcstoul(argv[i]+7,nullptr,10);CHECK(warmup>=4&&warmup<=64);}else CHECK(false);}Input in[2];CHECK(load(argv[2],in[0]));CHECK(load(argv[3],in[1]));
  const auto &a=in[0].h,&b=in[1].h;CHECK(a.w==b.w&&a.h==b.h&&a.rw==b.rw&&a.rh==b.rh&&a.flags==b.flags);
  CHECK(in[1].frame.frame==in[0].frame.frame+1);CHECK(a.flags==FFX_FRAMEGENERATION_ENABLE_DEPTH_INVERTED);
  GPU g;CHECK(g.init());
@@ -53,12 +54,12 @@ int wmain(int argc,wchar_t **argv){
  BYTE *output=(BYTE*)HeapAlloc(GetProcessHeap(),0,SIZE_T(a.w)*a.h*4);CHECK(output);
  CHECK(!trace || (a.w==3472 && a.h==2266));
  BYTE *zeroUI=provider?(BYTE*)HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,SIZE_T(a.w)*a.h*4):nullptr;CHECK(!provider||zeroUI);
- for(UINT id=0;id<5;id++){
-  const auto &v=in[id==4?1:0];const auto &h=v.h;const auto &f=v.frame;
+ for(UINT id=0;id<=warmup;id++){
+  const auto &v=in[id==warmup?1:0];const auto &h=v.h;const auto &f=v.frame;
   CHECK(g.begin());const auto readable=D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-  CHECK(depth.write(g.l,v.depth,h.rw*4,readable));CHECK(motion.write(g.l,id<4?zeroMotion:v.motion,h.rw*4,readable));CHECK(scene.write(g.l,v.scene,h.w*4,readable));out.transition(g.l,D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+  CHECK(depth.write(g.l,v.depth,h.rw*4,readable));CHECK(motion.write(g.l,id<warmup?zeroMotion:v.motion,h.rw*4,readable));CHECK(scene.write(g.l,v.scene,h.w*4,readable));out.transition(g.l,D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
   if(provider){
-   CHECK(ui.write(g.l,zeroUI,h.w*4,readable));Token token(id);sl::ViewportHandle view(0);sl::Constants c{};c.cameraNear=f.nearPlane;c.cameraFar=f.farPlane;c.cameraFOV=f.fov;c.cameraAspectRatio=f.aspect;c.depthInverted=sl::Boolean::eTrue;c.cameraMotionIncluded=sl::Boolean::eTrue;c.motionVectors3D=sl::Boolean::eFalse;c.reset=sl::Boolean::eFalse;c.jitterOffset={f.jitter[0],f.jitter[1]};c.mvecScale={f.scale[0],f.scale[1]};memcpy(&c.cameraViewToClip,f.projection,64);memcpy(&c.clipToPrevClip,f.clipToPrevious,64);if(id<4){float identity[16]{};for(int k=0;k<16;k++)identity[k]=k%5==0?1.f:0.f;memcpy(&c.clipToPrevClip,identity,64);}CHECK(setConstants(c,token,view)==sl::Result::eOk);
+   CHECK(ui.write(g.l,zeroUI,h.w*4,readable));Token token(id);sl::ViewportHandle view(0);sl::Constants c{};c.cameraNear=f.nearPlane;c.cameraFar=f.farPlane;c.cameraFOV=f.fov;c.cameraAspectRatio=f.aspect;c.depthInverted=sl::Boolean::eTrue;c.cameraMotionIncluded=sl::Boolean::eTrue;c.motionVectors3D=sl::Boolean::eFalse;c.reset=sl::Boolean::eFalse;c.jitterOffset={f.jitter[0],f.jitter[1]};c.mvecScale={f.scale[0],f.scale[1]};memcpy(&c.cameraViewToClip,f.projection,64);memcpy(&c.clipToPrevClip,f.clipToPrevious,64);if(id<warmup){float identity[16]{};for(int k=0;k<16;k++)identity[k]=k%5==0?1.f:0.f;memcpy(&c.clipToPrevClip,identity,64);}CHECK(setConstants(c,token,view)==sl::Result::eOk);
    sl::Resource st(sl::ResourceType::eTex2d,scene.gpu,readable),ut(sl::ResourceType::eTex2d,ui.gpu,readable),dt(sl::ResourceType::eTex2d,depth.gpu,readable),mt(sl::ResourceType::eTex2d,motion.gpu,readable);
    sl::ResourceTag tags[]={sl::ResourceTag(&st,sl::kBufferTypeHUDLessColor,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&ut,sl::kBufferTypeUIColorAndAlpha,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&dt,sl::kBufferTypeDepth,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&mt,sl::kBufferTypeMotionVectors,sl::ResourceLifecycle::eValidUntilPresent)};CHECK(setTags(token,view,tags,4,nullptr)==sl::Result::eOk);
   }
@@ -67,10 +68,10 @@ int wmain(int argc,wchar_t **argv){
   memcpy(camera.cameraPosition,f.cameraBasis,12);memcpy(camera.cameraUp,f.cameraBasis+3,12);memcpy(camera.cameraRight,f.cameraBasis+6,12);memcpy(camera.cameraForward,f.cameraBasis+9,12);
   ffxDispatchDescFrameGenerationPrepare prep{};prep.header={FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE,&camera.header};prep.frameID=id;prep.commandList=trace?static_cast<ID3D12GraphicsCommandList*>(&traced):g.l;prep.renderSize={h.rw,h.rh};prep.motionVectorScale={h.scale[0],h.scale[1]};prep.jitterOffset={h.jitter[0],h.jitter[1]};prep.frameTimeDelta=h.ms;prep.cameraNear=f.nearPlane;prep.cameraFar=f.farPlane;prep.cameraFovAngleVertical=f.fov;prep.viewSpaceToMetersFactor=0;prep.depth=res(depth);prep.motionVectors=res(motion);CHECK(dispatch(&context,&prep.header)==0);
   ffxDispatchDescFrameGeneration fg{};fg.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION;fg.frameID=id;fg.commandList=trace?static_cast<ID3D12GraphicsCommandList*>(&traced):g.l;fg.numGeneratedFrames=1;fg.reset=id==0;fg.presentColor=res(scene);fg.outputs[0]=ffxApiGetResourceDX12(out.gpu,FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);fg.generationRect={0,0,(int)h.w,(int)h.h};fg.backbufferTransferFunction=h.transfer;fg.minMaxLuminance[1]=100;
-  if(id==4 && trace){traced.enabled=true;traced.state=out.state;fg.commandList=&traced;}
+  if(id==warmup && trace){traced.enabled=true;traced.state=out.state;fg.commandList=&traced;}
   CHECK(dispatch(&context,&fg.header)==0);out.state=traced.state;out.copyOut(g.l);CHECK(g.end());CHECK(out.read(output,h.w*4));
-  if(id>=3){const wchar_t *name=id==3?L"warmup-generated.bin":L"replay-generated.bin";HANDLE file=open(argv[4],name,GENERIC_WRITE,CREATE_NEW);CHECK(file!=INVALID_HANDLE_VALUE);DWORD done;CHECK(WriteFile(file,output,h.w*h.h*4,&done,nullptr)&&done==h.w*h.h*4);CloseHandle(file);}
+  if(id>=warmup-1){const wchar_t *name=id==warmup-1?L"warmup-generated.bin":L"replay-generated.bin";HANDLE file=open(argv[4],name,GENERIC_WRITE,CREATE_NEW);CHECK(file!=INVALID_HANDLE_VALUE);DWORD done;CHECK(WriteFile(file,output,h.w*h.h*4,&done,nullptr)&&done==h.w*h.h*4);CloseHandle(file);}
   printf("GPU completed id=%u captured_source_frame=%llu reset=%u size=%ux%u\n",id,(unsigned long long)f.frame,id==0,h.w,h.h);
  }
- CHECK(!maskControl||traced.maskApplied);CHECK(traced.save(argv[4]));CHECK(destroy(&context,nullptr)==0);if(provider){swapchain->Release();CHECK(destroy(&swapContext,nullptr)==0);factory->Release();DestroyWindow(window);}puts("Completed two-image dataset replay with four warmup submissions. Cold history is reconstructed; not an exact reproduction of the game's long history.");return 0;
+ CHECK(!maskControl||traced.maskApplied);CHECK(traced.save(argv[4]));CHECK(destroy(&context,nullptr)==0);if(provider){swapchain->Release();CHECK(destroy(&swapContext,nullptr)==0);factory->Release();DestroyWindow(window);}printf("Completed two-image dataset replay with %u warmup submissions. Cold history is reconstructed; not an exact reproduction of the game's long history.\n",warmup);return 0;
 }

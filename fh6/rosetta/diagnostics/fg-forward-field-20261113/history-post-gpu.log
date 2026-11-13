@@ -1,0 +1,20 @@
+GPU history frame=0 dispatched=0 allocated=87949312
+GPU history frame=1 dispatched=1 allocated=126287872
+GPU history frame=2 dispatched=1 allocated=164626432
+GPU history frame=3 dispatched=1 allocated=202964992
+GPU history frame=4 dispatched=1 allocated=241303552
+GPU history frame=5 dispatched=1 allocated=279642112
+GPU history frame=6 dispatched=1 allocated=317980672
+GPU history frame=7 dispatched=1 allocated=356319232
+GPU history frame=8 dispatched=1 allocated=356319232
+GPU history frame=9 dispatched=1 allocated=356319232
+GPU history frame=10 dispatched=1 allocated=356319232
+GPU history frame=11 dispatched=1 allocated=356319232
+GPU history frame=12 dispatched=1 allocated=356319232
+GPU history frame=13 dispatched=1 allocated=356319232
+GPU history frame=14 dispatched=1 allocated=356319232
+GPU history frame=15 dispatched=1 allocated=356319232
+GPU history frame=16 dispatched=1 allocated=356319232
+GPU history frame=17 dispatched=1 allocated=356319232
+Visibility post GPU ms=0.077000 (one saved-frame dispatch; not gameplay FPS)
+PASS GPU runtime history: frames=18 slotWraps=2 outputs=3 corrected_pixels=169915 corrected_still_not_base=159570 reset/NaN/in-flight overwrite guards; no outstanding references
