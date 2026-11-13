@@ -1,0 +1,16 @@
+compositor pipeline stage=create-pipeline status=00000000
+PASS native premultiplied UI real GPU pixels=12065 errors=0 alpha=0/128/255 odd-size=127x95; stale/lifetime/offset/format guards
+Depth copy layout: format=39 rowPitch=512 rowBytes=512 total=49152
+Native game depth format19 plane0 readback: copyFormat=39 pixelStride=4 errors=0 pixels=12288
+REAL provider=3.1.6
+PASS 10-bit opening context with FG disabled forwarded without native UI initialization
+Enabled FG loading screen: owned history pipelines=1 expected=0
+FAIL line=94 historyActive()==0
+
+Traceback (most recent call last):
+  File "/Users/tonytan/Documents/GitHub/sky-yyb-mac-fix/fh6/rosetta/fg-chain/run_native_ui_probe.py", line 135, in <module>
+    main()
+    ~~~~^^
+  File "/Users/tonytan/Documents/GitHub/sky-yyb-mac-fix/fh6/rosetta/fg-chain/run_native_ui_probe.py", line 90, in main
+    raise RuntimeError('Native UI GPU contrast failed: ' + str(result.returncode))
+RuntimeError: Native UI GPU contrast failed: 1

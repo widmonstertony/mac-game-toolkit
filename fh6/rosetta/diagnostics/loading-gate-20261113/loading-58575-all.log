@@ -1,0 +1,38 @@
+
+TID=00e8 query=00000000 teb=000000007ffc0000
+Wine saved syscall frame=1000ffd00 syscall=255 rip=6ffffd590994 rsp=10e288 rbp=0 rcx=1c00ca2
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5b7e6b ntdll!RtlSleepConditionVariableSRW+6b
+04 6ffffcee957c kernelbase!SleepConditionVariableSRW+24
+05 6ffffae62368 msvcp140+12368
+06 6ffff2ad38a0 playfabmultiplayerwin+138a0
+07 6ffff2ad3f6c playfabmultiplayerwin+13f6c
+08 6ffff2bb7b42 playfabmultiplayerwin+f7b42
+09 6ffff2bb7108 playfabmultiplayerwin+f7108
+10 6ffff2b85f06 playfabmultiplayerwin+c5f06
+11 6ffff2c0d133 playfabmultiplayerwin+14d133
+12 6ffffcc93069 ucrtbase+53069
+13 6ffff2bf1b9d playfabmultiplayerwin+131b9d
+14 6ffff2bf1cbd playfabmultiplayerwin+131cbd
+15 6ffffd58e8d4 ntdll+e8d4
+16 6ffffd598d93 ntdll!MODULE_InitDLL+243
+17 6ffffd5eb9b3 ntdll!process_detach+43
+18 6ffffd5a5416 ntdll!RtlExitUserProcess+26
+19 6ffffd51a21a kernel32+1a21a
+20 6ffffcc66748 ucrtbase+26748
+21 6ffffccafab6 ucrtbase+6fab6
+22 6ffffcc86657 ucrtbase+46657
+23 6ffffb1d5bfa vcruntime140+5bfa
+24 14333a333 forzahorizon6+333a333
+25 143339f10 forzahorizon6+3339f10
+26 140431118 forzahorizon6+431118
+27 6ffffceeedb0 kernelbase!UnhandledExceptionFilter+70
+CRT export _execute_onexit_table +26650
+CRT export exit +530a0
+CRT export _cexit +239c0
+CRT export _c_exit +23910
+CRT export _exit +26730
+CRT export abort +46640
+CRT export _beginthreadex +236d0

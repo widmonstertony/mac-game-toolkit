@@ -24,6 +24,9 @@ struct NativeContext {
 };
 static NativeQueue nativeQueues[4];
 static NativeContext nativeContexts[4];
+#ifdef HISTORY_VISIBILITY_FIX
+extern "C" __declspec(dllexport) unsigned FH6HistoryActive(){unsigned count=0;for(auto &c:nativeContexts)if(c.history.device)count++;return count;}
+#endif
 extern "C" __declspec(dllexport) unsigned FH6CaptureActive() {
     unsigned count=0;for(auto &c:nativeContexts)count+=InterlockedCompareExchange(&c.capture.activeJobs,0,0);return count;
 }
@@ -98,6 +101,11 @@ template<typename Prepare> static void historyPrepared(ffxContext context,const 
     for(auto &c:nativeContexts)if(c.context==context){
         const auto &cfg=c.config[p.frameID%8];ChainFrame frame{};
         if(c.queue&&cfg.valid&&cfg.frame==p.frameID&&cfg.enabled&&!cfg.async&&getFrame&&getFrame(p.frameID,&frame)&&frame.hasConstants&&frame.inverted==1&&frame.cameraMotionIncluded==1&&!frame.motion3D&&!frame.jittered){
+            const UINT w=cfg.hudless.description.width,h=cfg.hudless.description.height;
+            // Enabled FG alone is not evidence of a 3D scene: the game's loading
+            // screen still dispatches it with null scene/UI tags. Do not create
+            // a PSO or retain Prepare copies until the actual postpass can run.
+            if(!w||!h||cfg.hudless.description.format!=FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM||!NativeUiCompositor::full(frame.tags[2],w,h)||!NativeUiCompositor::full(frame.tags[3],w,h)||cfg.hudless.resource!=(void*)frame.tags[2].native)break;
             bool ready=c.history.initialize(c.device)&&c.history.prepare(p);
             if(report&&(p.frameID<5||p.frameID%600==0||(!ready&&c.history.declined++<4))){char line[260];snprintf(line,sizeof(line),"{\"event\":\"history_prepare\",\"frame\":%llu,\"recorded\":%s,\"reason\":\"%s\",\"pipelineHr\":%u}",(unsigned long long)p.frameID,ready?"true":"false",c.history.reason,(unsigned)c.history.status);report(line);}
         }break;
@@ -146,14 +154,16 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
         }
     }
     ffxReturnCode_t result;
+#ifdef HISTORY_VISIBILITY_FIX
+    bool historyCorrected=false;
+#endif
     if(binding) {
         auto sceneOnly=p;sceneOnly.presentColor=hudless;
         result=dispatch?dispatch(context,&sceneOnly.header):FFX_API_RETURN_NO_PROVIDER;
         if(result==FFX_API_RETURN_OK) {
             #ifdef HISTORY_VISIBILITY_FIX
-            bool corrected=c->history.record(frame,c->prepared[p.frameID%8],p,binding->scene);
-            if(report&&(c->applied<8||p.frameID%600==0)){char line[250];snprintf(line,sizeof(line),"{\"event\":\"history_post\",\"frame\":%llu,\"dispatched\":%s,\"reason\":\"%s\"}",(unsigned long long)p.frameID,corrected?"true":"false",c->history.reason);report(line);}
-            c->history.submitted(p.frameID,(ID3D12Resource*)p.outputs[0].resource,corrected);
+            historyCorrected=c->history.record(frame,c->prepared[p.frameID%8],p,binding->scene);
+            if(report&&(c->applied<8||p.frameID%600==0)){char line[250];snprintf(line,sizeof(line),"{\"event\":\"history_post\",\"frame\":%llu,\"dispatched\":%s,\"reason\":\"%s\"}",(unsigned long long)p.frameID,historyCorrected?"true":"false",c->history.reason);report(line);}
 #endif
             auto job=c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p);
             auto list=(ID3D12GraphicsCommandList*)p.commandList;
@@ -175,6 +185,11 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
                 (unsigned long long)p.frameID,(unsigned)(c->queue!=nullptr),frame.tagsMask,result);report(line);
         }
     }
+    #ifdef HISTORY_VISIBILITY_FIX
+    // A Prepare snapshot can become ineligible between Prepare and Present.
+    // Its copy still needs retirement even when scene/UI disappeared.
+    if(!result&&c)c->history.submitted(p.frameID,(ID3D12Resource*)p.outputs[0].resource,historyCorrected);
+#endif
     ReleaseSRWLockExclusive(&nativeLock);return result;
 }
 static void nativeDestroyed(ffxContext context,ffxReturnCode_t result) {

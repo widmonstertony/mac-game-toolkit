@@ -90,7 +90,7 @@ struct HistoryPost {
   previous->refs++;applied++;reason="applied";return true;
  }
  void submitted(uint64_t frame,ID3D12Resource *output,bool usedPrevious){
-  auto s=find(frame);if(!s)return;auto &f=flights[frame%SlotCount];if(f.active)return;f.active=true;f.frame=frame;f.current=s;f.previous=usedPrevious?find(frame-1):nullptr;f.output=output;output->AddRef();
+  auto s=&slots[frame%SlotCount];if(!s->recorded||s->frame!=frame||!s->refs)return;auto &f=flights[frame%SlotCount];if(f.active)return;f.active=true;f.frame=frame;f.current=s;f.previous=usedPrevious?find(frame-1):nullptr;f.output=output;output->AddRef();
  }
  void release(){for(auto &b:bindings){if(b.scene)b.scene->Release();if(b.output)b.output->Release();if(b.heap)b.heap->Release();b={};}for(auto &f:flights){if(f.output)f.output->Release();f={};}for(auto &s:slots){if(s.depth)s.depth->Release();if(s.motion)s.motion->Release();s={};}if(fence)fence->Release();if(pipeline)pipeline->Release();if(root)root->Release();if(device)device->Release();device=nullptr;fence=nullptr;pipeline=nullptr;root=nullptr;serial=applied=declined=0;rw=rh=0;allocated=0;recorded=disabled=false;status=E_PENDING;reason="not-initialized";}
 };

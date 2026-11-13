@@ -77,6 +77,22 @@ int wmain(int argc,wchar_t **argv){
   CHECK((k==2?candidateCreate:create)(&contexts[k],&cd.header,nullptr)==0);CHECK(compositors[k].initialize(g.d));
  }
  BYTE source[W*H*4],overlay[W*H*4],final[W*H*4],zero[W*H*4]{};float z[W*H];uint16_t mv[W*H*2];BYTE pixels[3][W*H*4]{};
+ auto historyActive=(unsigned(*)())resolve(candidate,"FH6HistoryActive");
+ if(historyActive){
+  // The game genuinely enables FG on loading screens with no scene/UI tags.
+  // Disabled-FG boot coverage alone did not expose this startup condition.
+  for(UINT i=0;i<W*H;i++){source[i*4]=25;source[i*4+1]=40;source[i*4+2]=60;source[i*4+3]=255;z[i]=.3f;mv[i*2]=mv[i*2+1]=0;}
+  for(UINT64 id=500;id<520;id++){
+   CHECK(g.begin());const auto read=D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+   CHECK(depth.write(g.l,(BYTE*)z,W*4,read)&&motion.write(g.l,(BYTE*)mv,W*4,read)&&scene.write(g.l,source,W*4,read));CHECK(outputs[2].write(g.l,zero,W*4,D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+   Token token((uint32_t)id);sl::ViewportHandle view(0);sl::Constants c{};c.depthInverted=sl::Boolean::eTrue;c.cameraMotionIncluded=sl::Boolean::eTrue;c.motionVectors3D=sl::Boolean::eFalse;c.reset=sl::Boolean::eFalse;float identity[16]{};for(int k=0;k<16;k++)identity[k]=k%5==0?1.f:0.f;memcpy(&c.clipToPrevClip,identity,64);CHECK(nativeConstants(c,token,view)==sl::Result::eOk);
+   sl::ResourceTag tags[]={sl::ResourceTag(nullptr,sl::kBufferTypeHUDLessColor,sl::ResourceLifecycle::eOnlyValidNow),sl::ResourceTag(nullptr,sl::kBufferTypeUIColorAndAlpha,sl::ResourceLifecycle::eOnlyValidNow)};CHECK(nativeTags(token,view,tags,2,nullptr)==sl::Result::eOk);
+   ffxConfigureDescFrameGeneration cfg{};cfg.header.type=FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION;cfg.frameID=id;cfg.frameGenerationEnabled=true;cfg.flags=FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY;CHECK(candidateConfigure(&contexts[2],&cfg.header)==0);
+   ffxDispatchDescFrameGenerationPrepareV2 prep{};prep.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2;prep.frameID=id;prep.commandList=g.l;prep.renderSize={W,H};prep.motionVectorScale={1,1};prep.frameTimeDelta=16.6667f;prep.reset=id==500;prep.cameraNear=.1f;prep.cameraFar=50000;prep.cameraFovAngleVertical=1.05f;prep.viewSpaceToMetersFactor=1;prep.depth=res(depth);prep.motionVectors=res(motion);prep.cameraUp[1]=prep.cameraRight[0]=prep.cameraForward[2]=1;CHECK(candidateDispatch(&contexts[2],&prep.header)==0);
+   ffxDispatchDescFrameGeneration fg{};fg.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION;fg.frameID=id;fg.commandList=g.l;fg.numGeneratedFrames=1;fg.reset=id==500;fg.presentColor=res(scene);fg.outputs[0]=ffxApiGetResourceDX12(outputs[2].gpu,FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);fg.backbufferTransferFunction=FFX_API_BACKBUFFER_TRANSFER_FUNCTION_SRGB;CHECK(candidateDispatch(&contexts[2],&fg.header)==0);CHECK(g.end());
+  }
+  printf("Enabled FG loading screen: owned history pipelines=%u expected=0\n",historyActive());CHECK(historyActive()==0);
+ }
  for(UINT64 id=0;id<12;id++){
   for(UINT y=0;y<H;y++)for(UINT x=0;x<W;x++){
    const UINT i=y*W+x;const bool car=x>=20+id*2&&x<52+id*2&&y>=40&&y<72;

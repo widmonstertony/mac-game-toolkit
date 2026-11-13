@@ -1,0 +1,7 @@
+Replay maxRender=3472x2266 actualRender=2480x1618
+GPU completed id=0 captured_source_frame=14902 reset=1 size=3472x2266
+GPU completed id=1 captured_source_frame=14902 reset=0 size=3472x2266
+GPU completed id=2 captured_source_frame=14902 reset=0 size=3472x2266
+GPU completed id=3 captured_source_frame=14902 reset=0 size=3472x2266
+GPU completed id=4 captured_source_frame=14903 reset=0 size=3472x2266
+Completed two-image dataset replay with four warmup submissions. Cold history is reconstructed; not an exact reproduction of the game's long history.

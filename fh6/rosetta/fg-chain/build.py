@@ -51,7 +51,8 @@ def main():
         headers = list(pool.map(fetch, sources))
     common = [str(args.cc), '-x', 'c++', '-std=c++17', '-O2', '-fno-exceptions', '-fno-rtti',
               '-Wno-deprecated-declarations', '-static', '-I', str(deps / 'sl'), '-I', str(deps / 'ffx')]
-    jobs = [(['-municode', str(here / 'history-post-probe.cpp'), '-ld3d12', '-ldxguid'], 'history-post-probe.exe'),
+    jobs = [([str(here / 'exit-observer-probe.cpp')], 'exit-observer-probe.exe'),
+            (['-municode', str(here / 'history-post-probe.cpp'), '-ld3d12', '-ldxguid'], 'history-post-probe.exe'),
             (['-municode', str(here / 'history-visibility-probe.cpp'), '-ld3d12', '-ldxguid'], 'history-visibility-probe.exe'),
             (['-municode', str(here / 'replay-capture.cpp'), '-ld3d12', '-ldxguid', '-ldxgi'], 'replay-capture.exe'),
             ([str(here / 'first-fault-probe.cpp')], 'first-fault-probe.exe'),

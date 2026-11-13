@@ -92,7 +92,8 @@ def main():
     applied = [row for row in rows if row['event'] == 'native_ui_dispatch']
     if len(applied) != 8 or any(row['result'] or row['frames'] != 1 for row in applied):
         raise RuntimeError('Real candidate did not execute the validated native UI path')
-    if any(row['event'] in ('native_ui_passthrough', 'native_ui_retained_after_gpu_timeout') for row in rows):
+    if any(row['event']=='native_ui_retained_after_gpu_timeout' or
+           (row['event']=='native_ui_passthrough' and not (args.history and 500<=row.get('frame',-1)<520)) for row in rows):
         raise RuntimeError('Candidate unexpectedly declined the valid synthetic inputs')
     created = [row for row in rows if row['event'] == 'native_ui_context']
     pipelines = [row for row in rows if row['event'] == 'native_ui_pipeline']
@@ -126,7 +127,10 @@ def main():
         corrected = [row for row in rows if row['event']=='history_post' and row['dispatched']]
         if len(corrected)<6 or any(row.get('pipelineHr',0) for row in rows if row['event']=='history_prepare'):
             raise RuntimeError('History provider did not exercise the full runtime path')
+        if 'Enabled FG loading screen: owned history pipelines=0 expected=0' not in contents or any(row['event']=='history_prepare' and 500<=row['frame']<520 for row in rows):
+            raise RuntimeError('Enabled FG loading screen unexpectedly initialized history')
         receipt['history_dispatched_samples'] = len(corrected)
+        receipt['enabled_loading_frames_forwarded_without_history_initialization'] = 20
     (out / ('history-native-ui-gpu-verification.json' if args.history else 'native-ui-gpu-verification.json')).write_text(json.dumps(receipt, indent=2) + '\n')
     print('PASS complete candidate provider, unchanged caller descriptors, actual intermediate output and native UI GPU contrast')
 

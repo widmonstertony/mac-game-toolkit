@@ -421,3 +421,13 @@ no backup app, additional container or second game installation is created.
 避免读取已复用纹理。仅修正生成帧里的遮挡错误，保留原超分和 2× 插帧。
 独立真实 GPU 与完整提供器回归通过后才能部署；仍需用户在游戏中验证同车直线和急弯，
 不能把探针通过表述成所有场景已无重影或已达到目标帧率。
+
+Loading-phase guard (2026-11-13): enabled FG alone no longer creates history
+resources. Prepare requires compatible same-frame scene/UI tags and HUD-less
+color first. The real GPU regression includes twenty loading frames with FG on
+and no scene/UI resources, followed by normal generated-frame verification.
+Prepared snapshots also retire if native UI eligibility disappears before
+generation. See `../diagnostics/loading-gate-20261113/` for the reproduced old
+failure, passing receipts and the distinction between initial exit and a
+secondary PlayFab teardown hang. A bounded public-exit observer preserves exact
+exit codes and records requests before CRT destructors; it is not an exit fix.

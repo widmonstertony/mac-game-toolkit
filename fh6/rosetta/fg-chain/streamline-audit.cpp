@@ -11,7 +11,11 @@
 #include "first-fault.h"
 
 static HMODULE self;
-static HANDLE logfile = INVALID_HANDLE_VALUE;
+static HANDLE logfile = INVALID_HANDLE_VALUE, exitfile = INVALID_HANDLE_VALUE;
+static volatile LONG exitReports;
+static void (__cdecl *originalExit)(int);
+static void (__cdecl *originalQuickExit)(int);
+static void (WINAPI *originalWinExit)(UINT);
 static SRWLOCK frameLock = SRWLOCK_INIT, logLock = SRWLOCK_INIT;
 static ChainFrame frames[128]{};
 static volatile LONG64 sequence;
@@ -168,6 +172,16 @@ static FARPROC WINAPI traceGetProcAddress(HMODULE module,LPCSTR name)
 #undef CAPTURE
     return result;
 }
+// Observe public main-executable exit imports before CRT/module destructors.
+// A separate handle and fixed one-write record avoid frame/log locks and the
+// graphics trace budget. No stack unwinding, exit handling or status rewriting.
+static void exitRequest(const char *api,int code,void *caller){
+ if(exitfile==INVALID_HANDLE_VALUE||InterlockedIncrement(&exitReports)>8)return;
+ char line[256];int n=snprintf(line,sizeof(line),"{\"event\":\"process_exit_request\",\"api\":\"%s\",\"code\":%d,\"pid\":%lu,\"tid\":%lu,\"tick\":%llu,\"caller\":\"%llx\"}\n",api,code,GetCurrentProcessId(),GetCurrentThreadId(),(unsigned long long)GetTickCount64(),(unsigned long long)caller);DWORD done;if(n>0&&n<(int)sizeof(line))WriteFile(exitfile,line,n,&done,nullptr);
+}
+__attribute__((noinline,noreturn)) static void __cdecl traceExit(int code){exitRequest("exit",code,__builtin_return_address(0));originalExit(code);__builtin_unreachable();}
+__attribute__((noinline,noreturn)) static void __cdecl traceQuickExit(int code){exitRequest("_exit",code,__builtin_return_address(0));originalQuickExit(code);__builtin_unreachable();}
+__attribute__((noinline,noreturn)) static void WINAPI traceWinExit(UINT code){exitRequest("ExitProcess",(int)code,__builtin_return_address(0));originalWinExit(code);__builtin_unreachable();}
 static bool installImport(HMODULE module)
 {
     auto base=(BYTE*)module; auto dos=(IMAGE_DOS_HEADER*)base;
@@ -186,16 +200,30 @@ static bool installImport(HMODULE module)
         for(size_t j=0;names[j].u1.AddressOfData;j++) {
             if(IMAGE_SNAP_BY_ORDINAL64(names[j].u1.Ordinal)) continue;
             auto name=(IMAGE_IMPORT_BY_NAME*)(base+names[j].u1.AddressOfData);
-            if(strcmp((char*)name->Name,"GetProcAddress")) continue;
+            const char *symbolName=(char*)name->Name;
+            void *replacement=nullptr;
+            if(!strcmp(symbolName,"GetProcAddress"))replacement=(void*)traceGetProcAddress;
+            else if(exitfile!=INVALID_HANDLE_VALUE){
+                const char *library=(char*)(base+imports[i].Name);
+                bool crt=!_stricmp(library,"ucrtbase.dll")||!_stricmp(library,"msvcrt.dll")||!_stricmp(library,"api-ms-win-crt-runtime-l1-1-0.dll");
+                if(crt&&!strcmp(symbolName,"exit"))replacement=(void*)traceExit;
+                else if(crt&&!strcmp(symbolName,"_exit"))replacement=(void*)traceQuickExit;
+                else if((!_stricmp(library,"kernel32.dll")||!_stricmp(library,"kernelbase.dll"))&&!strcmp(symbolName,"ExitProcess"))replacement=(void*)traceWinExit;
+            }
+            if(!replacement)continue;
             DWORD old,ignored;
             auto target=(void*volatile*)&iat[j].u1.Function;
             if(!VirtualProtect((void*)target,sizeof(*target),PAGE_READWRITE,&old)) continue;
             // Retain an existing public-import hook; do not bypass another tool.
-            if(*target!=(void*)traceGetProcAddress)
-                originalGetProcAddress=(decltype(originalGetProcAddress))*target;
-            InterlockedExchangePointer(target,(void*)traceGetProcAddress);
+            if(*target!=replacement){
+                if(replacement==(void*)traceGetProcAddress)originalGetProcAddress=(decltype(originalGetProcAddress))*target;
+                else if(replacement==(void*)traceExit)originalExit=(decltype(originalExit))*target;
+                else if(replacement==(void*)traceQuickExit)originalQuickExit=(decltype(originalQuickExit))*target;
+                else if(replacement==(void*)traceWinExit)originalWinExit=(decltype(originalWinExit))*target;
+            }
+            InterlockedExchangePointer(target,replacement);
             VirtualProtect((void*)target,sizeof(*target),old,&ignored);
-            installed=true;
+            if(replacement==(void*)traceGetProcAddress)installed=true;
         }
     }
     return installed;
@@ -208,6 +236,8 @@ extern "C" __declspec(dllexport) void InitializeASI()
     auto end=wcsrchr(path,L'\\'); if(!end) return;
     HMODULE pinned;
     if(!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_PIN,(LPCWSTR)&self,&pinned))return;
+    wcscpy(end+1,L"fh6-process-exit.jsonl");
+    exitfile=CreateFileW(path,FILE_APPEND_DATA,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
     wcscpy(end+1,L"fh6-first-fault.jsonl");
     const bool faultObserver=FirstFault::initialize(path);
     wcscpy(end+1,L"fh6-fg-chain.jsonl");

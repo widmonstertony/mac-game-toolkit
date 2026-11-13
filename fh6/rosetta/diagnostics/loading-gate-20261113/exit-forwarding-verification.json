@@ -1,0 +1,37 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "mode": "crt",
+      "exit_code": 37,
+      "forwarded_unchanged": true,
+      "events": [
+        {
+          "event": "process_exit_request",
+          "api": "exit",
+          "code": 37,
+          "pid": 328,
+          "tid": 332,
+          "tick": 4093859,
+          "caller": "14000148e"
+        }
+      ]
+    },
+    {
+      "mode": "win",
+      "exit_code": 37,
+      "forwarded_unchanged": true,
+      "events": [
+        {
+          "event": "process_exit_request",
+          "api": "ExitProcess",
+          "code": 37,
+          "pid": 340,
+          "tid": 344,
+          "tick": 4093920,
+          "caller": "14000147f"
+        }
+      ]
+    }
+  ]
+}
