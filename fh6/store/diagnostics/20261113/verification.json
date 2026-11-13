@@ -1,0 +1,19 @@
+{
+  "installed_app_unmodified": true,
+  "app_asar_sha256": "927cf9e8d91b293104ce621363f2141544cbd87b82ec66b201c519c41b36152d",
+  "resigned": false,
+  "wine": "11.0",
+  "gpu_queue_readback_passed": true,
+  "gpu_words_exact": 64,
+  "d3dmetal_module_trace_verified": true,
+  "game_downloaded": false,
+  "store_gameplay_verified": false,
+  "cloud_save_gameplay_verified": false,
+  "steam_environment_changed": false,
+  "source_files": {
+    "setup.py": "127ca5206fd7e659e13795d5f4ad26d510718a9cf8b67e0a60c6f867fd2e3dc7",
+    "runner.mjs": "b0f268a93636b27d04aa83db14e52964fadece8dab6567fb2898ad3e42ab65fa",
+    "local-highball.js": "155c508cf27dec809014a156f43a7015113641f8a4bc0f1a57c4134da661882c",
+    "environment-probe.cpp": "4b2044ac985a03a0662d195c0f2f35503d97e2e9de5c1ded67d085410ee092c2"
+  }
+}
