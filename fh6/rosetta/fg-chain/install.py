@@ -20,6 +20,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--artifacts', type=Path, required=True)
     parser.add_argument('--apply', action='store_true')
+    parser.add_argument('--observer-only', action='store_true', help='Replace only the ASI; preserve active provider paths and binaries')
     args = parser.parse_args()
     support = Path.home() / 'Library/Application Support/protonish/launchers/2483190'
     profile = support / 'rosetta-profile'
@@ -57,10 +58,14 @@ def main():
     previous = json.loads(receipt_file.read_text()) if receipt_file.exists() else None
     if plugin.exists() and (not previous or digest(plugin) != previous['artifacts']['fh6-fg-chain.asi']):
         raise RuntimeError('An unknown observer already exists; no replacement made')
+    if args.observer_only and not previous:
+        raise RuntimeError('Observer-only replacement requires an existing verified receipt')
     expected = r'C:\highball\fg-chain'
     changed = before
     for key in ['FfxDx12SRPath', 'FfxDx12FGPath']:
         old = config.get('Libraries', key)
+        if args.observer_only:
+            continue
         if old not in ('.\\OptiScaler', expected):
             raise RuntimeError('Unexpected active provider path: ' + old)
         pattern = re.compile(r'(?m)^(' + re.escape(key) + r'\s*=)[^\r\n]*$')
@@ -80,7 +85,9 @@ def main():
     receipt = {
         'purpose': 'diagnosis only, not a claimed ghosting repair',
         'before_libraries': previous['before_libraries'] if previous else dict(config['Libraries']),
-        'artifacts': {name: manifest['artifacts'][name] for name in owned},
+        'artifacts': ({**previous['artifacts'], 'fh6-fg-chain.asi': manifest['artifacts']['fh6-fg-chain.asi']}
+                      if args.observer_only and previous else {name: manifest['artifacts'][name] for name in owned}),
+        'observer_only': args.observer_only,
         'original_providers': {name: {'sha256': digest(path), 'path': str(path)} for name, path in originals.items()},
         'framegen_unchanged': fg == dict(check['FrameGen']),
         'ini_before_sha256': hashlib.sha256(before.encode()).hexdigest(),
@@ -104,10 +111,12 @@ def main():
                 continue
             raise RuntimeError('Unexpected provider symlink')
         link.symlink_to(path)
-    atomic(dest / 'amd_fidelityfx_upscaler_dx12.dll', (args.artifacts / 'upscaler-audit.dll').read_bytes())
-    atomic(dest / 'amd_fidelityfx_framegeneration_dx12.dll', (args.artifacts / 'framegeneration-audit.dll').read_bytes())
+    if not args.observer_only:
+        atomic(dest / 'amd_fidelityfx_upscaler_dx12.dll', (args.artifacts / 'upscaler-audit.dll').read_bytes())
+        atomic(dest / 'amd_fidelityfx_framegeneration_dx12.dll', (args.artifacts / 'framegeneration-audit.dll').read_bytes())
     atomic(plugin, (args.artifacts / 'fh6-fg-chain.asi').read_bytes())
-    atomic(ini, changed.encode())
+    if not args.observer_only:
+        atomic(ini, changed.encode())
     atomic(receipt_file, (json.dumps(receipt, ensure_ascii=False, indent=2) + '\n').encode())
     print('Installed observers only. Native Steam, SR selection, FG selection/2x, display/audio/cache/saves unchanged.')
 

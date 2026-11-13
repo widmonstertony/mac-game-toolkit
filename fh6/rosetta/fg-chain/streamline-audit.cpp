@@ -8,6 +8,7 @@
 #include <cstring>
 #include <cwchar>
 #include "chain.h"
+#include "first-fault.h"
 
 static HMODULE self;
 static HANDLE logfile = INVALID_HANDLE_VALUE;
@@ -205,17 +206,20 @@ extern "C" __declspec(dllexport) void InitializeASI()
     wchar_t path[32768]; DWORD n=GetModuleFileNameW(self,path,32768);
     if(!n || n>=32768) return;
     auto end=wcsrchr(path,L'\\'); if(!end) return;
+    HMODULE pinned;
+    if(!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_PIN,(LPCWSTR)&self,&pinned))return;
+    wcscpy(end+1,L"fh6-first-fault.jsonl");
+    const bool faultObserver=FirstFault::initialize(path);
     wcscpy(end+1,L"fh6-fg-chain.jsonl");
     logfile=CreateFileW(path,FILE_APPEND_DATA,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
     evaluateTls=TlsAlloc();
     if(evaluateTls==TLS_OUT_OF_INDEXES) { FH6ChainReport("{\"event\":\"tls_allocation_failed\"}");return; }
-    HMODULE pinned;
-    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_PIN,(LPCWSTR)&self,&pinned);
     const bool ok=installImport(GetModuleHandleW(nullptr));
     char line[160];
     snprintf(line,sizeof(line),"{\"event\":\"%s\",\"abi\":1,\"pid\":%lu,\"tick\":%llu}",
         ok?"observer_ready":"observer_import_missing",GetCurrentProcessId(),(unsigned long long)GetTickCount64());
     FH6ChainReport(line);
+    FH6ChainReport(faultObserver?"{\"event\":\"first_fault_observer_ready\"}":"{\"event\":\"first_fault_observer_failed\"}");
 }
 BOOL WINAPI DllMain(HMODULE module,DWORD reason,void*)
 {

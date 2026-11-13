@@ -1,0 +1,17 @@
+{
+  "scope": "ASI-only first-chance observation; no game repair claimed",
+  "before": {
+    "ini": "f1c6c212918b1ec6034b7b630de901607386ee90d17142b54c13bdb56387f06f",
+    "fg_provider": "83fb1d6106a4b8a2cb31d0b6bb204518ff39192df58e669c2af4dcaaff0a077e",
+    "sr_provider": "ef2cb81e43fab458e58967843339ba98fdaa6c1dd7fa2a738ede1fa00691007b",
+    "audio_environment": "abb730d5c01ba2d0101a4ff93cbc803370c9a662f79bcf73fd7b5a6cf0e804e4"
+  },
+  "after": {
+    "ini": "f1c6c212918b1ec6034b7b630de901607386ee90d17142b54c13bdb56387f06f",
+    "fg_provider": "83fb1d6106a4b8a2cb31d0b6bb204518ff39192df58e669c2af4dcaaff0a077e",
+    "sr_provider": "ef2cb81e43fab458e58967843339ba98fdaa6c1dd7fa2a738ede1fa00691007b",
+    "audio_environment": "abb730d5c01ba2d0101a4ff93cbc803370c9a662f79bcf73fd7b5a6cf0e804e4"
+  },
+  "preserved": true,
+  "observer_sha256": "9d5d5bd2d40eed8b9362f12484e23da1ee438bc1932a3283e681ab49cfca8359"
+}

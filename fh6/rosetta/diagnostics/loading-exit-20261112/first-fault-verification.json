@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "process_exit": 0,
+  "fixture_access_violations_handled": 64,
+  "fixture_execution_continued": 64,
+  "event_counts": {
+    "raise": 8,
+    "continue": 0
+  },
+  "record_count": 8,
+  "vectored_continue_dispatched": false,
+  "interpretation": "First-chance AV records are not proof of fatal exceptions; this Wine does not call the registered continue observer in this fixture.",
+  "runtime_stdout": "wait=0 handled=64 continued_execution=64 records=8\n",
+  "artifact_sha256": "5e11285ce6eaab2cb4d90dc45ab74fed2d20d1e30d4e3e937492043000a07493",
+  "records_sha256": "cec6f876d06884d619de9369902db21cd74dc5e77de3983947b8d563cebcec06",
+  "observer_sha256": "9d5d5bd2d40eed8b9362f12484e23da1ee438bc1932a3283e681ab49cfca8359",
+  "scope": "Owned multithreaded fault fixture in actual private Wine; not game startup/ghosting verification"
+}

@@ -1,0 +1,36 @@
+{
+  "mac_pid": 45434,
+  "wine_pid": 228,
+  "outcome": "Hung in abnormal process shutdown; scoped game kill after read-only evidence collection. No restart performed.",
+  "observed": {
+    "main_thread": "00e8: ucrtbase exit/_cexit -> game exit callback -> RtlAcquireSRWLockExclusive",
+    "worker_thread": "0208: memmove access violation -> UnhandledExceptionFilter -> CRT lock waits on 00e8",
+    "exception_code": "0xc0000005",
+    "fault_module": "VCRUNTIME140.dll",
+    "fault_rva": "0x1dc31",
+    "fault_function": "memmove",
+    "operation": "write",
+    "fault_address": "0x2c21260",
+    "fault_mapping_at_sampling": "MEM_FREE / PAGE_NOACCESS; allocation/free history unknown",
+    "nested_host_exceptions": {
+      "threads": [
+        "016c",
+        "01f4"
+      ],
+      "function": "libsystem_platform!_sigtramp"
+    },
+    "native_ui_pipeline_count": 0,
+    "native_ui_dispatch_count": 0,
+    "pixel_capture_count": 0,
+    "capture_request_present": false
+  },
+  "exclusions_and_limits": [
+    "Previous-run RtlLeaveCriticalSection spam excluded after locating latest launch marker at byte 4638444872.",
+    "Unmapped target is consistent with stale pointer but does not by itself establish use-after-free or identify who released it.",
+    "AGX compiled variants footprint warning is not proof of video-memory exhaustion.",
+    "Saved exception and exit stacks do not establish which event initiated shutdown.",
+    "Current capture/compositor did not execute; no evidence of capture GPU overhead in this round.",
+    "Ghosting remains unresolved; no game visual success claimed."
+  ],
+  "next_step": "Capture bounded first-chance AV metadata using separate worker and correlate with persistent exit stacks; this Wine did not invoke vectored-continue callbacks in the 64-event handled fixture, so missing continue records cannot identify unhandled exceptions."
+}

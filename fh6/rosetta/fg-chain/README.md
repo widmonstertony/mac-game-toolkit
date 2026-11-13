@@ -272,3 +272,28 @@ the DXGI name and overran its mapped upload buffer. That failure log is retained
 The test now uses `GetCopyableFootprints` row bytes, as the capture code already
 did. It was not evidence of a game, hardware or driver failure. The corrected
 GPU test and capture summaries are in `../diagnostics/fg-pixels-20261112/`.
+
+
+Loading/exit exception evidence
+-------------------------------
+
+`fh6-first-fault.jsonl` is separate from the capped graphics trace. The pinned
+ASI records access-violation metadata through 32 site counters and a prefaulted,
+1024-record ring. Exception callbacks only publish fixed data; a worker writes
+JSON, with no faulting-pointer reads, formatting, file I/O, stack unwinding, or
+frame/log locks in the callback. This neither handles exceptions nor changes
+SR, FG, audio, resolution, or cache selection. Storage exhaustion skips evidence.
+
+**First chance does not mean fatal.** The actual private Wine successfully
+registers vectored-continue callbacks but did not invoke them for any of the 64
+handled fixture exceptions. Missing `continue` records must not be used to infer
+an unhandled exception. Correlate with persistent exception/exit stacks and the
+last graphics events instead. Abrupt process termination can lose the final
+100 ms of buffered records; the worker does not block process shutdown.
+
+Use `install.py --observer-only` to update only the ASI while preserving the
+selected, separately verified FG provider. `first-fault-probe.exe` raises 64 owned
+continuable fixture exceptions across eight threads and verifies execution
+continues. `probes/wine-wait-stack.cpp` (one directory up) reads saved Wine
+syscall frames and bounded stack metadata without debugger attachment, thread
+suspension, process writes, or a full memory dump. None is a game repair claim.

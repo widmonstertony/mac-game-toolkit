@@ -1,0 +1,62 @@
+
+TID=0208 query=00000000 teb=0000000019320000
+Wine saved syscall frame=1032ffc40 syscall=255 rip=6ffffd590994 rsp=1accc6c8 rbp=1accc7b8 rcx=1accb320
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd5be142 ntdll!RtlpWaitForCriticalSection+102
+04 6ffffd5a4cc1 ntdll!RtlEnterCriticalSection+91
+05 6ffffcc75cf0 ucrtbase+35cf0
+06 6ffffcc648b9 ucrtbase+248b9
+07 145a7b480 forzahorizon6+5a7b480
+08 145a7b4cd forzahorizon6+5a7b4cd
+09 14348c96f forzahorizon6+348c96f
+10 14043111d forzahorizon6+43111d
+11 6ffffceeedb0 kernelbase!UnhandledExceptionFilter+70
+12 6ffffd5c9995 ntdll!call_unhandled_exception_handler+25
+13 6ffffd590ab9 ntdll+10ab9
+14 6ffffd5c9367 ntdll!call_seh_handlers+f7
+15 6ffffd5ce5d2 ntdll!dispatch_exception+3b2
+16 6ffffd590aea ntdll+10aea
+17 6ffffb1edc31 vcruntime140+1dc31
+18 14556a26f forzahorizon6+556a26f
+19 1444d7db0 forzahorizon6+44d7db0
+20 1444d857f forzahorizon6+44d857f
+21 142555060 forzahorizon6+2555060
+22 1444d4517 forzahorizon6+44d4517
+23 1444d4cb0 forzahorizon6+44d4cb0
+24 1430824e2 forzahorizon6+30824e2
+25 143096d85 forzahorizon6+3096d85
+26 143234069 forzahorizon6+3234069
+27 14323427a forzahorizon6+323427a
+TEB last exception=00000000
+Stack scan rsp=1accc6c8 top=1acd0000 bytes=14648
+Stack bytes read=14648
+Possible access violation record=1accda30 address=00006ffffb1edc31 operation=1 fault-address=2c21260
+
+TID=00e8 query=00000000 teb=000000007ffc0000
+Wine saved syscall frame=1000ffd00 syscall=255 rip=6ffffd590994 rsp=10fcc8 rbp=0 rcx=17006a2
+00 6ffffd590994 ntdll+10994
+01 6ffffd590994 ntdll+10994
+02 6ffffd5bc5cd ntdll!RtlWaitOnAddress+14d
+03 6ffffd59a91f ntdll!RtlAcquireSRWLockExclusive+9f
+04 14536fa74 forzahorizon6+536fa74
+05 1452a8052 forzahorizon6+52a8052
+06 1463b9910 forzahorizon6+63b9910
+07 6ffffcc93069 ucrtbase+53069
+08 6ffffcc639f8 ucrtbase+239f8
+09 6ffffcc930b5 ucrtbase+530b5
+10 145a7bfa4 forzahorizon6+5a7bfa4
+11 6ffffd5114e9 kernel32+114e9
+12 6ffffd590dc3 ntdll+10dc3
+TEB last exception=00000000
+Stack scan rsp=10fcc8 top=110000 bytes=824
+Stack bytes read=824
+CRT export _execute_onexit_table +26650
+CRT export exit +530a0
+CRT export _cexit +239c0
+CRT export _c_exit +23910
+CRT export _exit +26730
+CRT export abort +46640
+CRT export _lock +ffff9000033c0000
+CRT export _beginthreadex +236d0
