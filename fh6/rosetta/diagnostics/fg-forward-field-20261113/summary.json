@@ -1,5 +1,5 @@
 {
-  "status": "GPU-validated candidate; not yet deployed or game-visual verified",
+  "status": "GPU-validated candidate deployed; awaiting user gameplay/visual verification",
   "route": "FH6-only Rosetta / private Highball Wine 11 / D3DMetal / FSR 3.1.6 SR and 2x FG",
   "mac_pid": 50947,
   "wine_pid": 228,
@@ -47,7 +47,7 @@
     "Only this two-capture current scene plus separate synthetic/older-capture regressions; no universal zero-ghost guarantee.",
     "Warm replay is reconstructed history, not a faithful recording of all live prior frames.",
     "Reported timestamp timing is not a gameplay FPS measurement.",
-    "No game restart, setting, cache, save, cloud or other-game change yet."
+    "After collection game was already exited; deployed only FH6 private FG DLL. No launch, configuration, cache, save, cloud or other-game change."
   ],
   "candidate_sha256": "4b3b9a6ff9b21120ac17452f06b065d8bf245743a12224a68942a8bf4ab9e506",
   "older_capture_full_provider_pass": true,

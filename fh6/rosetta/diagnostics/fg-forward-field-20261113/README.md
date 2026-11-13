@@ -25,3 +25,11 @@ Raw game pixels, local capture paths, raw account-bearing reports and tokens
 remain local. This folder contains only code-evaluation metadata and sanitized
 logs. Deployment receipt, if present, identifies what was actually installed;
 GPU controls alone do not establish a successful live game visual result.
+
+Deployment: the game process had already exited before replacement; no process
+was killed. The installer selected this candidate in the FH6 private prefix.
+`deployment.json` records the read-back DLL hash and unchanged OptiScaler INI
+hash. Gameplay visual confirmation remains pending. The source is in commit
+`06a076e`; to undo the code change, revert that commit, rebuild and re-run the
+GPU verification, then install with the same guarded installer while FH6 is
+closed. A Git revert alone does not replace an installed DLL.

@@ -1,0 +1,12 @@
+{
+  "candidate_sha256": "4b3b9a6ff9b21120ac17452f06b065d8bf245743a12224a68942a8bf4ab9e506",
+  "expected_candidate_sha256": "4b3b9a6ff9b21120ac17452f06b065d8bf245743a12224a68942a8bf4ab9e506",
+  "candidate_matches": true,
+  "ini_sha256": "f1c6c212918b1ec6034b7b630de901607386ee90d17142b54c13bdb56387f06f",
+  "ini_unchanged": true,
+  "gpu_passed": true,
+  "game_visual_verified": false,
+  "source_commit": "06a076e",
+  "deployment_scope": "FH6 private generated-frame provider only; no game launched",
+  "original_provider_sha256": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6"
+}
