@@ -171,3 +171,43 @@ all caches. `fg-native-ui.json` records the exact previous FG path and hashes.
 Recovery requires only stopping FH6 and restoring that one FG path; no game
 files, cache rebuild or re-download is required. Evidence and deployment receipt
 are in `../diagnostics/fg-native-ui-20261112/`.
+
+## Startup lifecycle correction / 开场初始化修正
+
+After the first candidate was selected, a new game process remained at
+"Loading, please wait". Its chain trace never dispatched SR/FG/native UI;
+only a disabled 1378×900 10-bit FG context existed. A native sample showed
+two threads in abort/TLS/malloc cleanup and the launcher output repeatedly
+reported `RtlLeaveCriticalSection` ownership errors. **These observations do
+not prove the owner-error cause or that our eager initialization caused it.**
+Context creation took about 90 ms; the approximately 49-second gap between
+swapchain creation and that call was game startup, not UI shader compile time.
+
+The initial candidate nevertheless introduced an avoidable startup difference:
+it imported D3D12 and the Wine HLSL compiler and built a compositor even for
+disabled/10-bit opening contexts. The revised candidate has exactly the same
+runtime DLL import set as the observation-only proxy: kernel/UCRT, **no newly
+preloaded graphics/compiler DLL**. The owned 1,204-byte shader is precompiled
+from `native-ui.hlsl` into `native-ui-bytecode.h`; its source hash is checked.
+`compile-native-ui.cpp` is a build tool, never installed or loaded by the game.
+To regenerate the bytecode, compile that tool with the MinGW compiler and
+`-municode -ld3dcompiler`, run it under Wine with input HLSL/output CSO paths,
+and emit the owned CSO bytes and HLSL SHA256 into the checked-in bytecode header.
+
+FG context creation now records only context/device ownership. Queue selection
+waits until FG is enabled; root/PSO initialization waits for a validated active
+RGBA8 scene/UI frame. Root serialization resolves the already-loaded D3D12
+export at that point instead of importing a new graphics DLL at startup.
+The real-provider GPU regression adds a 10-bit disabled opening-context
+create/configure/destroy lifecycle and verifies that it creates no compositor
+pipeline. The active scene still executes the native UI fix with the same zero
+reference error and actual generated/base difference. The runner rejects any
+new runtime import relative to the audit proxy.
+
+The hung process was ended under the user's standing explicit kill instruction;
+no Steam or other game process was ended. The revised candidate was deployed
+with the same settings (INI before/after hashes equal). Evidence, raw compressed
+thread sample, import comparison, GPU regression and installed hash are under
+`../diagnostics/fg-native-ui-startup-20261112/`. **Actual startup recovery and car
+ghosting remain pending the user's next native-Steam run.** This correction is
+not a claim that the Wine lock fault itself has been fully diagnosed or fixed.

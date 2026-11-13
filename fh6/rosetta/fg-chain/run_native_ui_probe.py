@@ -6,11 +6,37 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 
 
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def pe_imports(path):
+    data = path.read_bytes()
+    pe = struct.unpack_from('<I', data, 0x3c)[0]
+    count, optional_size = struct.unpack_from('<H', data, pe + 6)[0], struct.unpack_from('<H', data, pe + 20)[0]
+    optional = pe + 24
+    if data[pe:pe + 4] != b'PE\0\0' or struct.unpack_from('<H', data, optional)[0] != 0x20b:
+        raise RuntimeError('Expected the owned x64 PE build')
+    sections = []
+    for i in range(count):
+        size, rva, raw_size, raw = struct.unpack_from('<IIII', data, optional + optional_size + i * 40 + 8)
+        sections.append((rva, max(size, raw_size), raw))
+    def offset(rva):
+        for start, size, raw in sections:
+            if start <= rva < start + size:
+                return raw + rva - start
+        raise RuntimeError('Invalid PE RVA')
+    entry = offset(struct.unpack_from('<I', data, optional + 120)[0])
+    result = []
+    while any(data[entry:entry + 20]):
+        name = offset(struct.unpack_from('<I', data, entry + 12)[0])
+        result.append(data[name:data.index(b'\0', name)].decode().lower())
+        entry += 20
+    return sorted(result)
 
 
 def main():
@@ -22,6 +48,10 @@ def main():
     for name, expected in manifest['artifacts'].items():
         if sha(out / name) != expected:
             raise RuntimeError('Build artifact changed: ' + name)
+    imports = pe_imports(out / 'framegeneration-native-ui.dll')
+    original_imports = pe_imports(out / 'framegeneration-audit.dll')
+    if set(imports) != set(original_imports) or any(name.startswith(('d3d', 'dxgi')) for name in imports):
+        raise RuntimeError('Candidate introduced a graphics/compiler DLL preload at startup')
     support = Path.home() / 'Library/Application Support/protonish/launchers/2483190'
     profile = support / 'rosetta-profile'
     spec = importlib.util.spec_from_file_location('fh6_profile', support / 'rosetta_profile.py')
@@ -57,12 +87,17 @@ def main():
         raise RuntimeError('Real candidate did not execute the validated native UI path')
     if any(row['event'] in ('native_ui_passthrough', 'native_ui_retained_after_gpu_timeout') for row in rows):
         raise RuntimeError('Candidate unexpectedly declined the valid synthetic inputs')
+    created = [row for row in rows if row['event'] == 'native_ui_context']
+    pipelines = [row for row in rows if row['event'] == 'native_ui_pipeline']
+    if len(created) != 2 or not all(row.get('pipelineDeferred') for row in created) or len(pipelines) != 1 or pipelines[0]['pipelineHr']:
+        raise RuntimeError('Opening context did not remain deferred or active-frame pipeline failed')
     (out / 'native-ui-probe-trace.jsonl').write_text('\n'.join(json.dumps(row) for row in rows) + '\n')
     receipt = {'passed': True, 'kind': 'synthetic real D3DMetal GPU / official FFX 3.1.6 / full candidate provider and real DXGI queue',
                'game_visual_verified': False,
                'manifest_sha256': sha(out / 'build-manifest.json'), 'artifacts': manifest['artifacts'],
                'original_provider_sha256': sha(original), 'log_sha256': sha(log),
-               'trace_sha256': sha(out / 'native-ui-probe-trace.jsonl'), 'native_ui_applied_samples': len(applied)}
+               'trace_sha256': sha(out / 'native-ui-probe-trace.jsonl'), 'native_ui_applied_samples': len(applied),
+               'opening_context_deferred': True, 'runtime_imports': imports, 'same_imports_as_audit': True}
     (out / 'native-ui-gpu-verification.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print('PASS complete candidate provider, unchanged caller descriptors, actual intermediate output and native UI GPU contrast')
 

@@ -1,0 +1,15 @@
+{
+  "sha256": "400869c37ad82ec70b6fa51ca8c3b631f739f2907d77e4debc81afe1dc984ced",
+  "imports": [
+    "api-ms-win-crt-convert-l1-1-0.dll",
+    "api-ms-win-crt-heap-l1-1-0.dll",
+    "api-ms-win-crt-locale-l1-1-0.dll",
+    "api-ms-win-crt-private-l1-1-0.dll",
+    "api-ms-win-crt-runtime-l1-1-0.dll",
+    "api-ms-win-crt-stdio-l1-1-0.dll",
+    "api-ms-win-crt-string-l1-1-0.dll",
+    "kernel32.dll"
+  ],
+  "same_imports_as_audit": true,
+  "no_runtime_graphics_or_shader_compiler_preload": true
+}

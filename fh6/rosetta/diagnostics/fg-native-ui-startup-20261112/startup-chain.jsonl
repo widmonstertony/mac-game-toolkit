@@ -1,0 +1,11 @@
+{"traceSequence": 1, "qpc": 883387542688, "event": "observer_ready", "abi": 1, "pid": 228, "tick": 88338753}
+{"traceSequence": 2, "qpc": 883420234305, "event": "capture_export", "name": "slEvaluateFeature"}
+{"traceSequence": 3, "qpc": 883420234611, "event": "capture_export", "name": "slSetTagForFrame"}
+{"traceSequence": 4, "qpc": 883420234764, "event": "capture_export", "name": "slSetConstants"}
+{"traceSequence": 5, "qpc": 883934466729, "event": "provider_observer_connected", "kind": "fg"}
+{"traceSequence": 6, "qpc": 883934471500, "event": "create", "type": 196614, "context": "25122ec0", "result": 0}
+{"traceSequence": 7, "qpc": 883934471724, "event": "swapchain_queue", "context": "25122ec0", "queue": "7f86082c3e10"}
+{"traceSequence": 11, "qpc": 884420541124, "event": "native_ui_context", "context": "29df0040", "pipelineHr": 0}
+{"traceSequence": 12, "qpc": 884420541514, "event": "create", "type": 131073, "context": "29df0040", "result": 0}
+{"traceSequence": 13, "qpc": 884420541796, "event": "create_fg", "context": "29df0040", "flags": 0, "display": [1378, 900], "maxRender": [1378, 900], "backbufferFormat": 17}
+{"traceSequence": 16, "qpc": 884420616504, "event": "configure", "context": "29df0040", "frame": 0, "enabled": 0, "rect": [0, 0, 0, 0], "hudless": {"ptr": "0", "size": [0, 0], "format": 0, "state": 0}, "result": 0}

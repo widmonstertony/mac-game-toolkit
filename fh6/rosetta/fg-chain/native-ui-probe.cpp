@@ -82,6 +82,16 @@ int wmain(int argc,wchar_t **argv){
  uint64_t count=8,ids[8]{};const char *names[8]{};ffxQueryDescGetVersions versions{{FFX_API_QUERY_DESC_TYPE_GET_VERSIONS},FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATION,g.d,&count,ids,names};CHECK(query(nullptr,&versions.header)==0&&count==1);printf("REAL provider=%s\n",names[0]);
  Texture depth,motion,scene,ui,present,outputs[3];CHECK(depth.init(g.d,DXGI_FORMAT_R32_FLOAT));CHECK(motion.init(g.d,DXGI_FORMAT_R16G16_FLOAT));CHECK(scene.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM));CHECK(ui.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM));CHECK(present.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM));for(auto &o:outputs)CHECK(o.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM,D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS));
  ffxContext contexts[3]{};NativeUiCompositor compositors[3];
+ // Match the startup lifecycle: create a 10-bit context, configure FG OFF,
+ // then destroy it. The candidate must not create a compositor pipeline here.
+ {
+  ffxCreateBackendDX12Desc backend{{FFX_API_CREATE_CONTEXT_DESC_TYPE_BACKEND_DX12},g.d};
+  ffxCreateContextDescFrameGeneration boot{{FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATION,&backend.header},0,{W,H},{W,H},FFX_API_SURFACE_FORMAT_R10G10B10A2_UNORM};
+  ffxContext bootContext=nullptr;CHECK(candidateCreate(&bootContext,&boot.header,nullptr)==0);
+  ffxConfigureDescFrameGeneration off{};off.header.type=FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION;off.flags=FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY;
+  CHECK(candidateConfigure(&bootContext,&off.header)==0);CHECK(candidateDestroy(&bootContext,nullptr)==0);
+  puts("PASS 10-bit opening context with FG disabled forwarded without native UI initialization");
+ }
  for(int k=0;k<3;k++){
   ffxOverrideVersion selected{{FFX_API_DESC_TYPE_OVERRIDE_VERSION},ids[0]};ffxCreateBackendDX12Desc backend{{FFX_API_CREATE_CONTEXT_DESC_TYPE_BACKEND_DX12,&selected.header},g.d};
   ffxCreateContextDescFrameGeneration cd{{FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATION,&backend.header},FFX_FRAMEGENERATION_ENABLE_DEPTH_INVERTED,{W,H},{W,H},FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM};

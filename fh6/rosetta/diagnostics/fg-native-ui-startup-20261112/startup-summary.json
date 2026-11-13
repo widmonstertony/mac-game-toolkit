@@ -1,0 +1,21 @@
+{
+  "mac_pid": 17537,
+  "windows_pid": 228,
+  "observed_screen": "Loading, please wait (user report)",
+  "events": {
+    "observer_ready": 1,
+    "capture_export": 3,
+    "provider_observer_connected": 1,
+    "create": 2,
+    "swapchain_queue": 1,
+    "native_ui_context": 1,
+    "create_fg": 1,
+    "configure": 1
+  },
+  "sample_sha256": "051bf8121706ce3205a437705d27a8d54d84602d7307ca481b03fbc1dc623523",
+  "stack_observations": [
+    "Two threads unwind through user_mode_abort_thread, pthread TSD cleanup, malloc_report, abort and Wine signal handler",
+    "Repeated RtlLeaveCriticalSection errors on Windows threads 0x198/0x19c, sections 0x2157de8/0x2157e10"
+  ],
+  "limits": "Native UI compose has not dispatched. Stack observations do not prove the ownership error cause or establish that eager pipeline creation caused the hang."
+}

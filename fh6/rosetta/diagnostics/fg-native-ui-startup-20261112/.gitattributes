@@ -1,0 +1,3 @@
+# Preserve Wine output bytes and compressed stack evidence for recorded hashes.
+*.log -text whitespace=cr-at-eol
+*.gz -text

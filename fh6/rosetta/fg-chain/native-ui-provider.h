@@ -8,6 +8,7 @@ struct NativeQueue {ffxContext context{};ID3D12CommandQueue *queue{};};
 struct NativeContext {
     struct Config { uint64_t frame{}; bool valid{},enabled{},async{};FfxApiResource hudless{}; } config[8];
     ffxContext context{};
+    ID3D12Device *device{};
     NativeUiCompositor compositor;
     ID3D12CommandQueue *queue{};
     uint64_t applied{},declined{};
@@ -31,11 +32,14 @@ static void nativeCreated(ffxContext context,ffxCreateContextDescHeader *desc,ff
         ID3D12Device *device=nullptr;
         for(auto h=desc->pNext;h;h=h->pNext)if(h->type==FFX_API_CREATE_CONTEXT_DESC_TYPE_BACKEND_DX12)
             device=((ffxCreateBackendDX12Desc*)h)->device;
-        if(device)for(auto &c:nativeContexts)if(!c.context && !c.compositor.device) {
+        if(device)for(auto &c:nativeContexts)if(!c.context && !c.device) {
             c.context=context;
-            c.compositor.initialize(device);
-            if(report) {char line[180];snprintf(line,sizeof(line),"{\"event\":\"native_ui_context\",\"context\":\"%llx\",\"pipelineHr\":%u}",
-                (unsigned long long)context,(unsigned)c.compositor.status);report(line);}
+            c.device=device;device->AddRef();
+            // Opening video/HDR/disabled contexts must remain a pure forward.
+            // No compiler DLL, shader compilation, root signature or GPU PSO
+            // creation until a matching active native-UI frame actually exists.
+            if(report) {char line[180];snprintf(line,sizeof(line),"{\"event\":\"native_ui_context\",\"context\":\"%llx\",\"pipelineDeferred\":true}",
+                (unsigned long long)context);report(line);}
             break;
         }
     }
@@ -50,12 +54,12 @@ static void nativeConfigured(ffxContext context,const ffxConfigureDescHeader *de
         cfg.valid=!p.header.pNext;cfg.enabled=p.frameGenerationEnabled;cfg.async=p.allowAsyncWorkloads;cfg.hudless=p.HUDLessColor;
         // The SDK chooses gameQueue for interpolation only with async=false.
         // A unique matching direct queue is required; no cross-queue guess.
-        if(!c.queue) {
+        if(p.frameGenerationEnabled && !p.allowAsyncWorkloads && !c.queue) {
             ID3D12CommandQueue *match=nullptr;bool ambiguous=false;
             for(auto &q:nativeQueues)if(q.queue) {
                 ID3D12Device *d=nullptr;
                 if(SUCCEEDED(q.queue->GetDevice(IID_ID3D12Device,(void**)&d))) {
-                    if(d==c.compositor.device) {if(match && match!=q.queue)ambiguous=true;match=q.queue;}
+                    if(d==c.device) {if(match && match!=q.queue)ambiguous=true;match=q.queue;}
                     d->Release();
                 }
             }
@@ -76,6 +80,14 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
     if(c && c->queue && getFrame) {
         const auto &cfg=c->config[p.frameID%8];
         if(cfg.valid && cfg.frame==p.frameID && cfg.enabled && !cfg.async && getFrame(p.frameID,&frame)) {
+            const auto w=p.presentColor.description.width,h=p.presentColor.description.height;
+            if(!c->compositor.device && p.presentColor.description.format==FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM &&
+               NativeUiCompositor::full(frame.tags[2],w,h) && NativeUiCompositor::full(frame.tags[3],w,h) &&
+               cfg.hudless.resource==(void*)frame.tags[2].native) {
+                c->compositor.initialize(c->device);
+                if(report) {char line[210];snprintf(line,sizeof(line),"{\"event\":\"native_ui_pipeline\",\"frame\":%llu,\"pipelineHr\":%u}",
+                    (unsigned long long)p.frameID,(unsigned)c->compositor.status);report(line);}
+            }
             binding=c->compositor.prepare(frame,cfg.hudless,p);hudless=cfg.hudless;
         }
     }
@@ -107,12 +119,12 @@ static void nativeDestroyed(ffxContext context,ffxReturnCode_t result) {
         bool drained=!c.applied;
         if(c.queue && !drained) {
             ID3D12Fence *fence=nullptr;HANDLE event=CreateEventW(nullptr,FALSE,FALSE,nullptr);
-            if(event && SUCCEEDED(c.compositor.device->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_ID3D12Fence,(void**)&fence)) &&
+            if(event && SUCCEEDED(c.device->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_ID3D12Fence,(void**)&fence)) &&
                SUCCEEDED(c.queue->Signal(fence,1)) && SUCCEEDED(fence->SetEventOnCompletion(1,event)))
                 drained=WaitForSingleObject(event,10000)==WAIT_OBJECT_0;
             if(fence)fence->Release();if(event)CloseHandle(event);
         }
-        if(drained) {c.compositor.release();if(c.queue)c.queue->Release();c.queue=nullptr;c.context=nullptr;for(auto &cfg:c.config)cfg={};c.applied=c.declined=0;}
+        if(drained) {c.compositor.release();if(c.queue)c.queue->Release();if(c.device)c.device->Release();c.device=nullptr;c.queue=nullptr;c.context=nullptr;for(auto &cfg:c.config)cfg={};c.applied=c.declined=0;}
         // On a GPU timeout retain this bounded slot rather than free in-flight
         // descriptor heaps/resources. No unbounded allocation or wait/retry.
         else if(report)report("{\"event\":\"native_ui_retained_after_gpu_timeout\"}");

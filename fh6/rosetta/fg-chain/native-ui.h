@@ -2,10 +2,10 @@
 // Owned, FH6-private repair. Native Streamline UI is premultiplied, not an
 // image-difference mask. This compositor touches generated output ONLY.
 #include <d3d12.h>
-#include <d3dcompiler.h>
 #include <cstdio>
 #include <framegeneration/include/ffx_framegeneration.h>
 #include "chain.h"
+#include "native-ui-bytecode.h"
 
 struct NativeUiCompositor {
     struct Binding {
@@ -21,21 +21,7 @@ struct NativeUiCompositor {
     bool initialize(ID3D12Device *d) {
         if (device) return device==d && SUCCEEDED(status);
         device=d; device->AddRef();
-        static const char shader[]=R"(
-Texture2D<float4> nativeUI : register(t0);
-RWTexture2D<float4> generated : register(u0);
-cbuffer Size : register(b0) { uint width; uint height; };
-[numthreads(8,8,1)] void main(uint3 p:SV_DispatchThreadID) {
-    if(p.x>=width || p.y>=height) return;
-    float4 ui=nativeUI.Load(int3(p.xy,0));
-    float4 scene=generated[p.xy];
-    generated[p.xy]=float4(ui.rgb+(1.0-ui.a)*scene.rgb,1.0);
-})";
-        ID3DBlob *code=nullptr,*errors=nullptr,*serialized=nullptr;
-        stage="compile";status=D3DCompile(shader,sizeof(shader)-1,"fh6-native-ui",nullptr,nullptr,"main","cs_5_0",
-                          D3DCOMPILE_OPTIMIZATION_LEVEL3,0,&code,&errors);
-        if(errors) {fprintf(stderr,"%s\n",(const char*)errors->GetBufferPointer());errors->Release();}
-        if(FAILED(status)) return false;
+        ID3DBlob *serialized=nullptr;
         D3D12_DESCRIPTOR_RANGE ranges[2]{};
         ranges[0]={D3D12_DESCRIPTOR_RANGE_TYPE_SRV,1,0,0,0};
         ranges[1]={D3D12_DESCRIPTOR_RANGE_TYPE_UAV,1,0,0,1};
@@ -43,15 +29,19 @@ cbuffer Size : register(b0) { uint width; uint height; };
         parameters[0].DescriptorTable={2,ranges};parameters[0].ShaderVisibility=D3D12_SHADER_VISIBILITY_ALL;
         parameters[1].ParameterType=D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;parameters[1].Constants={0,0,2};
         D3D12_ROOT_SIGNATURE_DESC rs{};rs.NumParameters=2;rs.pParameters=parameters;
-        stage="serialize-root";status=D3D12SerializeRootSignature(&rs,D3D_ROOT_SIGNATURE_VERSION_1,&serialized,nullptr);
+        // Do not import/load a graphics DLL while OptiScaler is itself loading.
+        // A valid D3D12 device already exists before this lazy initialization.
+        auto d3d12=GetModuleHandleW(L"d3d12.dll");
+        auto serialize=d3d12?(decltype(&D3D12SerializeRootSignature))GetProcAddress(d3d12,"D3D12SerializeRootSignature"):nullptr;
+        stage="serialize-root";status=serialize?serialize(&rs,D3D_ROOT_SIGNATURE_VERSION_1,&serialized,nullptr):E_NOINTERFACE;
         if(SUCCEEDED(status)) {stage="create-root";status=device->CreateRootSignature(0,serialized->GetBufferPointer(),serialized->GetBufferSize(),IID_ID3D12RootSignature,(void**)&root);}
         if(serialized) serialized->Release();
         if(SUCCEEDED(status)) {
             D3D12_COMPUTE_PIPELINE_STATE_DESC ps{};ps.pRootSignature=root;
-            ps.CS={code->GetBufferPointer(),code->GetBufferSize()};
+            ps.CS={nativeUiBytecode,sizeof(nativeUiBytecode)};
             stage="create-pipeline";status=device->CreateComputePipelineState(&ps,IID_ID3D12PipelineState,(void**)&pipeline);
         }
-        code->Release();return SUCCEEDED(status);
+        return SUCCEEDED(status);
     }
     static bool full(const ChainResource &r,UINT w,UINT h) {
         return r.native && r.lifecycle==1 && r.format==DXGI_FORMAT_R8G8B8A8_UNORM && r.width==w && r.height==h &&
