@@ -1,0 +1,12 @@
+{
+  "selected_ghost_region_samples": 21174,
+  "baseline_rgb_MAE_to_visible_current_warp": 12.07052736475865,
+  "history_control_rgb_MAE_to_visible_current_warp": 2.8993827510190844,
+  "corrected_samples_still_different_from_current_base_frame": 18854,
+  "scope": "Diagnostic ROI evaluates car-tail ground; control selection itself has no car/screen-region condition.",
+  "limits": [
+    "Two adjacent saved frames only.",
+    "Actual runtime snapshot/ownership class and deployed-shader candidate run on the real GPU; not an actual gameplay frame-rate or visual verification.",
+    "This validates a visibility failure contribution, not all ghosting or all frame-generation defects."
+  ]
+}

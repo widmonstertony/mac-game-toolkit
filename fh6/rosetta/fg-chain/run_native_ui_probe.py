@@ -42,14 +42,16 @@ def pe_imports(path):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--artifacts', type=Path, required=True)
+    p.add_argument('--history', action='store_true', help='Validate the history visibility provider too')
     p.add_argument('--capture', action='store_true', help='Also validate bounded fenced seven-image synthetic GPU captures')
     args = p.parse_args()
     out = args.artifacts.resolve()
+    candidate_name = 'framegeneration-history-ui.dll' if args.history else 'framegeneration-native-ui.dll'
     manifest = json.loads((out / 'build-manifest.json').read_text())
     for name, expected in manifest['artifacts'].items():
         if sha(out / name) != expected:
             raise RuntimeError('Build artifact changed: ' + name)
-    imports = pe_imports(out / 'framegeneration-native-ui.dll')
+    imports = pe_imports(out / candidate_name)
     original_imports = pe_imports(out / 'framegeneration-audit.dll')
     if set(imports) != set(original_imports) or any(name.startswith(('d3d', 'dxgi')) for name in imports):
         raise RuntimeError('Candidate introduced a graphics/compiler DLL preload at startup')
@@ -61,14 +63,14 @@ def main():
     env = module.environment(profile)
     env['WINEDEBUG'] = '-all'
     original = Path.home() / 'Library/Application Support/Steam/steamapps/common/ForzaHorizon6/OptiScaler/amd_fidelityfx_framegeneration_dx12.dll'
-    candidate = out / 'native-ui-real'
+    candidate = out / ('history-ui-real' if args.history else 'native-ui-real')
     candidate.mkdir(exist_ok=True)
     link = candidate / 'framegeneration-original.dll'
     if link.is_symlink() and link.resolve() != original.resolve():
         raise RuntimeError('Unexpected original provider link')
     if not link.exists():
         link.symlink_to(original)
-    shutil.copyfile(out / 'framegeneration-native-ui.dll', candidate / 'framegeneration-native-ui.dll')
+    shutil.copyfile(out / candidate_name, candidate / candidate_name)
     captures = candidate / 'captures'
     before_captures = set(captures.glob('*/capture.json')) if captures.exists() else set()
     if args.capture:
@@ -78,7 +80,7 @@ def main():
     def win(path):
         return 'Z:' + str(path).replace('/', '\\')
     command = [str(profile / 'engine/bin/wine'), str(out / 'native-ui-probe.exe'),
-               win(original), win(candidate / 'framegeneration-native-ui.dll')]
+               win(original), win(candidate / candidate_name)]
     log = out / 'native-ui-probe.log'
     with log.open('w') as f:
         result = subprocess.run(command, cwd=out, env=env, stdout=f, stderr=subprocess.STDOUT, timeout=180)
@@ -120,7 +122,12 @@ def main():
                'trace_sha256': sha(out / 'native-ui-probe-trace.jsonl'), 'native_ui_applied_samples': len(applied),
                'opening_context_deferred': True, 'runtime_imports': imports, 'same_imports_as_audit': True,
                'synthetic_pixel_captures': capture_results}
-    (out / 'native-ui-gpu-verification.json').write_text(json.dumps(receipt, indent=2) + '\n')
+    if args.history:
+        corrected = [row for row in rows if row['event']=='history_post' and row['dispatched']]
+        if len(corrected)<6 or any(row.get('pipelineHr',0) for row in rows if row['event']=='history_prepare'):
+            raise RuntimeError('History provider did not exercise the full runtime path')
+        receipt['history_dispatched_samples'] = len(corrected)
+    (out / ('history-native-ui-gpu-verification.json' if args.history else 'native-ui-gpu-verification.json')).write_text(json.dumps(receipt, indent=2) + '\n')
     print('PASS complete candidate provider, unchanged caller descriptors, actual intermediate output and native UI GPU contrast')
 
 

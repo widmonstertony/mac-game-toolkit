@@ -1,0 +1,43 @@
+{
+  "status": "GPU regressions passed; prepared for scoped FH6 provider installation; user gameplay verification pending",
+  "candidate_sha256": "a18775ceef092881661dd076f901b11614a5aa1f2a62b3db6ac69a4834ab112d",
+  "game_visual_verified": false,
+  "runtime_correction": "Generated-frame visibility postpass using caller-owned depth/MV snapshots; no SDK-private resource/name dependency",
+  "ownership_test": "18 frames; three outputs; two history-slot wraps; reset/NaN/in-flight overwrite guards; all reader references retired",
+  "saved_input_source_frames": [
+    14902,
+    14903
+  ],
+  "complete_provider_saved_frame_dispatches": 4,
+  "complete_provider_changed_rgb_pixels": 686011,
+  "saved_tail_measurement": {
+    "selected_ghost_region_samples": 21174,
+    "baseline_rgb_MAE_to_visible_current_warp": 12.07052736475865,
+    "history_control_rgb_MAE_to_visible_current_warp": 2.8993827510190844,
+    "corrected_samples_still_different_from_current_base_frame": 18854,
+    "scope": "Diagnostic ROI evaluates car-tail ground; control selection itself has no car/screen-region condition.",
+    "limits": [
+      "Two adjacent saved frames only.",
+      "Actual runtime snapshot/ownership class and deployed-shader candidate run on the real GPU; not an actual gameplay frame-rate or visual verification.",
+      "This validates a visibility failure contribution, not all ghosting or all frame-generation defects."
+    ]
+  },
+  "preserved": [
+    "Native Steam entry",
+    "3472x2266 output",
+    "current SR",
+    "2x FG",
+    "audio",
+    "cloud",
+    "game INI contents",
+    "cache"
+  ],
+  "limits": [
+    "Actual game visuals and frame rate remain for user validation.",
+    "Saved-frame comparison is one captured adjacent pair, not all cars/scenes.",
+    "Unsupported/missing metadata, HDR, async FG and resolution changes keep original generated output.",
+    "Reported timestamp query is one probe, not a reliable general FPS cost estimate."
+  ],
+  "previous_source_checkpoint": "bccc884",
+  "installed": false
+}

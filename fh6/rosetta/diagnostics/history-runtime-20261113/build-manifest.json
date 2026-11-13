@@ -1,0 +1,136 @@
+{
+  "purpose": "audit DLLs are observation only; native-ui candidate changes generated-frame UI composition and requires separate GPU/visual validation",
+  "upstream_headers": [
+    {
+      "path": "sl/sl.h",
+      "source": "optiscaler/OptiScaler@2fff542e78e257a1e4ff5a1e21a69a166c78c335/external/streamline/sl.h",
+      "sha256": "e8efb374ab4d68cfca92ed7664f70173cf4158caceb5b7837ebfa0c5b6ec71ec"
+    },
+    {
+      "path": "sl/sl_consts.h",
+      "source": "optiscaler/OptiScaler@2fff542e78e257a1e4ff5a1e21a69a166c78c335/external/streamline/sl_consts.h",
+      "sha256": "5928b7b1b8365f723a909461ad111b5f902069ee99bc942a7137ac4489f11fe4"
+    },
+    {
+      "path": "sl/sl_core_types.h",
+      "source": "optiscaler/OptiScaler@2fff542e78e257a1e4ff5a1e21a69a166c78c335/external/streamline/sl_core_types.h",
+      "sha256": "9c578208feead2e1c8aac32151baf7bc9f07c6867de3bc84f4813daad5a4d80f"
+    },
+    {
+      "path": "sl/sl_struct.h",
+      "source": "optiscaler/OptiScaler@2fff542e78e257a1e4ff5a1e21a69a166c78c335/external/streamline/sl_struct.h",
+      "sha256": "f4285f0a83e91c2737a57efd456d47c43bd98d62717e594dd311c1be8cfb94ae"
+    },
+    {
+      "path": "sl/sl_core_api.h",
+      "source": "optiscaler/OptiScaler@2fff542e78e257a1e4ff5a1e21a69a166c78c335/external/streamline/sl_core_api.h",
+      "sha256": "227ce30af8b64b932ce3a37f07e53b07c9c4b5d814b52829fca9199ced05201b"
+    },
+    {
+      "path": "sl/sl_result.h",
+      "source": "optiscaler/OptiScaler@2fff542e78e257a1e4ff5a1e21a69a166c78c335/external/streamline/sl_result.h",
+      "sha256": "8219c300c7084b55f2cc2e095bef21b03db91e3189014f6281cbc942313d8fee"
+    },
+    {
+      "path": "sl/sl_version.h",
+      "source": "optiscaler/OptiScaler@2fff542e78e257a1e4ff5a1e21a69a166c78c335/external/streamline/sl_version.h",
+      "sha256": "b4a0db174d1a088c2ec5acf4c06a9aa04a1ccd3027205648cf2910b855d00d62"
+    },
+    {
+      "path": "sl/sl_dlss_g.h",
+      "source": "optiscaler/OptiScaler@2fff542e78e257a1e4ff5a1e21a69a166c78c335/external/streamline/sl_dlss_g.h",
+      "sha256": "075bc65a5d30a59e158d3c1ea4dff34f8335bc16486c31b33394e9270ee59e8c"
+    },
+    {
+      "path": "sl/sl_appidentity.h",
+      "source": "optiscaler/OptiScaler@2fff542e78e257a1e4ff5a1e21a69a166c78c335/external/streamline/sl_appidentity.h",
+      "sha256": "5e130035fb687de0fd6a0d266b804c979678afda7c3eabf52da631c3c9226a67"
+    },
+    {
+      "path": "sl/sl_device_wrappers.h",
+      "source": "optiscaler/OptiScaler@2fff542e78e257a1e4ff5a1e21a69a166c78c335/external/streamline/sl_device_wrappers.h",
+      "sha256": "d7a0cfa144895fe00987af89e81ec8ef46bd49507ad6bd70f5a18a60d4be13d6"
+    },
+    {
+      "path": "ffx/api/include/ffx_api.h",
+      "source": "GPUOpen-LibrariesAndSDKs/FidelityFX-SDK@7539ae8b6568ad29ed78a753404351daf3b5cca7/Kits/FidelityFX/api/include/ffx_api.h",
+      "sha256": "4d9dcf243ef5efbf03340a02f16b51a22053243a22e8a9a0b3ce91c26982b4bf"
+    },
+    {
+      "path": "ffx/api/include/ffx_api_types.h",
+      "source": "GPUOpen-LibrariesAndSDKs/FidelityFX-SDK@7539ae8b6568ad29ed78a753404351daf3b5cca7/Kits/FidelityFX/api/include/ffx_api_types.h",
+      "sha256": "53f07c113a9ba493f297656e4481b6539aed0afc9f3cc8da682aa477d270c46c"
+    },
+    {
+      "path": "ffx/api/include/dx12/ffx_api_dx12.h",
+      "source": "GPUOpen-LibrariesAndSDKs/FidelityFX-SDK@7539ae8b6568ad29ed78a753404351daf3b5cca7/Kits/FidelityFX/api/include/dx12/ffx_api_dx12.h",
+      "sha256": "c9afbc3c4c673723e9e5369a666f0ff54560543b5a93537f8ff453bf1c3bf530"
+    },
+    {
+      "path": "ffx/framegeneration/include/ffx_framegeneration.h",
+      "source": "GPUOpen-LibrariesAndSDKs/FidelityFX-SDK@7539ae8b6568ad29ed78a753404351daf3b5cca7/Kits/FidelityFX/framegeneration/include/ffx_framegeneration.h",
+      "sha256": "bc78a18aa95f5157b4699b0602700592b624788c5bc55d1762cb46a1b6557ca1"
+    },
+    {
+      "path": "ffx/framegeneration/include/ffx_framegeneration_api_types.h",
+      "source": "GPUOpen-LibrariesAndSDKs/FidelityFX-SDK@7539ae8b6568ad29ed78a753404351daf3b5cca7/Kits/FidelityFX/framegeneration/include/ffx_framegeneration_api_types.h",
+      "sha256": "396596af3df63310674e8036abd2ad0fcd061e61334e7a2c76653a2be3c686b4"
+    },
+    {
+      "path": "ffx/framegeneration/include/dx12/ffx_api_framegeneration_dx12.h",
+      "source": "GPUOpen-LibrariesAndSDKs/FidelityFX-SDK@7539ae8b6568ad29ed78a753404351daf3b5cca7/Kits/FidelityFX/framegeneration/include/dx12/ffx_api_framegeneration_dx12.h",
+      "sha256": "8ddb1cb78f83caf3598509df4968e84c851504cd6c00d9923261a5fc2c7ef0ed"
+    },
+    {
+      "path": "ffx/upscalers/include/ffx_upscale.h",
+      "source": "GPUOpen-LibrariesAndSDKs/FidelityFX-SDK@7539ae8b6568ad29ed78a753404351daf3b5cca7/Kits/FidelityFX/upscalers/include/ffx_upscale.h",
+      "sha256": "13091e7fe5fd9c82b1fb7c044b9f08f664d9653f599d2ea500738709236fca4d"
+    }
+  ],
+  "source_sha256": {
+    "chain.h": "f34ed05cd0915b520d1472317dd22378ef1e1e2c625cba7da43bb48158909130",
+    "provider-audit.cpp": "6973985f5e93b7f7f9156d02979e58cda204033cba66354c54ba588748f4a009",
+    "native-ui-bytecode.h": "9c360dea9eb011a205e7586f6886d46553c4a1d3cc52e90b83d275406503e4e7",
+    "native-ui-provider.h": "eb891704b428eeadc453dc06a70dd78bb6a68feadb898324a5ec407a792706e0",
+    "history-post.h": "e852865faaa7b3796218a9d543b818010f0d46cb64b00bba2281dd5156b0bab9",
+    "native-ui-probe.cpp": "5c1d35f243f096efef8254ea262bf946b3b8448c26ced9acb12a6c31256f84da",
+    "streamline-audit.cpp": "c2a9b56fa56480f8066628fbd1a8856c0d33635f6b30c5dfbe8752f7a1dd6bef",
+    "probe.cpp": "7de53ca8abc6bf33abcfa097a8aa1fa3a334fd671151c75994c02471707a2759",
+    "gpu-capture.h": "d05a2090f8432838ed9c2e56b16d4449164468a5972bf00e43f78af293d34a5f",
+    "trace-device.h": "3613cc73df4175435ef1b30c91390fb87071bdcd941e98899cb79fd759e1d1dc",
+    "replay-input.h": "1ec03ed3c5b94d2c005dc992a745fb6d71bd8e1d5b2eca5489d933ac26ca963d",
+    "compile-native-ui.cpp": "d255863da61dcd6d41c2ad99717d2fddbab3eff731565e7c00f879d0af3eee43",
+    "replay-capture.cpp": "d8d81007acd118e2c2c72290496c0e1ed03875d630de19bad72cc47fe8a3ccfe",
+    "history-post-probe.cpp": "4a7a161533297e439b892a74acdb0b89b0ab0bef3519bc60141321ac0c20a09d",
+    "trace-command-list.h": "207e444af20d5b7d64c0684a5fc8e0cfff47901c59fdbf42d42df8c739573100",
+    "history-post.hlsl": "e869b2dfe2a28663b5902a07d69d3cecb749147dd73042d2ffc1ac60804d615a",
+    "history-visibility.hlsl": "26b9f007ce56a0b0ac6b649846e777dae35d235a73440d6b0d19054a1d866256",
+    "trace-command-list-forward.h": "f18a24b9e56aff34affbe48c5d4f035310ed4e036b613fd85be5f4dbc1af4993",
+    "provider-versions.cpp": "49957d51ebba61d6463820fad1d58b95e2c66472cb7a3286f4254cf41a51ba07",
+    "probe-gpu.h": "f38d41058eb0dc4c2ea7738d7ef4ef396eecbee3500500a3b4e00764d67b6018",
+    "history-post-bytecode.h": "e44075562d6a8d770f7a1c8aa9556fb9bc5a59f3cad31a9f14322a3a3c220353",
+    "native-ui.hlsl": "aa94186aebc174fbd4f1dae4d2167b99e0f0b061114c58ac6eec7b7771372f22",
+    "first-fault.h": "9e15a47a0e773b1edaacf2e1a25888fab14203c89f7426704daf0698e0667c77",
+    "trace-device-forward.h": "2c76bffeeaf24006ef442f8a9b5878993dcd1e826ebdc4cbb4ebe31b46396901",
+    "first-fault-probe.cpp": "c05163889ec4e39fae152f4f06ad06c13df2bdd9a21f78c79a5c371c174325a8",
+    "native-ui.h": "2a321f14b02cae4ada3903d7a25c8676ebcaf0d5b5e616cf6383427560f80b43",
+    "history-visibility-probe.cpp": "7b432d8fd87d43332a037412df0734d29314f8a18e287bcb55479a5700fc9dab"
+  },
+  "artifacts": {
+    "history-post-probe.exe": "59e3867289ce4314ffaab7b60753b1b0e53c7f970825ba072abc1941566bd790",
+    "history-visibility-probe.exe": "50af15e440578ded987c696a530ea9f8b840026bb54fb7859aea00849f33d4fc",
+    "replay-capture.exe": "3c5bf40751d8bf8164291ef0f0111572c66206f3d9973dc44543e8db2c1c2d22",
+    "first-fault-probe.exe": "1e119575a632cd098a1e6942a01b4045d9637a0b3f1c1b2b509f0ee7bf06cb37",
+    "fh6-fg-chain.asi": "299b9da974816fe7ee039b51efba66d30824757b08819b3fb332af9439589770",
+    "framegeneration-audit.dll": "bb778badf66314e41f7d6f46b53e0dd0105f639872f51bd9ec0aa29e88a5f588",
+    "upscaler-audit.dll": "553bd5975be4ec86bb7532e0bd677cc37b25c7ea4675f19ab03060e5164f6482",
+    "framegeneration-native-ui.dll": "b47fa00484665f14f405063bef984599ac491ec9b8d3cae54eaa201bee5f5788",
+    "framegeneration-history-ui.dll": "a18775ceef092881661dd076f901b11614a5aa1f2a62b3db6ac69a4834ab112d",
+    "sl.interposer.dll": "6ab9e7f4d37500d36ab5fd74bd52ea6805291321c991d05f64fec85ff3a3bc91",
+    "framegeneration-original.dll": "12a00342971fc7b17bfa29fe0eeb8c7fe9d680c74b7511f76ca80dca28a7201a",
+    "probe.exe": "bd364513c5c7d4e475e77d066baa2eb148212524343289654ba452a587e59b74",
+    "provider-versions.exe": "39fe49b485a254a7c4586d3ef4f5268acc7f0e11fccc09d4a627166f2f7b5060",
+    "native-ui-probe.exe": "f313eab279b5c327b0da18eb0f2e9e5a6ebd651c6d0f65eefa623199db44a9ce",
+    "compile-native-ui.exe": "b7b288f9e977aadbde325b2a62a8c0b05750e08460f689de6ef69b6835f09ad7"
+  }
+}

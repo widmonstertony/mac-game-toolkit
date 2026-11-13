@@ -361,3 +361,63 @@ limited to this captured pair. Raw game pixels remain local; receipts are in
 queue ordering, scene changes and performance still require integration and
 validation. No game settings, provider DLLs, caches or native Steam session were
 changed during these independent replay experiments.
+
+Runtime integration — generated-frame visibility repair
+-------------------------------------------------------
+
+The later runtime candidate supersedes the saved-control-only deployment limit
+above. `framegeneration-history-ui.dll` is a separate build selection: ordinary
+observers and `framegeneration-native-ui.dll` keep their existing algorithms.
+It adds `history-post.hlsl` after official FG and before native UI, using only
+public caller resources and constants. It does not wrap the SDK device, depend
+on its private field names, or patch vendor shader/driver binaries. A guarded
+inverse-motion solve finds the halfway-visible current world point; real previous
+visible depth and motion determine whether the previous-color sample was hidden.
+Only those generated RGB samples are corrected. No car name or screen rectangle
+is used, and base frames, SR selection, 2× generation and native output remain.
+This runtime approximation has different error from the earlier SDK-mask control:
+about 12.07→2.90 RGB units in the saved tail-ground evaluation, not 11.65→0.246.
+It needs actual gameplay validation; neither number proves all ghosts are gone.
+
+`HistoryPost` records depth/motion GPU snapshots inside Prepare's input lifetime.
+Eight fixed slots and 32 immutable descriptor bindings are bounded by 512 MiB
+of snapshot allocations (306,708,480 bytes at the captured render size). GPU
+copies restore input state. Original SDK output reuse identifies completed old
+work on the same verified game queue with async disabled; a queue fence must
+complete before references are released or a slot can be overwritten. A slot
+remains referenced by both its own output and the following frame's history read.
+There are no frame-time CPU waits or pixel readbacks. Unknown formats, missing or
+nonadjacent history, reset, unsupported motion conventions, NaN matrices, dynamic
+resolution changes and occupied slots keep the original generated result.
+Resources are released only after the existing context-teardown queue drain.
+
+`history-post-probe.exe` runs 18 real captured-pixel GPU frames, rotates three
+outputs, wraps history twice, rejects in-flight overwrite/reset/NaN attempts,
+and checks that every reference retires. A query records reported timestamp cost
+for one owned saved-frame dispatch; this is not a gameplay FPS measurement.
+`replay-capture.exe ... provider` exercises the full candidate, observer ABI,
+Prepare snapshot copies, official SDK generation and final native UI on the
+actual adjacent game inputs. Its Streamline fixture uses a non-inlined export
+resolver so compiler-hoisted imports cannot accidentally bypass observation.
+A replay with no observed native tags is rejected by the verifier, not called a
+successful runtime test.
+
+Validation and selection, using the existing profile only:
+
+1. `build.py --cc COMPILER --deps DEPS --out BUILD`
+2. `run_native_ui_probe.py --artifacts BUILD --history --capture`
+3. `verify_history.py --artifacts BUILD --inputs PREPARED_ADJACENT_PAIR`
+4. `install_native_ui.py --artifacts BUILD --history --apply`
+
+The installer requires matching source/artifact hashes and both synthetic and
+actual captured-pixel GPU receipts, refuses an active game, replaces only the
+FH6-selected provider, and does not rewrite an unchanged INI. Native Steam,
+resolution, audio, cloud, saves and caches are preserved. It marks
+`game_visual_verified=false` until the user tests the next actual game run.
+Git commit `bccc884` contains the prior implementation for source-based recovery;
+no backup app, additional container or second game installation is created.
+
+中文状态：已把修正规则接入实际插帧提供器，深度和运动矢量由 GPU 在准备阶段保存，
+避免读取已复用纹理。仅修正生成帧里的遮挡错误，保留原超分和 2× 插帧。
+独立真实 GPU 与完整提供器回归通过后才能部署；仍需用户在游戏中验证同车直线和急弯，
+不能把探针通过表述成所有场景已无重影或已达到目标帧率。

@@ -28,6 +28,9 @@ def main():
     hlsl_hash = hashlib.sha256((here / 'native-ui.hlsl').read_bytes()).hexdigest()
     if 'HLSL SHA256: ' + hlsl_hash not in (here / 'native-ui-bytecode.h').read_text():
         raise RuntimeError('Recompile the owned native UI shader after changing its HLSL')
+    history_hash = hashlib.sha256((here / 'history-post.hlsl').read_bytes()).hexdigest()
+    if 'HLSL SHA256: ' + history_hash not in (here / 'history-post-bytecode.h').read_text():
+        raise RuntimeError('Recompile the owned history-post shader after changing its HLSL')
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     deps = args.deps.resolve() if args.deps else out / 'deps'
@@ -48,13 +51,15 @@ def main():
         headers = list(pool.map(fetch, sources))
     common = [str(args.cc), '-x', 'c++', '-std=c++17', '-O2', '-fno-exceptions', '-fno-rtti',
               '-Wno-deprecated-declarations', '-static', '-I', str(deps / 'sl'), '-I', str(deps / 'ffx')]
-    jobs = [(['-municode', str(here / 'history-visibility-probe.cpp'), '-ld3d12', '-ldxguid'], 'history-visibility-probe.exe'),
-            (['-municode', str(here / 'replay-capture.cpp'), '-ld3d12', '-ldxguid'], 'replay-capture.exe'),
+    jobs = [(['-municode', str(here / 'history-post-probe.cpp'), '-ld3d12', '-ldxguid'], 'history-post-probe.exe'),
+            (['-municode', str(here / 'history-visibility-probe.cpp'), '-ld3d12', '-ldxguid'], 'history-visibility-probe.exe'),
+            (['-municode', str(here / 'replay-capture.cpp'), '-ld3d12', '-ldxguid', '-ldxgi'], 'replay-capture.exe'),
             ([str(here / 'first-fault-probe.cpp')], 'first-fault-probe.exe'),
             (['-shared', str(here / 'streamline-audit.cpp')], 'fh6-fg-chain.asi'),
             (['-shared', str(here / 'provider-audit.cpp')], 'framegeneration-audit.dll'),
             (['-shared', '-DUPSCALER_PROXY', str(here / 'provider-audit.cpp')], 'upscaler-audit.dll'),
             (['-shared', '-DNATIVE_UI_FIX', str(here / 'provider-audit.cpp'), '-ldxguid'], 'framegeneration-native-ui.dll'),
+            (['-shared', '-DNATIVE_UI_FIX', '-DHISTORY_VISIBILITY_FIX', str(here / 'provider-audit.cpp'), '-ldxguid'], 'framegeneration-history-ui.dll'),
             (['-shared', '-DSL_FIXTURE', str(here / 'probe.cpp')], 'sl.interposer.dll'),
             (['-shared', '-DFFX_FIXTURE', str(here / 'probe.cpp')], 'framegeneration-original.dll'),
             ([str(here / 'probe.cpp'), '-ld3d12', '-ldxguid'], 'probe.exe'),

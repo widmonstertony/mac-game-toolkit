@@ -87,7 +87,8 @@ int wmain(int argc,wchar_t **argv){
   }
   CHECK(g.begin());const auto read=D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
   CHECK(depth.write(g.l,(BYTE*)z,W*4,read));CHECK(motion.write(g.l,(BYTE*)mv,W*4,read));CHECK(scene.write(g.l,source,W*4,read));CHECK(ui.write(g.l,overlay,W*4,read));CHECK(present.write(g.l,final,W*4,read));
-  Token token((uint32_t)id);sl::ViewportHandle viewport(0);sl::Constants constants{};constants.cameraNear=.1f;constants.cameraFar=50000;
+  Token token((uint32_t)id);sl::ViewportHandle viewport(0);sl::Constants constants{};constants.cameraNear=.1f;constants.cameraFar=50000;constants.depthInverted=sl::Boolean::eTrue;constants.cameraMotionIncluded=sl::Boolean::eTrue;constants.motionVectors3D=sl::Boolean::eFalse;constants.reset=sl::Boolean::eFalse;
+  float identity[16]{};for(int k=0;k<16;k++)identity[k]=k%5==0?1.f:0.f;memcpy(&constants.clipToPrevClip,identity,64);
   CHECK(nativeConstants(constants,token,viewport)==sl::Result::eOk);
   sl::Resource sceneTag(sl::ResourceType::eTex2d,scene.gpu,read),uiTag(sl::ResourceType::eTex2d,ui.gpu,read),depthTag(sl::ResourceType::eTex2d,depth.gpu,read),motionTag(sl::ResourceType::eTex2d,motion.gpu,read);
   sl::ResourceTag tags[]={sl::ResourceTag(&sceneTag,sl::kBufferTypeHUDLessColor,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&uiTag,sl::kBufferTypeUIColorAndAlpha,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&depthTag,sl::kBufferTypeDepth,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&motionTag,sl::kBufferTypeMotionVectors,sl::ResourceLifecycle::eValidUntilPresent)};
