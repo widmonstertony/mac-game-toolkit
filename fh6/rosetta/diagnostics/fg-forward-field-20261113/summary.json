@@ -1,5 +1,5 @@
 {
-  "status": "GPU-validated candidate deployed; awaiting user gameplay/visual verification",
+  "status": "GPU-validated candidate retained; Steam game removed with explicit user authorization for Store download; Store integration and live visual confirmation pending",
   "route": "FH6-only Rosetta / private Highball Wine 11 / D3DMetal / FSR 3.1.6 SR and 2x FG",
   "mac_pid": 50947,
   "wine_pid": 228,

@@ -8,5 +8,7 @@
   "game_visual_verified": false,
   "source_commit": "06a076e",
   "deployment_scope": "FH6 private generated-frame provider only; no game launched",
-  "original_provider_sha256": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6"
+  "original_provider_sha256": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6",
+  "subsequent_storage_transition": "User subsequently authorized removing Steam FH6 for Store download; mods/settings/embedded caches retained, original-provider link retargeted to retained official DLL; no Store integration or live visual success claimed.",
+  "steam_game_installed_now": false
 }

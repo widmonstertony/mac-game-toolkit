@@ -82,10 +82,19 @@ MACxus，也不影响 Steam。独立 GPU 队列及读回检查通过；这不等
 
 The user has now authorized downloading the owned Store edition. MACxus game
 storage was selected as `~/Games/Windows/Xbox`. Its official PC/MSIXVC offer
-reports a **159.9 GiB download**, with installed size unreported. At preflight
-the local volume had approximately **140 GiB free**, so the package selection
-was cancelled before downloading; more space or a suitable local disk is needed.
-The Steam installation was not removed.
+reports a **159.9 GiB download**, with installed size unreported. At first
+preflight the local volume had approximately **140 GiB free**. The user then
+explicitly authorized removing Steam FH6 to make room. Only that game's
+installation, library link and two manifests were removed; configuration, patch
+modules, embedded graphics caches, prefixes and saves were retained. The private
+official-FG dependency link points at the retained module.
+
+The downloader transferred package metadata, then its real space check failed:
+170,545,541,024 bytes required versus 140,953,026,560 available. The user separately
+authorized deleting the two local Time Machine snapshots from 11:24 and 12:24.
+Only these two snapshots were selected; external backups were not modified.
+Available space rose to approximately 380 GiB after reclamation, allowing a download retry.
+Download completion and Store gameplay are not yet claimed.
 
 `~/Games/Windows/Steam` is a symlink to the existing Steam `steamapps/common`
 directory. This gives one management entry without copying or relocating game
@@ -94,7 +103,9 @@ It is not a claim that all game files have physically migrated to one directory.
 
 中文：已获准下载商店版；统一入口为 `~/Games/Windows`，其中 `Steam` 指向
 原有游戏库，`Xbox` 是新下载位置。官方 PC 包需下载 159.9 GiB，当前本机空间
-不足，因此尚未开始下载。未删除 Steam 版；腾出空间后再继续官方安装流程。
+不足。随后用户明确允许删除 Steam 版安装文件，并另行批准清理两份本机快照。
+配置、补丁、存档和缓存保留；回收后可用空间约为 380 GiB，继续官方下载安装。
+商店版尚未下载完成或进入游戏。
 
 ## Upstream provenance
 
