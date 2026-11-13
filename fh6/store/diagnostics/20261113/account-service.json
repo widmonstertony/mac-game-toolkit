@@ -1,0 +1,15 @@
+{
+  "signed_in_ui_confirmed": true,
+  "first_run_setup_completed": true,
+  "account_identity_recorded": false,
+  "account_service_ready": true,
+  "private_authenticated_loopback_bridge_ready": true,
+  "cloud_capable_runtime_present": true,
+  "playfab_proxy_present": true,
+  "service_stopped_after_check": true,
+  "store_game_downloaded": false,
+  "store_game_started": false,
+  "actual_cloud_sync_verified": false,
+  "steam_game_deleted": false,
+  "app_asar_sha256": "927cf9e8d91b293104ce621363f2141544cbd87b82ec66b201c519c41b36152d"
+}
