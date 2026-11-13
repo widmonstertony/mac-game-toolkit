@@ -1,0 +1,2 @@
+# Raw Wine CRLF output is retained for reproducible hashes.
+*.log -text whitespace=cr-at-eol

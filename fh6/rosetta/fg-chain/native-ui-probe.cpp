@@ -23,12 +23,12 @@ struct GPU {
  bool end(){if(FAILED(l->Close()))return false;ID3D12CommandList *lists[]={l};q->ExecuteCommandLists(1,lists);return SUCCEEDED(q->Signal(f,++value))&&SUCCEEDED(f->SetEventOnCompletion(value,event))&&WaitForSingleObject(event,30000)==WAIT_OBJECT_0;}
 };
 struct Texture {
- ID3D12Resource *gpu{},*upload{},*readback{};D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp{};UINT64 total{};D3D12_RESOURCE_STATES state{};
+ ID3D12Resource *gpu{},*upload{},*readback{};D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp{};UINT64 total{},rowBytes{};D3D12_RESOURCE_STATES state{};
  bool init(ID3D12Device *d,DXGI_FORMAT format,D3D12_RESOURCE_FLAGS flags=D3D12_RESOURCE_FLAG_NONE,UINT w=W,UINT h=H){
   D3D12_RESOURCE_DESC desc{};desc.Dimension=D3D12_RESOURCE_DIMENSION_TEXTURE2D;desc.Width=w;desc.Height=h;desc.DepthOrArraySize=desc.MipLevels=desc.SampleDesc.Count=1;desc.Format=format;desc.Flags=flags;
   D3D12_HEAP_PROPERTIES heap{};heap.Type=D3D12_HEAP_TYPE_DEFAULT;state=D3D12_RESOURCE_STATE_COPY_DEST;
   if(FAILED(d->CreateCommittedResource(&heap,D3D12_HEAP_FLAG_NONE,&desc,state,nullptr,IID_ID3D12Resource,(void**)&gpu)))return false;
-  UINT rows;UINT64 bytes;d->GetCopyableFootprints(&desc,0,1,0,&fp,&rows,&bytes,&total);
+  UINT rows;d->GetCopyableFootprints(&desc,0,1,0,&fp,&rows,&rowBytes,&total);
   desc={};desc.Dimension=D3D12_RESOURCE_DIMENSION_BUFFER;desc.Width=total;desc.Height=desc.DepthOrArraySize=desc.MipLevels=desc.SampleDesc.Count=1;desc.Layout=D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
   heap.Type=D3D12_HEAP_TYPE_UPLOAD;
   if(FAILED(d->CreateCommittedResource(&heap,D3D12_HEAP_FLAG_NONE,&desc,D3D12_RESOURCE_STATE_GENERIC_READ,nullptr,IID_ID3D12Resource,(void**)&upload)))return false;
@@ -37,6 +37,7 @@ struct Texture {
  }
  void transition(ID3D12GraphicsCommandList *l,D3D12_RESOURCE_STATES next){if(state==next)return;D3D12_RESOURCE_BARRIER b{};b.Type=D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;b.Transition={gpu,D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,state,next};l->ResourceBarrier(1,&b);state=next;}
  bool write(ID3D12GraphicsCommandList *l,const BYTE *pixels,UINT rowBytes,D3D12_RESOURCE_STATES next){
+  if(rowBytes>fp.Footprint.RowPitch)return false;
   BYTE *p;D3D12_RANGE empty{};if(FAILED(upload->Map(0,&empty,(void**)&p)))return false;
   for(UINT y=0;y<fp.Footprint.Height;y++)memcpy(p+fp.Offset+y*fp.Footprint.RowPitch,pixels+y*rowBytes,rowBytes);upload->Unmap(0,nullptr);
   transition(l,D3D12_RESOURCE_STATE_COPY_DEST);
@@ -62,8 +63,19 @@ static int mathTest(GPU &g){
  for(UINT i=0;i<w*h;i++)for(UINT k=0;k<3;k++){const float expected=b[i*4+k]+(1.f-b[i*4+3]/255.f)*a[i*4+k];if(fabsf(read[i*4+k]-expected)>1.01f)errors++;}
  CHECK(errors==0);printf("PASS native premultiplied UI real GPU pixels=%u errors=%u alpha=0/128/255 odd-size=%ux%u; stale/lifetime/offset/format guards\n",w*h,errors,w,h);c.release();return 0;
 }
+static int nativeDepthCopyTest(GPU &g) {
+ Texture depth;CHECK(depth.init(g.d,DXGI_FORMAT_R32G8X24_TYPELESS,D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL));
+ const UINT rowBytes=(UINT)depth.rowBytes;
+ printf("Depth copy layout: format=%u rowPitch=%u rowBytes=%u total=%llu\n",(unsigned)depth.fp.Footprint.Format,depth.fp.Footprint.RowPitch,rowBytes,(unsigned long long)depth.total);
+ CHECK(rowBytes==W*4 || rowBytes==W*8);
+ BYTE data[W*H*8]{},read[W*H*8]{};
+ for(UINT i=0;i<W*H;i++){const float value=float(i%101)/101.f;memcpy(data+i*(rowBytes/W),&value,4);}
+ CHECK(g.begin());CHECK(depth.write(g.l,data,rowBytes,D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));depth.copyOut(g.l);CHECK(g.end());CHECK(depth.read(read,rowBytes));
+ unsigned errors=0;for(UINT i=0;i<W*H;i++){float a,b;memcpy(&a,data+i*(rowBytes/W),4);memcpy(&b,read+i*(rowBytes/W),4);if(a!=b)errors++;}
+ printf("Native game depth format19 plane0 readback: copyFormat=%u pixelStride=%u errors=%u pixels=%u\n",(unsigned)depth.fp.Footprint.Format,rowBytes/W,errors,W*H);CHECK(errors==0);return 0;
+}
 int wmain(int argc,wchar_t **argv){
- setvbuf(stdout,nullptr,_IONBF,0);CHECK(argc==3);GPU g;CHECK(g.init());CHECK(mathTest(g)==0);
+ setvbuf(stdout,nullptr,_IONBF,0);CHECK(argc==3);GPU g;CHECK(g.init());CHECK(mathTest(g)==0);CHECK(nativeDepthCopyTest(g)==0);
  HMODULE observer=LoadLibraryW(L"fh6-fg-chain.asi");CHECK(observer);
  auto init=(void(*)())GetProcAddress(observer,"InitializeASI");CHECK(init);init();
  HMODULE slFixture=LoadLibraryW(L"sl.interposer.dll");CHECK(slFixture);
@@ -110,13 +122,13 @@ int wmain(int argc,wchar_t **argv){
   CHECK(depth.write(g.l,(BYTE*)z,W*4,read));CHECK(motion.write(g.l,(BYTE*)mv,W*4,read));CHECK(scene.write(g.l,source,W*4,read));CHECK(ui.write(g.l,overlay,W*4,read));CHECK(present.write(g.l,final,W*4,read));
   Token token((uint32_t)id);sl::ViewportHandle viewport(0);sl::Constants constants{};constants.cameraNear=.1f;constants.cameraFar=50000;
   CHECK(nativeConstants(constants,token,viewport)==sl::Result::eOk);
-  sl::Resource sceneTag(sl::ResourceType::eTex2d,scene.gpu,read),uiTag(sl::ResourceType::eTex2d,ui.gpu,read);
-  sl::ResourceTag tags[]={sl::ResourceTag(&sceneTag,sl::kBufferTypeHUDLessColor,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&uiTag,sl::kBufferTypeUIColorAndAlpha,sl::ResourceLifecycle::eValidUntilPresent)};
-  CHECK(nativeTags(token,viewport,tags,2,nullptr)==sl::Result::eOk);
+  sl::Resource sceneTag(sl::ResourceType::eTex2d,scene.gpu,read),uiTag(sl::ResourceType::eTex2d,ui.gpu,read),depthTag(sl::ResourceType::eTex2d,depth.gpu,read),motionTag(sl::ResourceType::eTex2d,motion.gpu,read);
+  sl::ResourceTag tags[]={sl::ResourceTag(&sceneTag,sl::kBufferTypeHUDLessColor,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&uiTag,sl::kBufferTypeUIColorAndAlpha,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&depthTag,sl::kBufferTypeDepth,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&motionTag,sl::kBufferTypeMotionVectors,sl::ResourceLifecycle::eValidUntilPresent)};
+  CHECK(nativeTags(token,viewport,tags,4,nullptr)==sl::Result::eOk);
   for(int k=0;k<3;k++){
    CHECK(outputs[k].write(g.l,zero,W*4,D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
    ffxConfigureDescFrameGeneration cfg{};cfg.header.type=FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION;cfg.frameID=id;cfg.frameGenerationEnabled=true;cfg.flags=FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY;cfg.HUDLessColor=res(scene);cfg.generationRect={0,0,W,H};CHECK((k==2?candidateConfigure:configure)(&contexts[k],&cfg.header)==0);
-   ffxDispatchDescFrameGenerationPrepareV2 prep{};prep.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2;prep.frameID=id;prep.commandList=g.l;prep.renderSize={W,H};prep.motionVectorScale={1,1};prep.frameTimeDelta=16.6667f;prep.reset=id==0;prep.cameraNear=.1f;prep.cameraFar=50000;prep.cameraFovAngleVertical=1.05f;prep.viewSpaceToMetersFactor=1;prep.depth=res(depth);prep.motionVectors=res(motion);prep.cameraUp[1]=prep.cameraRight[0]=prep.cameraForward[2]=1;CHECK(dispatch(&contexts[k],&prep.header)==0);
+   ffxDispatchDescFrameGenerationPrepareV2 prep{};prep.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2;prep.frameID=id;prep.commandList=g.l;prep.renderSize={W,H};prep.motionVectorScale={1,1};prep.frameTimeDelta=16.6667f;prep.reset=id==0;prep.cameraNear=.1f;prep.cameraFar=50000;prep.cameraFovAngleVertical=1.05f;prep.viewSpaceToMetersFactor=1;prep.depth=res(depth);prep.motionVectors=res(motion);prep.cameraUp[1]=prep.cameraRight[0]=prep.cameraForward[2]=1;CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&prep.header)==0);
    ffxDispatchDescFrameGeneration p{};p.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION;p.commandList=g.l;p.frameID=id;p.numGeneratedFrames=1;p.reset=id==0;p.presentColor=res(k==1?scene:present);p.outputs[0]=ffxApiGetResourceDX12(outputs[k].gpu,FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);p.generationRect={0,0,W,H};p.backbufferTransferFunction=FFX_API_BACKBUFFER_TRANSFER_FUNCTION_SRGB;p.minMaxLuminance[1]=100;
    auto f=frame(id,scene,ui);NativeUiCompositor::Binding *binding=nullptr;
    if(k>0){binding=compositors[k].prepare(f,res(scene),p);CHECK(binding);}
@@ -141,5 +153,7 @@ int wmain(int argc,wchar_t **argv){
  CHECK(refErrors==0);CHECK(oldDiff>100);CHECK(generatedDifferent>0);CHECK(uiErrors==0);
  for(int k=0;k<3;k++){CHECK((k==2?candidateDestroy:destroy)(&contexts[k],nullptr)==0);compositors[k].release();}
  swapchain->Release();CHECK(candidateDestroy(&swapContext,nullptr)==0);factory->Release();DestroyWindow(window);
+ auto activeCaptures=(unsigned(*)())GetProcAddress(candidate,"FH6CaptureActive");CHECK(activeCaptures);
+ const auto deadline=GetTickCount64()+10000;while(activeCaptures() && GetTickCount64()<deadline)Sleep(10);CHECK(activeCaptures()==0);
  puts("PASS official FFX generated output + native UI; postprocess difference outside native UI triggers old extraction; candidate matches scene-only reference. This is synthetic GPU evidence, not proof FH6 car ghosting is fixed.");return 0;
 }

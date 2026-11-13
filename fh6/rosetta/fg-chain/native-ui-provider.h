@@ -1,5 +1,6 @@
 #pragma once
 #include "native-ui.h"
+#include "gpu-capture.h"
 #include <api/include/dx12/ffx_api_dx12.h>
 // Only compiled into the separate FH6 candidate provider. Ordinary audit DLLs
 // retain descriptor pointer identity and never record GPU work.
@@ -10,11 +11,16 @@ struct NativeContext {
     ffxContext context{};
     ID3D12Device *device{};
     NativeUiCompositor compositor;
+    FgGpuCapture capture;
+    CapturePrepare prepared[8]{};
     ID3D12CommandQueue *queue{};
     uint64_t applied{},declined{};
 };
 static NativeQueue nativeQueues[4];
 static NativeContext nativeContexts[4];
+extern "C" __declspec(dllexport) unsigned FH6CaptureActive() {
+    unsigned count=0;for(auto &c:nativeContexts)count+=InterlockedCompareExchange(&c.capture.activeJobs,0,0);return count;
+}
 static void nativeCreated(ffxContext context,ffxCreateContextDescHeader *desc,ffxReturnCode_t result) {
     if(result || !context || !desc)return;
     ID3D12CommandQueue *queue=nullptr;
@@ -35,6 +41,7 @@ static void nativeCreated(ffxContext context,ffxCreateContextDescHeader *desc,ff
         if(device)for(auto &c:nativeContexts)if(!c.context && !c.device) {
             c.context=context;
             c.device=device;device->AddRef();
+            c.capture.setup(self,report);
             // Opening video/HDR/disabled contexts must remain a pure forward.
             // No compiler DLL, shader compilation, root signature or GPU PSO
             // creation until a matching active native-UI frame actually exists.
@@ -69,9 +76,24 @@ static void nativeConfigured(ffxContext context,const ffxConfigureDescHeader *de
     }
     ReleaseSRWLockExclusive(&nativeLock);
 }
+template<typename Prepare> static void nativePrepared(ffxContext context,const Prepare &p) {
+    AcquireSRWLockExclusive(&nativeLock);
+    for(auto &c:nativeContexts)if(c.context==context) {
+        auto &data=c.prepared[p.frameID%8];data.frame=p.frameID;data.known=true;data.milliseconds=p.frameTimeDelta;
+        data.render[0]=p.renderSize.width;data.render[1]=p.renderSize.height;
+        data.scale[0]=p.motionVectorScale.x;data.scale[1]=p.motionVectorScale.y;
+        data.jitter[0]=p.jitterOffset.x;data.jitter[1]=p.jitterOffset.y;break;
+    }
+    ReleaseSRWLockExclusive(&nativeLock);
+}
 static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescHeader *desc) {
-    if(!desc || desc->type!=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION)
+    if(!desc || desc->type!=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION) {
+        if(context && desc && desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE)
+            nativePrepared(*context,*(const ffxDispatchDescFrameGenerationPrepare*)desc);
+        else if(context && desc && desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2)
+            nativePrepared(*context,*(const ffxDispatchDescFrameGenerationPrepareV2*)desc);
         return dispatch?dispatch(context,desc):FFX_API_RETURN_NO_PROVIDER;
+    }
     auto &p=*(const ffxDispatchDescFrameGeneration*)desc;
     AcquireSRWLockExclusive(&nativeLock);
     NativeContext *c=nullptr;
@@ -79,6 +101,7 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
     NativeUiCompositor::Binding *binding=nullptr;FfxApiResource hudless{};ChainFrame frame{};
     if(c && c->queue && getFrame) {
         const auto &cfg=c->config[p.frameID%8];
+        if(cfg.valid && cfg.frame==p.frameID && !cfg.async)c->capture.retire((ID3D12Resource*)p.outputs[0].resource,p.frameID,c->queue);
         if(cfg.valid && cfg.frame==p.frameID && cfg.enabled && !cfg.async && getFrame(p.frameID,&frame)) {
             const auto w=p.presentColor.description.width,h=p.presentColor.description.height;
             if(!c->compositor.device && p.presentColor.description.format==FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM &&
@@ -95,7 +118,13 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
     if(binding) {
         auto sceneOnly=p;sceneOnly.presentColor=hudless;
         result=dispatch?dispatch(context,&sceneOnly.header):FFX_API_RETURN_NO_PROVIDER;
-        if(result==FFX_API_RETURN_OK)c->compositor.record((ID3D12GraphicsCommandList*)p.commandList,binding);
+        if(result==FFX_API_RETURN_OK) {
+            auto job=c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p);
+            auto list=(ID3D12GraphicsCommandList*)p.commandList;
+            if(job)FgGpuCapture::copies(list,job,0,6);
+            c->compositor.record(list,binding);
+            if(job)FgGpuCapture::copies(list,job,6,7);
+        }
         if(report && (c->applied++<8 || p.frameID%60==0)) {
             char line[450];snprintf(line,sizeof(line),"{\"event\":\"native_ui_dispatch\",\"frame\":%llu,\"scene\":\"%llx\",\"ui\":\"%llx\",\"originalPresent\":\"%llx\",\"generated\":\"%llx\",\"frames\":%u,\"result\":%u}",
                 (unsigned long long)p.frameID,(unsigned long long)binding->scene,(unsigned long long)binding->ui,
@@ -124,7 +153,7 @@ static void nativeDestroyed(ffxContext context,ffxReturnCode_t result) {
                 drained=WaitForSingleObject(event,10000)==WAIT_OBJECT_0;
             if(fence)fence->Release();if(event)CloseHandle(event);
         }
-        if(drained) {c.compositor.release();if(c.queue)c.queue->Release();if(c.device)c.device->Release();c.device=nullptr;c.queue=nullptr;c.context=nullptr;for(auto &cfg:c.config)cfg={};c.applied=c.declined=0;}
+        if(drained) {if(c.queue)c.capture.drained(c.queue);c.compositor.release();if(c.queue)c.queue->Release();if(c.device)c.device->Release();c.device=nullptr;c.queue=nullptr;c.context=nullptr;for(auto &cfg:c.config)cfg={};for(auto &prep:c.prepared)prep={};c.applied=c.declined=0;}
         // On a GPU timeout retain this bounded slot rather than free in-flight
         // descriptor heaps/resources. No unbounded allocation or wait/retry.
         else if(report)report("{\"event\":\"native_ui_retained_after_gpu_timeout\"}");

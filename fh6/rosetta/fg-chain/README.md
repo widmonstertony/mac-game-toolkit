@@ -1,8 +1,11 @@
 # FH6 frame-generation chain evidence / 插帧链路取证
 
-Status: the audit DLLs remain **diagnosis only**. A separate native-UI candidate
-has passed real D3DMetal/official FFX GPU contrast and was selected for FH6;
-**the game's visual ghosting result is still pending user testing**. Keep the same native
+Status: the audit DLLs remain **diagnosis only**. The separate native-UI candidate
+passed synthetic real-GPU contrast, but the subsequent actual FH6 test
+**still shows car-tail ghosting despite that path executing**. It is not a
+completed repair. The current candidate adds explicitly armed pixel captures
+to locate the remaining fault; it does not select another SR/FG algorithm.
+Keep the same native
 Steam entry, Rosetta/D3DMetal route, native output, SR/2x-FG selections, audio,
 saves and shader caches. Do not copy the Windows NVIDIA driver/MFG settings
 into an FSR configuration.
@@ -211,3 +214,61 @@ thread sample, import comparison, GPU regression and installed hash are under
 `../diagnostics/fg-native-ui-startup-20261112/`. **Actual startup recovery and car
 ghosting remain pending the user's next native-Steam run.** This correction is
 not a claim that the Wine lock fault itself has been fully diagnosed or fixed.
+
+## Actual-pixel capture / 实际 GPU 像素取证
+
+The user's new car screenshot reproduces the ghosting. The captured process
+(Windows PID 232) recorded 188 sampled `native_ui_dispatch` events before it
+exited. This rules out treating "the new UI path never ran" as the explanation;
+the earlier controlled GPU reproduction did not cover all actual-game inputs.
+
+`gpu-capture.h` adds **two explicitly armed, same-frame snapshots**, containing:
+depth plane 0, raw RG16-float motion vectors, native HUDless scene, native UI,
+the original present image, generated output before UI, and generated output
+after UI. It also saves the exact owned native-frame ABI, native camera/matrix
+values and tags, and the matching FFX prepare frame/time/render size/jitter/MV
+scale. Copies are encoded in the *actual interpolation command list*, at the
+correct side of UI composition; all source states are restored. No algorithm,
+motion sign, display resolution, feature bit or return code is changed.
+
+Readback does not use an arbitrary delay as GPU completion. For this pinned
+FFX swapchain and async=false, output reuse first queues the SDK composition
+availability-fence wait on gameQueue. The next dispatch for that same output
+then signals the capture fence after that wait. A worker maps/writes only after
+the fence completes. Context teardown is a second drain path. Source textures,
+readback buffer, device, provider module and reporter module remain retained
+until the job finishes. Timeout retains the bounded pending objects and reports
+failure rather than releasing in-flight GPU memory. There are at most two jobs
+per context and at most 256 MiB per job. Do not interpret the capture frames as
+unperturbed performance samples: copies have one-time bandwidth cost.
+
+There is no always-running capture service. In the private FH6 provider directory
+`C:\highball\fg-native-ui`, creating `capture-request` arms two non-reset eligible
+frames. Wait until **actual free roam** before triggering it, so menu/login
+resources are not captured as car evidence. The marker is consumed; later
+requests can be triggered in the **same process** without swapping DLLs.
+Completed folders under `captures` contain `capture.json`, seven pixel files
+and `native-frame.bin`. `gpu_fence_completed` and `pixel_files_complete` must both
+be true. Game pixels stay private and are not committed to this repository.
+
+`analyze_pixels.py CAPTURE_FOLDER --png` uses only the Python standard library.
+It checks frame provenance, actual device row layout, native-UI composition
+error, RGB under transparent UI, non-UI scene/final differences, and finite
+depth/motion distributions. PNGs are exports of the captured RGBA8 buffers for
+inspection. Differences by themselves do not prove a wrong MV sign, a ghosting
+root cause or a presentation fault. Inspect the scene/present and before/after
+UI images first, then compare both captured frames' geometry and motion.
+
+`run_native_ui_probe.py --artifacts BUILD_DIRECTORY --capture` validates this
+route with the real official FFX provider, a real GPU and two synthetic frames.
+The same generated/reference checks still have zero error. All fourteen pixel
+files complete behind fences, have correct lengths and matching frame/prepare
+identities; native-UI pixel analysis has zero mismatches. The game-native depth
+format (DXGI 19) is separately exercised: D3DMetal reports a 4-byte plane-0 copy
+layout (copy format 39); 12,288 depth values round-trip with zero errors.
+
+The first new depth *test harness* incorrectly inferred an 8-byte stride from
+the DXGI name and overran its mapped upload buffer. That failure log is retained.
+The test now uses `GetCopyableFootprints` row bytes, as the capture code already
+did. It was not evidence of a game, hardware or driver failure. The corrected
+GPU test and capture summaries are in `../diagnostics/fg-pixels-20261112/`.

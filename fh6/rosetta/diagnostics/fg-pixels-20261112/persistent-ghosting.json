@@ -1,0 +1,29 @@
+{
+  "session": {
+    "traceSequence": 1,
+    "qpc": 946999066889,
+    "event": "observer_ready",
+    "abi": 1,
+    "pid": 232,
+    "tick": 94699906
+  },
+  "events": {
+    "observer_ready": 1,
+    "capture_export": 3,
+    "provider_observer_connected": 2,
+    "create": 4,
+    "swapchain_queue": 1,
+    "native_ui_context": 2,
+    "create_fg": 2,
+    "configure": 459,
+    "upscale": 576,
+    "register_ui": 40,
+    "prepare": 458,
+    "native_ui_passthrough": 28,
+    "interpolate": 457,
+    "native_ui_pipeline": 1,
+    "native_ui_dispatch": 188
+  },
+  "log_sha256": "ba70175486c0280623960255c5b6fbf52328b1c576e4ce2b7bea854ef2dacd6c",
+  "user_result": "Actual car-tail ghosting persists with native UI candidate active. Do not mark repaired."
+}

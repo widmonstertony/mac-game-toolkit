@@ -1,0 +1,5 @@
+msync: bootstrapped mach port on wine-18fd494-msync.
+msync: up and running.
+compositor pipeline stage=create-pipeline status=00000000
+PASS native premultiplied UI real GPU pixels=12065 errors=0 alpha=0/128/255 odd-size=127x95; stale/lifetime/offset/format guards
+wine: Unhandled page fault on read access to 000000022D2EC000 at address 00006FFFFCC571A6 (thread 0024), starting debugger...

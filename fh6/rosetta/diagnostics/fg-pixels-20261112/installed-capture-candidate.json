@@ -1,0 +1,57 @@
+{
+  "kind": "FH6-only native premultiplied UI on generated frames",
+  "game_visual_verified": false,
+  "previous_fg_path": "C:\\highball\\fg-chain",
+  "candidate_sha256": "83fb1d6106a4b8a2cb31d0b6bb204518ff39192df58e669c2af4dcaaff0a077e",
+  "original_provider_sha256": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6",
+  "gpu_verification": {
+    "passed": true,
+    "kind": "synthetic real D3DMetal GPU / official FFX 3.1.6 / full candidate provider and real DXGI queue",
+    "game_visual_verified": false,
+    "manifest_sha256": "c1178abf3238159bf54d940ea956ba33af426965665bf6fb1fba64cafec6a99b",
+    "artifacts": {
+      "fh6-fg-chain.asi": "5d4d1effc826aa214af623a145bb0644091ea025cd9c04e1e66802169a233285",
+      "framegeneration-audit.dll": "45abf2cb1fc25ed9aa617cd5b424b57128bfa768eb4d6547ec844b25b67dd93c",
+      "upscaler-audit.dll": "0c73e5e5e5eafa6015e35ffb04f1304e8078f21b430f27021c032ffa28839a1f",
+      "framegeneration-native-ui.dll": "83fb1d6106a4b8a2cb31d0b6bb204518ff39192df58e669c2af4dcaaff0a077e",
+      "sl.interposer.dll": "de09d8d43a51f620c4e4e43cf0b480d19389113c85430a3a7ea813c8485d4735",
+      "framegeneration-original.dll": "90134302f934efcd061689238b10f86259a299da27426f942eea10eef3c035cf",
+      "probe.exe": "f3ecdcf9f9a5b4ec4ae00535a744e08d8fffda13793bca5ae0d72ee350957c9f",
+      "provider-versions.exe": "58fc9bf34bf8c319b3a00c2f30fa5faa4ee90599b457cc66cc8dced1c8817c14",
+      "native-ui-probe.exe": "a91b1b175750d4bef233fd11136533d45f149d71d7d20c6722f1d9bf6ebede8c",
+      "compile-native-ui.exe": "a98ebdb942c48b15f4f5fe6ac698cb979fcfc9cb915e752afe9484c8a955c0ca"
+    },
+    "original_provider_sha256": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6",
+    "log_sha256": "81d6530b48183c407443bec35e2df45dc49dfc1c59616a889206da02e4864801",
+    "trace_sha256": "e94a0fc70ff5f173844ad39433b7e593545d57fdbf8eae2f8cd364b2074d8837",
+    "native_ui_applied_samples": 8,
+    "opening_context_deferred": true,
+    "runtime_imports": [
+      "api-ms-win-crt-convert-l1-1-0.dll",
+      "api-ms-win-crt-heap-l1-1-0.dll",
+      "api-ms-win-crt-locale-l1-1-0.dll",
+      "api-ms-win-crt-private-l1-1-0.dll",
+      "api-ms-win-crt-runtime-l1-1-0.dll",
+      "api-ms-win-crt-stdio-l1-1-0.dll",
+      "api-ms-win-crt-string-l1-1-0.dll",
+      "kernel32.dll"
+    ],
+    "same_imports_as_audit": true,
+    "synthetic_pixel_captures": [
+      {
+        "frame": 1,
+        "images": 7,
+        "gpu_fence_completed": true,
+        "bytes": 344064
+      },
+      {
+        "frame": 2,
+        "images": 7,
+        "gpu_fence_completed": true,
+        "bytes": 344064
+      }
+    ]
+  },
+  "ini_before_sha256": "c2744e9ccd73076a839d3fdd8e3a6299df52c7d5a9e536df0bb68e6000ae1a84",
+  "ini_after_sha256": "c2744e9ccd73076a839d3fdd8e3a6299df52c7d5a9e536df0bb68e6000ae1a84"
+}

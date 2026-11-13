@@ -42,6 +42,7 @@ def pe_imports(path):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--artifacts', type=Path, required=True)
+    p.add_argument('--capture', action='store_true', help='Also validate bounded fenced seven-image synthetic GPU captures')
     args = p.parse_args()
     out = args.artifacts.resolve()
     manifest = json.loads((out / 'build-manifest.json').read_text())
@@ -68,6 +69,10 @@ def main():
     if not link.exists():
         link.symlink_to(original)
     shutil.copyfile(out / 'framegeneration-native-ui.dll', candidate / 'framegeneration-native-ui.dll')
+    captures = candidate / 'captures'
+    before_captures = set(captures.glob('*/capture.json')) if captures.exists() else set()
+    if args.capture:
+        (candidate / 'capture-request').write_text('synthetic GPU validation, two frames\n')
     trace = out / 'fh6-fg-chain.jsonl'
     offset = trace.stat().st_size if trace.exists() else 0
     def win(path):
@@ -91,13 +96,30 @@ def main():
     pipelines = [row for row in rows if row['event'] == 'native_ui_pipeline']
     if len(created) != 2 or not all(row.get('pipelineDeferred') for row in created) or len(pipelines) != 1 or pipelines[0]['pipelineHr']:
         raise RuntimeError('Opening context did not remain deferred or active-frame pipeline failed')
+    capture_results = []
+    if args.capture:
+        files = sorted(set(captures.glob('*/capture.json')) - before_captures)
+        if len(files) != 2:
+            raise RuntimeError('Expected exactly two completed synthetic GPU captures: ' + str(len(files)))
+        for file in files:
+            meta = json.loads(file.read_text())
+            if not meta['gpu_fence_completed'] or not meta['pixel_files_complete'] or len(meta['images']) != 7:
+                raise RuntimeError('Incomplete or unfenced GPU capture')
+            for image in meta['images']:
+                pixel_file = file.parent / (image['name'] + '.bin')
+                if pixel_file.stat().st_size != image['bytes']:
+                    raise RuntimeError('Truncated GPU capture: ' + image['name'])
+            capture_results.append({'frame': meta['frame'], 'images': len(meta['images']), 'gpu_fence_completed': True,
+                                    'bytes': sum(image['bytes'] for image in meta['images'])})
+        print('PASS fenced seven-image GPU readbacks, two synthetic frames:', capture_results)
     (out / 'native-ui-probe-trace.jsonl').write_text('\n'.join(json.dumps(row) for row in rows) + '\n')
     receipt = {'passed': True, 'kind': 'synthetic real D3DMetal GPU / official FFX 3.1.6 / full candidate provider and real DXGI queue',
                'game_visual_verified': False,
                'manifest_sha256': sha(out / 'build-manifest.json'), 'artifacts': manifest['artifacts'],
                'original_provider_sha256': sha(original), 'log_sha256': sha(log),
                'trace_sha256': sha(out / 'native-ui-probe-trace.jsonl'), 'native_ui_applied_samples': len(applied),
-               'opening_context_deferred': True, 'runtime_imports': imports, 'same_imports_as_audit': True}
+               'opening_context_deferred': True, 'runtime_imports': imports, 'same_imports_as_audit': True,
+               'synthetic_pixel_captures': capture_results}
     (out / 'native-ui-gpu-verification.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print('PASS complete candidate provider, unchanged caller descriptors, actual intermediate output and native UI GPU contrast')
 

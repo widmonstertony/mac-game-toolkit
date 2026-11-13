@@ -1,0 +1,136 @@
+{
+  "frame": 2,
+  "gpu_fence_completed": true,
+  "counts_sampled_every_8_pixels": {
+    "samples": 192,
+    "transparent_ui": 182,
+    "transparent_ui_with_rgb": 0,
+    "scene_final_difference_outside_ui": 16,
+    "expected_native_ui_mismatch": 0,
+    "generated_changed_by_ui": 10,
+    "generated_differs_from_final": 16
+  },
+  "max_native_ui_composition_error_8bit": 0.4509803921568647,
+  "frame_milliseconds": 16.6667004,
+  "native_jitter": [
+    3.4028234663852886e+38,
+    3.4028234663852886e+38
+  ],
+  "native_scale": [
+    3.4028234663852886e+38,
+    3.4028234663852886e+38
+  ],
+  "fg_scale": [
+    1,
+    1
+  ],
+  "native_flags": {
+    "inverted": 2,
+    "camera_motion": 2,
+    "motion_3d": 2,
+    "dilated": 0,
+    "jittered": 0,
+    "reset": 2
+  },
+  "motion": {
+    "invalid_samples": 0,
+    "render_pixel_magnitude_p50_p90_p99": [
+      0.0,
+      0.0,
+      2.0
+    ],
+    "probes": [
+      {
+        "render_xy": [
+          51,
+          62
+        ],
+        "raw": [
+          -2.0,
+          0.0
+        ],
+        "display_pixel_motion": [
+          -2.0,
+          0.0
+        ]
+      },
+      {
+        "render_xy": [
+          64,
+          62
+        ],
+        "raw": [
+          0.0,
+          0.0
+        ],
+        "display_pixel_motion": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "render_xy": [
+          76,
+          62
+        ],
+        "raw": [
+          0.0,
+          0.0
+        ],
+        "display_pixel_motion": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "render_xy": [
+          51,
+          76
+        ],
+        "raw": [
+          0.0,
+          0.0
+        ],
+        "display_pixel_motion": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "render_xy": [
+          64,
+          76
+        ],
+        "raw": [
+          0.0,
+          0.0
+        ],
+        "display_pixel_motion": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "render_xy": [
+          76,
+          76
+        ],
+        "raw": [
+          0.0,
+          0.0
+        ],
+        "display_pixel_motion": [
+          0.0,
+          0.0
+        ]
+      }
+    ]
+  },
+  "depth": {
+    "invalid_samples": 0,
+    "min": 0.20000000298023224,
+    "max": 0.800000011920929,
+    "copy_pixel_stride": 4
+  },
+  "limits": "Pixel evidence distinguishes input, FG and UI stages. A nonzero difference is not by itself proof of ghosting, wrong MV sign or a displayed-frame pacing fault."
+}
