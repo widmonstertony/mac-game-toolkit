@@ -11,6 +11,8 @@ const dataRoot = path.dirname(root);
 const mode = process.argv[2] ?? 'setup';
 const config = readLocalHighball(dataRoot);
 if (!config) throw Error('Run the Store environment setup first');
+const profileFile = path.join(root, 'fh6-profile.json');
+const profile = existsSync(profileFile) ? JSON.parse(readFileSync(profileFile, 'utf8')) : undefined;
 const modulesRoot = path.join(root, 'upstream/dist-electron/main');
 const {bundledRuntimeDllDirectory, runtimeOverrideDirectory} = await import(path.join(modulesRoot,'crossover.js'));
 const pointer = JSON.parse(readFileSync(path.join(dataRoot,'runtimes/current.json'),'utf8'));
@@ -35,8 +37,14 @@ if (mode === 'setup') {
   if (test.status !== 0) throw Error(test.stderr || 'Wine version check failed');
   console.log(JSON.stringify({ready:true,wine:test.stdout.trim(),prefix:runner.compatibilityDataPath,
     command:runner.command,gameDownloaded:false,gameplayVerified:false,appSignatureUnchanged:true},null,2));
-} else if (mode === 'run') {
-  const source = process.argv[3];
+} else if (mode === 'configure') {
+  if (!profile) throw Error('Prepare the FH6 Store profile first');
+  const result=spawnSync(runner.command,['regedit.exe','/S',path.join(root,'fh6-profile.reg')],
+    {stdio:'inherit',env:process.env,timeout:60000});
+  if (result.status !== 0) throw Error('Store-prefix font/display configuration failed');
+  console.log('Configured only the Store prefix: Retina, CJK dialog font, native OptiScaler loader.');
+} else if (mode === 'check' || mode === 'run') {
+  const source = process.argv[3] ?? profile?.gamePath;
   if (!source || !path.isAbsolute(source)) throw Error('Supply the installed Microsoft Store package directory');
   const manifest = readFileSync(path.join(source,'MicrosoftGame.config'),'utf8');
   if (!/ForzaHorizon6/i.test(manifest)) throw Error('Expected a real Forza Horizon 6 package manifest');
@@ -48,6 +56,19 @@ if (mode === 'setup') {
   }
   const image=executable(tree);
   if (!image || /(^|[\\/])\.\.([\\/]|$)|^[\\/]|:/.test(image)) throw Error('No supported manifest executable');
+  if (!profile || profile.gamePath !== source) throw Error('Prepare the verified FH6 Store graphics profile first');
+  const {createHash}=await import('node:crypto');
+  for (const [file,expected] of Object.entries(profile.verifiedFiles)) {
+    if(createHash('sha256').update(readFileSync(file)).digest('hex')!==expected)
+      throw Error('FH6 Store component changed; reconfigure before launch: '+path.basename(file));
+  }
+  if (mode === 'check') {
+    console.log(JSON.stringify({ready:true,packageVersion:profile.packageVersion,
+      resolution:profile.resolution,upscaler:profile.upscaler,frameGeneration:profile.frameGeneration,
+      cloudSave:'official Nexus/PlayFab auto sync; no save copied or conflict fabricated',
+      gameplayVerified:false},null,2));
+    process.exit(0);
+  }
   // Normal Xodus launch performs Microsoft account/licence validation and its
   // package overlay. Never invoke a game image directly or substitute Steam files.
   const {readBundledBackend}=await import(path.join(modulesRoot,'bundled-backend.js'));
@@ -57,8 +78,12 @@ if (mode === 'setup') {
   const service=await startXodusService(cli,os.tmpdir(),s=>console.error(s));
   let exitCode=1;
   try {
-    const environment={...process.env, XODUS_SOCKET:service.socketPath,
+    const environment={...process.env, ...profile.environment, XODUS_SOCKET:service.socketPath,
       XODUS_BRIDGE_PORT:String(service.bridgePort),XODUS_BRIDGE_KEY:service.bridgeKey,XODUS_SAVE_SYNC:'auto'};
+    // Steam is only the native shortcut host. Store ownership/saves come from
+    // Microsoft/Xodus; do not start or sign into a second Windows Steam.
+    for(const key of Object.keys(environment))
+      if(/^(SteamAppId|SteamGameId|STEAM_COMPAT_|FEX_|HB_FEX_|HB_KK_|VKD3D_|MESA_|WINE_SOFTWARE_)/.test(key))delete environment[key];
     const proxy=path.resolve(path.dirname(pointer.winePath),'../share/xodus-nexus/compat/PlayFabGameSave.dll');
     if (!existsSync(proxy))throw Error('The PlayFab cloud-save proxy is missing');
     environment.NEXUS_PGS_PROXY=proxy;

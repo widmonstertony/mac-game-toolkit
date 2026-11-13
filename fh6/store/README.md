@@ -3,6 +3,54 @@
 Status: **environment prepared; Store gameplay is not verified on this Mac**.
 This does not replace or fix the Steam game's rendering/loading by itself.
 
+## Downloaded-package profile (2026-11-13)
+
+The owned Store package `3.483.970.0` is now present. The installer below verifies
+its executable hash, the retained official OptiScaler/FSR modules, and the
+GPU-validated generated-frame candidate before configuring the Store prefix:
+
+```sh
+python3 fh6/store/configure_game.py            # read-only plan
+python3 fh6/store/configure_game.py --apply    # FH6 must be closed
+python3 fh6/store/steam_shortcut.py            # read-only native Steam entry plan
+python3 fh6/store/steam_shortcut.py --apply    # native Steam must be fully closed
+```
+
+This prepares a real **non-Steam** library entry, `Forza Horizon 6 (Xbox)`, which
+runs the normal licensed Xodus package route through the native macOS Steam
+client. It never starts Windows Steam or fabricates a Steam app manifest. Xbox
+cloud saves use the official Nexus/PlayFab auto-sync proxy, not Steam Cloud;
+Steam saves are not imported. Actual cloud download/upload and gameplay require
+the user's normal signed-in game test.
+
+The selected graphics route is existing Highball Wine 11 + Rosetta + D3DMetal,
+native **3472×2266** output, FSR **3.1.6** with an explicit **1.5× Quality render
+ratio**, and official **2×** frame generation plus the visibility/UI candidate.
+The retained game's NGX input mode was 0, with a custom 1.4 ratio; the new
+OptiScaler profile explicitly uses 1.5 for the non-native ratios instead of
+mislabeling that old selection as a Quality preset. In-game DLSS text identifies
+the input API, not a running NVIDIA DLSS implementation. FSR 4 and MetalFX are
+not selected.
+
+The public-interface observer, UTF-8 dialog helper and original providers live
+in the Store prefix's `C:\\highball` directories, with no dependency on the
+removed Steam installation. The existing universal Highball audio-buffer shim
+is enabled only for this Store launch. The already-patched Steam-private Wine
+exception engine is **not** transplanted to a different Store executable.
+Existing graphics detail and audio selections are reused; no save, cache, host
+audio setting or other game's prefix is rewritten.
+
+An owned synthetic GPU contrast in the actual Store prefix passed official FSR
+3.1.6 generation, native premultiplied UI and depth readback: zero reference/UI
+pixel errors, and generated output differs from base. That is not proof that
+live FH6 car ghosting or loading hangs have been eliminated. The user tests the
+game from the new native Steam shortcut after registration.
+
+中文：商店版配置使用原生分辨率＋FSR 3.1.6 质量比例超分＋2×插帧，保留现有
+音频缓冲修复。Steam 仅提供非 Steam 游戏入口，微软授权和云存档继续走正式
+Xodus/Nexus 链路，不启动 Windows Steam、不伪造安装、不覆盖存档。真实 GPU
+对照通过；商店版实际画面、声音和云同步仍需进游戏确认。
+
 This optional external runner uses the unmodified MACxus launcher for Microsoft
 account sign-in, library access and official downloads. It reuses an existing
 Highball Wine 11 engine, its D3DMetal renderer and already-installed shim.

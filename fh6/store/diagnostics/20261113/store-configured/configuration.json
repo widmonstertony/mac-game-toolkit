@@ -1,0 +1,20 @@
+{
+  "package_version": "3.483.970.0",
+  "store_executable_sha256": "0e101d591600b7ce5960579b5bf2eebe55249d5137cdecf02818f3691d6ac8af",
+  "output": [
+    3472,
+    2266
+  ],
+  "fullscreen": "1",
+  "quality_render_ratio": "1.5",
+  "framegen_enabled": "true",
+  "framegen_input": "dlssg",
+  "framegen_output": "fsrfg",
+  "candidate_sha256": "4b3b9a6ff9b21120ac17452f06b065d8bf245743a12224a68942a8bf4ab9e506",
+  "immutable_files_valid": true,
+  "private_audio_buffer_shim_enabled": true,
+  "cloud_save_mode": "official Nexus/PlayFab auto sync; live round-trip not tested",
+  "no_saves_copied": true,
+  "steam_shortcut_registration": "prepared, waiting for native Steam to exit",
+  "gameplay_verified": false
+}
