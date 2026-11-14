@@ -1,0 +1,195 @@
+--- a/dlls/xgameruntime/xuser.c
++++ b/dlls/xgameruntime/xuser.c
+@@ -87,7 +87,8 @@
+     HSTRING path;
+     HSTRING relyingParty;
+     HSTRING tokenType;
+-    struct policy *policy;
++    struct policy policy;
++    BOOL has_policy;
+     BOOL wildcard;
+ };
+ 
+@@ -109,9 +110,7 @@
+     HRESULT initResult;
+     UINT64 xuid;
+     XUserAgeGroup age_group;
+-    UINT32 policiesLen;
+     UINT32 endpointsLen;
+-    struct policy *policies;
+     struct endpoint *endpoints;
+ 
+     char gamertag[16];
+@@ -169,6 +168,19 @@
+     return ref;
+ }
+ 
++static void free_endpoints( struct endpoint *endpoints, UINT32 count )
++{
++    for (UINT32 i = 0; i < count; i++)
++    {
++        WindowsDeleteString(endpoints[i].protocol);
++        WindowsDeleteString(endpoints[i].host);
++        WindowsDeleteString(endpoints[i].path);
++        WindowsDeleteString(endpoints[i].relyingParty);
++        WindowsDeleteString(endpoints[i].tokenType);
++    }
++    free(endpoints);
++}
++
+ static ULONG WINAPI user_Release( IUser *iface )
+ {
+     struct XUser *impl = impl_from_IUser( iface );
+@@ -182,17 +194,7 @@
+         free( impl->deviceToken );
+         free( impl->titleToken );
+         free( impl->deviceAuth );
+-        if (impl->policies) free( impl->policies );
+-        if (impl->endpoints) {
+-            for(UINT32 i = 0; i < impl->endpointsLen; i++) {
+-                WindowsDeleteString(impl->endpoints[i].protocol);
+-                WindowsDeleteString(impl->endpoints[i].host);
+-                WindowsDeleteString(impl->endpoints[i].path);
+-                WindowsDeleteString(impl->endpoints[i].relyingParty);
+-                WindowsDeleteString(impl->endpoints[i].tokenType);
+-            }
+-            free( impl->endpoints );
+-        }
++        free_endpoints(impl->endpoints, impl->endpointsLen);
+     }
+     return ref;
+ }
+@@ -670,7 +672,7 @@
+     struct policy *policyCursor = NULL;
+     struct endpoint *endpointCursor = NULL;
+     DOUBLE jsonNumber;
+-    UINT32 arraySize;
++    UINT32 arraySize, policy_count = 0;
+     HSTRING hostType = NULL;
+     const WCHAR* hostTypeRaw = NULL;
+     HRESULT hr = S_OK;
+@@ -683,17 +685,12 @@
+ 
+     if (jsonPolicies) {
+         if (FAILED(hr = IJsonArray_QueryInterface(jsonPolicies, &IID_IVector_IJsonValue, (void **)&jsonPoliciesVector))) goto cleanup;
+-        if (FAILED(hr = IVector_IJsonValue_get_Size(jsonPoliciesVector, &arraySize))) goto cleanup;
+-
+-        if (!(policyCursor = realloc(user->policies, sizeof(struct policy) * (user->policiesLen + arraySize)))) {
++        if (FAILED(hr = IVector_IJsonValue_get_Size(jsonPoliciesVector, &policy_count))) goto cleanup;
++        if (policy_count && !(policyCursor = calloc(policy_count, sizeof(*policyCursor)))) {
+             hr = E_OUTOFMEMORY;
+             goto cleanup;
+         }
+-        user->policies = policyCursor;
+-        policyCursor = user->policies + user->policiesLen;
+-        user->policiesLen = user->policiesLen + arraySize;
+-
+-        for (UINT32 i = 0; i < arraySize; i++) {
++        for (UINT32 i = 0; i < policy_count; i++) {
+             if (FAILED(hr = IJsonArray_GetObjectAt(jsonPolicies, i, &tmpObject))) goto cleanup;
+ 
+             if (FAILED(hr = get_json_number(tmpObject, L"Version", &jsonNumber))) goto cleanup;
+@@ -727,10 +724,12 @@
+ 
+         if (FAILED(get_json_string(tmpObject, L"RelyingParty", &(endpointCursor + i)->relyingParty))) (endpointCursor + i)->relyingParty = NULL;
+         if (FAILED(get_json_string(tmpObject, L"TokenType", &(endpointCursor + i)->tokenType))) (endpointCursor + i)->tokenType = NULL;
+-        if (SUCCEEDED(get_json_number(tmpObject, L"SignaturePolicyIndex", &jsonNumber)) && policyCursor && jsonNumber < (user->policiesLen - (policyCursor - user->policies))) {
+-            (endpointCursor + i)->policy = policyCursor + (UINT32)jsonNumber;
+-        } else {
+-            (endpointCursor + i)->policy = NULL;
++        /* The index is scoped to this document. Keep the selected value with
++         * its endpoint so the next document cannot invalidate it. */
++        if (SUCCEEDED(get_json_number(tmpObject, L"SignaturePolicyIndex", &jsonNumber)) && policyCursor &&
++            jsonNumber >= 0 && jsonNumber < policy_count && jsonNumber == (UINT32)jsonNumber) {
++            (endpointCursor + i)->policy = policyCursor[(UINT32)jsonNumber];
++            (endpointCursor + i)->has_policy = TRUE;
+         }
+         if (SUCCEEDED(get_json_string(tmpObject, L"HostType", &hostType))) {
+             hostTypeRaw = WindowsGetStringRawBuffer(hostType, NULL);
+@@ -749,6 +748,7 @@
+     }
+ 
+ cleanup:
++    free(policyCursor);
+     if (jsonPoliciesVector) IVector_IJsonValue_Release(jsonPoliciesVector);
+     if (jsonEndpointsVector) IVector_IJsonValue_Release(jsonEndpointsVector);
+     if (jsonEndpoints) IJsonArray_Release(jsonEndpoints);
+@@ -852,6 +852,11 @@
+     free( init );
+     for (attempt = 0; attempt < 5; attempt++)
+     {
++        /* A failed title handshake may already have appended the defaults.
++         * Build a fresh table on retry while user_wait_init still gates readers. */
++        free_endpoints(user->endpoints, user->endpointsLen);
++        user->endpoints = NULL;
++        user->endpointsLen = 0;
+         hr = user_initialize_network( user, options );
+         if (SUCCEEDED(hr)) break;
+         /* Transient bridge/service start races must not permanently break
+@@ -1450,14 +1455,14 @@
+              * as title requests, and the profile service's v2 contract. Never
+              * forward the Xbox credential or signature to the image CDN. */
+             if (FAILED(hr = IUser_GetEndpointInfo( &context->user->IUser_iface, profileUrlA, &info ))) goto cleanup;
+-            if (info.policy)
++            if (info.has_policy)
+             {
+                 int authLength = WideCharToMultiByte( CP_UTF8, WC_ERR_INVALID_CHARS, auth, -1, NULL, 0, NULL, NULL );
+                 if (!authLength) { hr = HRESULT_FROM_WIN32( GetLastError() ); goto cleanup; }
+                 if (!(authA = calloc( authLength, 1 ))) { hr = E_OUTOFMEMORY; goto cleanup; }
+                 if (!WideCharToMultiByte( CP_UTF8, WC_ERR_INVALID_CHARS, auth, -1, authA, authLength, NULL, NULL ))
+                 { hr = HRESULT_FROM_WIN32( GetLastError() ); goto cleanup; }
+-                if (FAILED(hr = IUser_GetSignature( &context->user->IUser_iface, info.policy->version,
++                if (FAILED(hr = IUser_GetSignature( &context->user->IUser_iface, info.policy.version,
+                         "GET", profileUrlA, authA, 0, NULL, signature ))) goto cleanup;
+                 if (!MultiByteToWideChar( CP_UTF8, MB_ERR_INVALID_CHARS, signature, 104, signatureW, 104 ))
+                 { hr = HRESULT_FROM_WIN32( GetLastError() ); goto cleanup; }
+@@ -1824,7 +1829,7 @@
+                 /* IUser writes 104 base64 characters, without a terminator.
+                  * Public results are C strings, including the trailing NUL in
+                  * their buffer counts, just like the authorization token. */
+-                context->dataSize = sizeof(*context->dataUtf16) + (auth ? (wcslen( auth ) + 1) * sizeof(WCHAR) : 0) + (info.policy ? 105 * sizeof(WCHAR) : sizeof(WCHAR));
++                context->dataSize = sizeof(*context->dataUtf16) + (auth ? (wcslen( auth ) + 1) * sizeof(WCHAR) : 0) + (info.has_policy ? 105 * sizeof(WCHAR) : sizeof(WCHAR));
+                 if (!(context->dataUtf16 = calloc( 1, context->dataSize )))
+                 {
+                     hr = E_OUTOFMEMORY;
+@@ -1836,7 +1841,7 @@
+                     context->dataUtf16->token = (WCHAR *)(context->dataUtf16 + 1);
+                     wcscpy( (WCHAR *)context->dataUtf16->token, auth );
+                 }
+-                if (info.policy)
++                if (info.has_policy)
+                 {
+                     if (auth)
+                     {
+@@ -1850,7 +1855,7 @@
+                     }
+                     context->dataUtf16->signatureCount = 105;
+                     context->dataUtf16->signature = (WCHAR *)(context->dataUtf16 + 1) + (auth ? wcslen( auth ) + 1 : 0);
+-                    if (FAILED(hr = IUser_GetSignature( &context->user->IUser_iface, info.policy->version, context->method, context->url, (auth ? buffer : ""), min( context->bodySize, info.policy->maxBodyBytes ), context->bodyBuffer, signature ))) goto complete;
++                    if (FAILED(hr = IUser_GetSignature( &context->user->IUser_iface, info.policy.version, context->method, context->url, (auth ? buffer : ""), min( context->bodySize, info.policy.maxBodyBytes ), context->bodyBuffer, signature ))) goto complete;
+                     if (!MultiByteToWideChar( CP_UTF8, MB_ERR_INVALID_CHARS, signature, 104, (WCHAR *)context->dataUtf16->signature, 104 )) goto error;
+                 }
+                 else
+@@ -1862,7 +1867,7 @@
+             else
+             {
+                 if (auth && !(size = WideCharToMultiByte( CP_UTF8, WC_ERR_INVALID_CHARS, auth, wcslen( auth ), NULL, 0, NULL, NULL ))) goto error;
+-                context->dataSize = sizeof(*context->data) + (auth ? size + 1 : 0) + (info.policy ? 105 : 1);
++                context->dataSize = sizeof(*context->data) + (auth ? size + 1 : 0) + (info.has_policy ? 105 : 1);
+                 if (!(context->data = calloc( 1, context->dataSize )))
+                 {
+                     hr = E_OUTOFMEMORY;
+@@ -1874,11 +1879,11 @@
+                     context->data->token = (char *)(context->data + 1);
+                     if (!WideCharToMultiByte( CP_UTF8, WC_ERR_INVALID_CHARS, auth, wcslen( auth ), (char *)context->data->token, size, NULL, NULL )) goto error;
+                 }
+-                if (info.policy)
++                if (info.has_policy)
+                 {
+                     context->data->signatureSize = 105;
+                     context->data->signature = (char *)(context->data + 1) + (auth ? size + 1 : 0);
+-                    if (FAILED(hr = IUser_GetSignature( &context->user->IUser_iface, info.policy->version, context->method, context->url, (auth ? context->data->token : ""), min( context->bodySize, info.policy->maxBodyBytes ), context->bodyBuffer, (char *)context->data->signature ))) goto complete;
++                    if (FAILED(hr = IUser_GetSignature( &context->user->IUser_iface, info.policy.version, context->method, context->url, (auth ? context->data->token : ""), min( context->bodySize, info.policy.maxBodyBytes ), context->bodyBuffer, (char *)context->data->signature ))) goto complete;
+                 }
+                 else
+                 {

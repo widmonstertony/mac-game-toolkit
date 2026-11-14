@@ -79,6 +79,17 @@ and a positive Xbox Car Pass license receipt remain to be verified. The
 MacGameFix Rosetta/exception route still documents potential stutters and is
 not evidence that the periodic hitch has been eliminated here.
 
+The local Nexus implementation already requests both the default and the
+authenticated title endpoint tables. Its default endpoints kept pointers into
+a policy array that the title response could reallocate. The Xbox-only build
+now copies each policy from its own document's table into the endpoint and
+clears a partial endpoint table before a handshake retry. The parser
+regression ran under Wine with the same Windows Web JSON module and checked
+that default policy values survived 32 title-table appends, title policies
+stayed distinct, and negative or fractional indexes were rejected. This
+repairs a potential invalid signature policy read. Successful title
+authentication and joining still require the signed-in game.
+
 - [MetalHorizon maintainer notes and real online test](https://github.com/alexandreunitypro/MetalHorizon-FH6-Mac-Launcher/blob/main/docs/PASSATION-IA.md)
 - [MacGameFix 1.6.2 notes](https://macgamefix.app/blog/macgamefix-1-6-2)
 - [Nexus Runtime public release notes](https://github.com/domsvoboda/nexus-runtime/releases)
@@ -103,7 +114,9 @@ Then apply [the WebSocket patch](../../rosetta/wine11-websocket.patch) and
 [the FH6 status patch](../wine-winhttp-fh6-status.patch) to WinHTTP, and
 [the FH6 durable patch](../xgameruntime-fh6-car-pass.patch) and
 [the add-on enumeration patch](../xgameruntime-fh6-addon-enumeration.patch)
-to XGameRuntime, with `patch -p1` in that order.
+to XGameRuntime, with `patch -p1` in that order. Apply
+[the XUser policy lifetime patch](../xgameruntime-endpoint-policy-lifetime.patch)
+to the same XGameRuntime tree.
 From a source export, regenerate Wine's configure inputs, spec files and
 winevulkan stubs before configuring. Use an x86_64 MinGW compiler, archiver and
 headers, including nghttp2's public headers. Build Wine's x86_64 Windows
@@ -124,6 +137,13 @@ python3 fh6/store/install_nexus_repairs.py /absolute/probe-prefix/drive_c/window
 python3 fh6/store/store_settings.py --apply
 python3 fh6/store/check_session.py
 ```
+
+For the endpoint parser regression, apply
+[`xgameruntime-endpoint-policy-probe.patch`](../xgameruntime-endpoint-policy-probe.patch)
+only in an isolated test build. Run `nexus-probe.exe endpoint-policy` there with
+the matching native `windows.web.dll`; expect `result=00000001`. Reverse the
+probe patch and rebuild before installing. The deployed DLL keeps the upstream
+export list.
 
 Installation verifies the selected runtime and the loaded repair files against
 the probe copies, checks the other Nexus modules by hash, and leaves the game

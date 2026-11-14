@@ -41,6 +41,16 @@ done:
 
 struct initialize_options { UINT32 unknown; BOOL is_inline; const char *config; };
 
+static int endpoint_policy(void)
+{
+    HMODULE module = LoadLibraryW(L"xgameruntime.dll");
+    DWORD (WINAPI *test)(void) = module ? (void *)GetProcAddress(module, "Fh6ProbeEndpointPolicy") : NULL;
+    DWORD result = test ? test() : 0;
+    printf("Endpoint policy parser: result=%08lx\n", result);
+    if (module) FreeLibrary(module);
+    return result != 1;
+}
+
 static int xstore(BOOL unrelated, BOOL addons)
 {
     struct initialize_options options = {0, TRUE, unrelated ?
@@ -101,6 +111,7 @@ int main(int argc, char **argv)
 {
     if (argc != 2) return 2;
     if (!strcmp(argv[1], "http2")) return http2();
+    if (!strcmp(argv[1], "endpoint-policy")) return endpoint_policy();
     if (!strcmp(argv[1], "durable")) return xstore(FALSE, FALSE);
     if (!strcmp(argv[1], "unrelated")) return xstore(TRUE, FALSE);
     if (!strcmp(argv[1], "addons")) return xstore(FALSE, TRUE);

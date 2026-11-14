@@ -1,0 +1,42 @@
+--- a/dlls/xgameruntime/xuser.c
++++ b/dlls/xgameruntime/xuser.c
+@@ -757,6 +757,32 @@
+     if (payload) IJsonObject_Release(payload);
+ 
+     return hr;
++}
++
++/* Scratch regression export, omitted from the release build. */
++DWORD WINAPI Fh6ProbeEndpointPolicy( void )
++{
++    static char defaults[] = "{\"SignaturePolicies\":[{\"Version\":17,\"MaxBodyBytes\":2048}],"
++        "\"EndPoints\":[{\"Protocol\":\"https\",\"Host\":\"first.example\",\"SignaturePolicyIndex\":0},"
++        "{\"Protocol\":\"https\",\"Host\":\"negative.example\",\"SignaturePolicyIndex\":-1},"
++        "{\"Protocol\":\"https\",\"Host\":\"fraction.example\",\"SignaturePolicyIndex\":0.5}]}";
++    static char title[] = "{\"SignaturePolicies\":[{\"Version\":23,\"MaxBodyBytes\":4096}],"
++        "\"EndPoints\":[{\"Protocol\":\"https\",\"Host\":\"last.example\",\"SignaturePolicyIndex\":0}]}";
++    struct XUser user = {0};
++    DWORD result = 0;
++    HRESULT hr, com = CoInitializeEx(NULL, COINIT_MULTITHREADED);
++    if (FAILED(hr = load_endpoints(&user, (BYTE *)defaults, sizeof(defaults) - 1))) { result = hr; goto done; }
++    for (UINT32 i = 0; i < 32; ++i)
++        if (FAILED(hr = load_endpoints(&user, (BYTE *)title, sizeof(title) - 1))) { result = hr; goto done; }
++    if (user.endpointsLen == 35 && user.endpoints[0].has_policy &&
++        user.endpoints[0].policy.version == 17 && user.endpoints[0].policy.maxBodyBytes == 2048 &&
++        !user.endpoints[1].has_policy && !user.endpoints[2].has_policy && user.endpoints[34].has_policy &&
++        user.endpoints[34].policy.version == 23 && user.endpoints[34].policy.maxBodyBytes == 4096)
++        result = 1;
++done:
++    free_endpoints(user.endpoints, user.endpointsLen);
++    if (SUCCEEDED(com)) CoUninitialize();
++    return result;
+ }
+ 
+ static HRESULT WINAPI user_Initialize( IUser *iface, const XUserAddOptions options )
+--- a/dlls/xgameruntime/xgameruntime.spec
++++ b/dlls/xgameruntime/xgameruntime.spec
+@@ -7,3 +7,4 @@
+ @ stdcall -private NexusRegisterCloudShutdown(ptr ptr)
+ @ stub -private XErrorReport(long str)
+ @ stdcall -private XodusSaveFilesMonitor(long long str long)
++@ stdcall -private Fh6ProbeEndpointPolicy()
