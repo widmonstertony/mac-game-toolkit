@@ -35,6 +35,14 @@ acceptable playback is the comparison.
   file logging now uses warning level; the old debug file reached
   317,501,900 bytes. The prior title-gated Rosetta exception patch is still
   installed. No system-wide or D3DMetal frame cap was added.
+- In the final 25 seconds of the old OptiScaler logs, the Xbox run had 19
+  upscaler input frame intervals above 150 ms, spaced a median 1.30 seconds
+  apart. The retained Steam run had 4 such intervals, clustered in its last
+  seven seconds. The spans include different player activity and the end of
+  each log; they isolate the repeated symptom without offering a benchmark.
+  In the Xbox log the same long gap is already visible at upscaler entry,
+  before the affected frame's FG dispatch. This does not rule out
+  backpressure from a previous frame or identify the thread responsible.
 - The old Xbox trace logged 1,242 successful sampled upscales and 1,123
   successful requests for one intermediate frame. Actual presentation and
   even pacing cannot be derived from a successful dispatch. In every one of
