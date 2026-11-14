@@ -322,3 +322,38 @@ Thread metadata from this recording labels the blocked D3DMetal queue
 worker. It contains no names for either of the two active Wine threads
 around the 1.108-second gap. The final wake identifies a thread but still
 does not name the waited object. No new in-game run was required.
+
+## Online and cloud evidence from the still-running Store process
+
+[EDM115's online comparison](https://github.com/EDM115/FH6-on-Mac/blob/master/experiments/online-session/README.md)
+traces one reproducible online failure to an IPv4 TTL 255 request on a
+bound dual-stack UDP socket. The current Store Wine uses the repository's
+separate dual-stack fix. Its installed and isolated-test `ws2_32.dll` copies
+matched by SHA-256. In the wire test, the native Darwin receiver read real
+IPv4 datagrams with TTL 37 before the request and 255 afterward. This
+extends the existing Windows `getsockopt` and round-trip checks to the
+actual packet header. There is no evidence for replacing this local fix.
+Build `fh6/arm64/network/probe.c` as Windows x64 using `-lws2_32 -lwinhttp`
+and run `fh6/store/check_udp_ttl.py ISOLATED_STORE_PREFIX PROBE_EXE`.
+
+The current launch's private metadata still shows one successful Xbox RTA
+WebSocket upgrade, three generic Xbox HTTP timeouts and one nonempty signed
+add-on result. No session-specific endpoint result appeared in the captured
+metadata. The cloud session setup logged success. This process has no cloud
+upload-completion event, and a previous launch's upload-request success
+only marked initiation. The transport and setup results leave sustained
+online re-entry, retrieval of a specific owned Car Pass car and a completed
+cloud synchronization to check in the same in-game validation. The existing
+audio, account state, online runtime and cloud policy remain in use.
+
+The latest process also logged a separate 60-second Wine critical-section
+warning after cloud setup, then continued to free roam. That warning does
+not share a verified timing or thread identity with the 1.108-second gap.
+With a wall/QPC anchor from an isolated process of the same Wine build,
+the recorded 1.108-second gap ended close to sampled frame 66720. Its SR
+and FG calls returned success. Sampling every 60 frames and uncertainty in
+Instruments' wall-time origin prevent treating that as an exact frame join
+or excluding a problem in a preceding frame. A separate Steam/CrossOver
+[upstream frame-pause comparison](https://github.com/EDM115/FH6-on-Mac/blob/master/experiments/frame-pauses/README.md)
+observed regular pauses offline and at reduced resolution. Its identified
+thread activity was correlation, with no confirmed performance fix.

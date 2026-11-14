@@ -32,6 +32,33 @@ static void check_reset_control(SOCKET socket, DWORD code, const char *label)
     CHECK(result == 0 && bytes == 0, label);
 }
 
+static void udp_ttl_wire_test(INTERNET_PORT port)
+{
+    SOCKET dual = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+    struct sockaddr_in6 local = {0}, peer = {0};
+    DWORD off = 0, baseline = 37, ttl = 255;
+    local.sin6_family = peer.sin6_family = AF_INET6;
+    peer.sin6_port = htons(port);
+    if (dual == INVALID_SOCKET) {
+        CHECK(FALSE, "UDP socket for IPv4 TTL readback");
+        return;
+    }
+    BOOL ready = !setsockopt(dual, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&off, sizeof(off)) &&
+        !bind(dual, (struct sockaddr *)&local, sizeof(local)) &&
+        inet_pton(AF_INET6, "::ffff:127.0.0.1", &peer.sin6_addr) == 1 &&
+        !setsockopt(dual, IPPROTO_IPV6, IPV6_UNICAST_HOPS, (char *)&baseline, sizeof(baseline));
+    CHECK(ready, "bound dual-stack socket with 37 hops");
+    if (ready) {
+        CHECK(sendto(dual, "base", 4, 0, (struct sockaddr *)&peer, sizeof(peer)) == 4,
+              "send baseline datagram");
+        if (!setsockopt(dual, IPPROTO_IP, IP_TTL, (char *)&ttl, sizeof(ttl))) {
+            CHECK(sendto(dual, "check", 5, 0, (struct sockaddr *)&peer, sizeof(peer)) == 5,
+                  "send datagram after IPv4 TTL 255 request");
+        } else CHECK(FALSE, "IPv4 TTL 255 on the bound dual-stack socket");
+    }
+    closesocket(dual);
+}
+
 static void udp_test(BOOL check_reset_controls)
 {
     SOCKET dual = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
@@ -167,10 +194,19 @@ int main(int argc, char **argv)
 {
     WSADATA data;
     HANDLE workers[6];
-    if (argc != 2) return 2;
+    BOOL wire = argc == 3 && !strcmp(argv[1], "--ttl-wire");
+    if (argc != 2 && !wire) return 2;
+    char *end = NULL;
+    long port = wire ? strtol(argv[2], &end, 10) : 0;
+    if (wire && (*end || port <= 0 || port > 65535)) return 2;
     setvbuf(stdout, NULL, _IONBF, 0);
     http_port = (INTERNET_PORT)atoi(argv[1]);
     CHECK(!WSAStartup(MAKEWORD(2, 2), &data), "WSAStartup");
+    if (wire) {
+        udp_ttl_wire_test((INTERNET_PORT)port);
+        WSACleanup();
+        return failures ? 1 : 0;
+    }
     BOOL check_reset_controls = !strcmp(argv[1], "--fh6-udp-controls");
     udp_test(check_reset_controls);
     if (check_reset_controls || !strcmp(argv[1], "--udp-only")) {
