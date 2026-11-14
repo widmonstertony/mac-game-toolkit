@@ -40,9 +40,8 @@ float3 color(float2 uv, bool previous) {
  return lerp(lerp(a,b,f.x),lerp(c,d,f.x),f.y);
 }
 // A primary source can leave the viewport. Never turn its last visible dark
-// shadow into a second car outline. This conservative border fill is separate
-// from depth-proven visibility: it is a photometric-confidence policy, not a
-// claim that unobserved outside-frame texture can be reconstructed exactly.
+// shadow into a second car outline. Reflect a coherent in-frame donor across
+// the edge so missing rows preserve local texture instead of extending one row.
 bool borderColor(float2 uv,out float3 value) {
  value=0;if(!previousColorKnown)return false;
  float2 edge=uv,mv=velocity(uv,false),current=uv;
@@ -63,7 +62,13 @@ bool borderColor(float2 uv,out float3 value) {
  if(!all(abs(old)<3.4e38)||old.w<=0)return false;
  float2 projected=float2(old.x/old.w*.5+.5,.5-old.y/old.w*.5);
  if(length((projected-edge-mv)*renderSize)>1)return false;
- float3 now=color(edge,false),before=color(prior,true);
+ float2 donor=edge+(edge-current);
+ if(any(donor<=0)||any(donor>=1))return false;
+ float donorDepth=currentDepth.Load(int3(int2(donor*renderSize),0));
+ if(!(donorDepth>0)||abs(donorDepth-depth)>depth*.2)return false;
+ float2 donorMotion=velocity(donor,false);
+ if(!(length((donorMotion-mv)*renderSize)<=max(2.0,length(mv*renderSize)*.18)))return false;
+ float3 now=color(donor,false),before=color(prior,true);
  float a=dot(now,float3(.2126,.7152,.0722)),b=dot(before,float3(.2126,.7152,.0722));
  // Only a strong stale-dark-source disagreement. Preserve ordinary lighting,
  // moving foregrounds, unknown history and the generated frame everywhere else.

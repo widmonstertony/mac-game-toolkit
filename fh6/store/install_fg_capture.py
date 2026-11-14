@@ -15,6 +15,7 @@ RECYCLED_HISTORY = '0f6b43999a68e77bfd318d6a16cfcc340c881be41d76ae4e228c1c0f4f77
 DIALOG_BASELINE = 'bd10eb5e796cd5d21cbd390c61c7015ffb00cbed1d4b4d27e7c8764d91d7bc6f'
 MATCHED_PREPARE_CAPTURE = 'eb7fd784ee4f40e16293b72f9c1233555a8cc9c5940821c2ff8d8286a1a56713'
 D3DMETAL_LATENCY_GUARD = '40225ecd6e814ea003097085d87afab9c931957c9d1b59562f87eae8a57a34ce'
+FENCE_QUEUE_DIAGNOSTIC = 'dd54291dd991c723dbfcd878200d5d39310ff3ed1abfca80a95ddbbfd1d6ca0d'
 PROVIDER = 'framegeneration-history-ui.dll'
 
 
@@ -33,7 +34,7 @@ def install(artifacts, renderer=None, dialog=None, fence_diagnostics=False):
     if not target.is_file() or target.is_symlink() or verified.get(str(target)) != sha(target):
         raise RuntimeError('Installed FH6 provider differs from the Store profile')
     expected = verified[str(target)]
-    require_latency_guard = dialog is not None or expected == D3DMETAL_LATENCY_GUARD or fence_diagnostics
+    require_latency_guard = dialog is not None or expected in (D3DMETAL_LATENCY_GUARD, FENCE_QUEUE_DIAGNOSTIC) or fence_diagnostics
     candidate = artifacts/PROVIDER
     digest = sha(candidate)
     original_digest = sha(original)
@@ -61,7 +62,7 @@ def install(artifacts, renderer=None, dialog=None, fence_diagnostics=False):
         print('The verified FH6 Store capture provider is already installed.')
         return
     if expected not in (digest, BASELINE, COLOR_CAPTURE, MATCHED_PREPARE_CAPTURE,
-                        RECYCLED_HISTORY, D3DMETAL_LATENCY_GUARD):
+                        RECYCLED_HISTORY, D3DMETAL_LATENCY_GUARD, FENCE_QUEUE_DIAGNOSTIC):
         raise RuntimeError('Review the different installed FH6 frame generator before replacing it')
     processes = subprocess.check_output(['/bin/ps', '-axo', 'command='], text=True)
     if any('forzahorizon6.exe' in line.lower() or 'runtime/runner.mjs run ' in line.lower()

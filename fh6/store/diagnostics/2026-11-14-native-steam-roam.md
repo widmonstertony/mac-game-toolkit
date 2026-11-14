@@ -390,3 +390,36 @@ The previous provider SHA-256 is the `D3DMETAL_LATENCY_GUARD` build in
 `install_fg_capture.py`. Source recovery uses that previous build and the
 title-specific provider installer. Live checks still needed are car-tail
 appearance and whether a long stall reaches one of these instrumented fences.
+
+## Driving capture and edge-fill correction
+
+Capture pair 35846/35847 was collected in the player's same live session on
+a dry right-hand bend. At 28 mph the road/bumper-area vertical streak was
+present in the generated buffer before UI composition and absent from the
+matching rendered HUDless scene. The official provider replay produces a
+second exhaust contour. The installed provider replay suppresses much of
+that contour but reproduces the streak. Its border path used the same
+clamped edge row for every missing source row.
+
+The revised shader reflects a sample back inside the viewport when the
+half-frame reprojection leaves it. It requires valid, compatible donor
+depth and motion and keeps the existing previous-color confidence test.
+This is a local extrapolation for missing samples. It does not reconstruct
+unseen geometry and may still show a brightness discontinuity near the edge.
+
+The complete Store candidate (SHA-256
+`df3f0366362ba025b8063476720ac9e220dc6d6cb2ab383ccd0315446854fdd9`)
+passed the official provider GPU tests with and without native UI. Replaying
+the dry pair at 3472 × 2266 dropped unchanged vertical-neighbor samples
+with chromatic horizontal texture in the affected strip from 579/2844
+(20.4%) to 99/2844 (3.5%). The strip used x=1400..2029, y=2200..2234 and
+a horizontal RGB L1 difference of at least five byte levels. This is an
+artifact metric rather than ground-truth intermediate-frame error.
+The previous wet pair's 13,268 motion-checked samples were 6.1985 before
+the same-depth fix, 1.2514 immediately before the border revision, and
+1.2826 with it. The candidate's generated frame differed from both real
+input frames at more than 48,000 sampled RGB positions in that replay.
+
+The running game was preserved. The release candidate is ready for a
+title-only installation after exit. The previous named-fence observation
+has not established why the composition dependency took that long.
