@@ -74,7 +74,9 @@ Prepare Wine with the GDK overlay and manifest-listed patches in upstream
 order. Apply the MACxus GDK option, HTTP/2, response and private-diagnostics
 patches, including `wine-macos-gs-last-error.patch` from its runtime assets.
 Then apply [the WebSocket patch](../../rosetta/wine11-websocket.patch) and
-[the FH6 durable patch](../xgameruntime-fh6-car-pass.patch) with `patch -p1`.
+[the FH6 status patch](../wine-winhttp-fh6-status.patch) to WinHTTP, and
+[the FH6 durable patch](../xgameruntime-fh6-car-pass.patch) to XGameRuntime,
+with `patch -p1`.
 From a source export, regenerate Wine's configure inputs, spec files and
 winevulkan stubs before configuring. Use an x86_64 MinGW compiler, archiver and
 headers, including nghttp2's public headers. Build Wine's x86_64 Windows
@@ -102,8 +104,12 @@ closed. To restore official Nexus DLLs, close the game, move the private
 `node runner.mjs check` in `external-highball`. The official module set is
 then reinstalled in the same bottle.
 
-The next title launch writes only bounded numeric HTTP/HRESULT phase metadata
-to a private per-run file. `check_session.py` extracts status counts and
-graphics summaries without printing account identifiers, requests, or resource
-addresses. It cannot prove remote acceptance or displayed pixels from the
-absence of diagnostics.
+The next title launch writes HTTP responses/errors, WebSocket upgrades and
+close/error codes for allowlisted services, plus title authentication and
+licensing status. The two private status files are each bounded to 32 KiB.
+They retain only fixed phase/service labels and numbers. The public catalog
+probe verified the HTTP 200 status record; the six-echo regression also
+confirmed that an unlisted loopback host leaves no record. `check_session.py`
+extracts status counts and graphics summaries without printing identifiers,
+URLs, headers, payloads, or resource addresses. This does not decode any
+matchmaking response body or prove remote acceptance or displayed pixels.

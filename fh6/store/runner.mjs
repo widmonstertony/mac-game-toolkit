@@ -113,7 +113,9 @@ if (mode === 'setup') {
     if (nexusRepair) {
       const directory = mkdtempSync(path.join(runner.compatibilityDataPath, 'drive_c', 'fh6-xbox-status-'));
       closeSync(openSync(path.join(directory, 'status.log'), 'wx', 0o600));
-      environment.XUSER_AUTH_METADATA_LOG = `C:\\${path.basename(directory)}\\status.log`;
+      closeSync(openSync(path.join(directory, 'net.log'), 'wx', 0o600));
+      environment.XUSER_AUTH_METADATA_LOG = path.win32.join('C:\\', path.basename(directory), 'status.log');
+      environment.XODUS_FH6_NET_STATUS = path.win32.join('C:\\', path.basename(directory), 'net.log');
     }
     // Keep this event loop running: the game's authenticated TCP bridge is
     // served here. A synchronous child wait would deadlock runtime requests.

@@ -9,6 +9,9 @@ import re
 AUTH_METADATA = re.compile(
     r'^AUTH_META phase=([a-z0-9-]+) hr=([0-9a-fA-F]{8}) http=(\d{1,3})(?: |$)'
 )
+NETWORK_METADATA = re.compile(
+    r'^NET_META phase=([a-z0-9-]+) service=([a-z0-9-]+) status=(\d{1,4}) error=(\d{1,10})(?: |$)'
+)
 
 
 def latest_graphics(trace):
@@ -38,33 +41,33 @@ def latest_graphics(trace):
     return dict(counts)
 
 
-def latest_auth(prefix):
-    paths = list(prefix.glob('fh6-xbox-status-*/status.log'))
-    if not paths:
-        return None, []
-    latest = max(paths, key=lambda p: p.parent.stat().st_mtime_ns)
+def count_metadata(file, pattern):
     counts = Counter()
-    if latest.stat().st_size <= 32768:
-        with latest.open() as stream:
+    if file.is_file() and file.stat().st_size <= 32768:
+        with file.open() as stream:
             for line in stream:
-                match = AUTH_METADATA.match(line)
+                match = pattern.match(line)
                 if match:
                     counts[match.groups()] += 1
-    return latest.parent.stat().st_mtime_ns, [
-        {'phase': phase, 'hresult': '0x' + hr, 'http': int(http), 'count': count}
-        for (phase, hr, http), count in counts.items()
-    ]
+    return counts
 
 
 def main():
     prefix = Path.home() / 'Library/Application Support/MACxus/bottles/xbox-highball/drive_c'
     trace = prefix / 'highball/store-plugins/fh6-fg-chain.jsonl'
-    auth_time, auth = latest_auth(prefix)
+    runs = [directory for directory in prefix.glob('fh6-xbox-status-*') if directory.is_dir()]
+    latest = max(runs, default=None, key=lambda directory: directory.stat().st_birthtime)
+    auth, net = [], []
+    if latest:
+        auth = [{'phase': phase, 'hresult': '0x' + hr, 'http': int(http), 'count': count}
+                for (phase, hr, http), count in count_metadata(latest / 'status.log', AUTH_METADATA).items()]
+        net = [{'phase': phase, 'service': service, 'status': int(status), 'error': int(error), 'count': count}
+               for (phase, service, status, error), count in count_metadata(latest / 'net.log', NETWORK_METADATA).items()]
     graphics = {}
-    if trace.is_file() and (auth_time is None or trace.stat().st_mtime_ns >= auth_time):
+    if trace.is_file() and (latest is None or trace.stat().st_mtime >= latest.stat().st_birthtime):
         with trace.open() as stream:
             graphics = latest_graphics(stream)
-    print(json.dumps({'launch_status': auth, 'graphics': graphics}, indent=2))
+    print(json.dumps({'launch_status': auth, 'network': net, 'graphics': graphics}, indent=2))
 
 
 if __name__ == '__main__':

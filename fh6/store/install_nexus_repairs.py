@@ -44,7 +44,11 @@ def install(probe_system32, apply):
     if runtime != RUNTIME or not installed_runner.is_file():
         raise RuntimeError('The pinned Xbox FH6 Nexus launcher must be present')
     if dest.exists():
-        raise RuntimeError('An existing FH6 Nexus repair is already installed')
+        previous = json.loads((dest / 'verified.json').read_text())
+        if previous.get('schema') != 1 or previous.get('runtime') != RUNTIME or any(
+            digest(dest / name) != previous.get('files', {}).get(name) for name in MODULES
+        ):
+            raise RuntimeError('Unexpected change to the existing FH6 Nexus repair')
     if any((data / 'runtime-overrides' / name).exists() for name in MODULES + OTHER_RUNTIME_MODULES):
         raise RuntimeError('Resolve existing Nexus runtime overrides before installing the title repair')
     if probe_system32.resolve() == prefix.resolve():
@@ -72,8 +76,11 @@ def install(probe_system32, apply):
             shutil.copy2(installed_runner, temporary / 'runner.mjs')
             for name in MODULES + OTHER_RUNTIME_MODULES:
                 shutil.copy2(prefix / name, temporary / name)
-            incoming.rename(dest)
+            backup = temporary / 'previous-repair'
+            if dest.exists():
+                dest.rename(backup)
             try:
+                incoming.rename(dest)
                 replace_file(runner, installed_runner)
                 result = subprocess.run([node, str(installed_runner), 'check'], check=True,
                                         text=True, stdout=subprocess.PIPE, timeout=90)
@@ -91,7 +98,10 @@ def install(probe_system32, apply):
                 replace_file(temporary / 'runner.mjs', installed_runner)
                 for name in MODULES + OTHER_RUNTIME_MODULES:
                     replace_file(temporary / name, prefix / name)
-                shutil.rmtree(dest)
+                if dest.exists():
+                    shutil.rmtree(dest)
+                if backup.exists():
+                    backup.rename(dest)
                 raise
     else:
         print(json.dumps(receipt, indent=2))

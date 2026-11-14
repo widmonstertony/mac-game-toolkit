@@ -1,0 +1,139 @@
+--- a/dlls/winhttp/request.c
++++ b/dlls/winhttp/request.c
+@@ -46,6 +46,62 @@
+ 
+ #define ACTUAL_DEFAULT_RECEIVE_RESPONSE_TIMEOUT 21000
+ 
++/* Optional title diagnostics for an existing private file. Report only fixed
++ * service labels and numeric status, never URLs, account data, or payloads. */
++static const char *status_service( const WCHAR *host )
++{
++    static const struct { const WCHAR *suffix; const char *label; } services[] =
++    {
++        {L"xboxlive.com", "xbox-live"},
++        {L"playfabapi.com", "playfab"},
++        {L"playfab.com", "playfab"},
++        {L"forzamotorsport.net", "forza"},
++        {L"forza.net", "forza"},
++        {L"displaycatalog.mp.microsoft.com", "store-catalog"},
++    };
++    unsigned int i;
++    size_t n, len;
++    if (!host) return NULL;
++    len = wcslen(host);
++    for (i = 0; i < ARRAY_SIZE(services); ++i)
++    {
++        n = wcslen(services[i].suffix);
++        if (len >= n && (len == n || host[len - n - 1] == '.') &&
++            !wcsicmp(host + len - n, services[i].suffix)) return services[i].label;
++    }
++    return NULL;
++}
++
++static void status_note( const char *phase, const char *service, DWORD status, DWORD error )
++{
++    static SRWLOCK lock = SRWLOCK_INIT;
++    static const LARGE_INTEGER zero;
++    DWORD last_error, count, written;
++    LARGE_INTEGER size;
++    char path[MAX_PATH], line[128];
++    HANDLE file;
++
++    if (!service) return;
++    last_error = GetLastError();
++    count = GetEnvironmentVariableA("XODUS_FH6_NET_STATUS", path, sizeof(path));
++    if (!count || count >= sizeof(path)) goto done;
++    count = snprintf(line, sizeof(line), "NET_META phase=%s service=%s status=%lu error=%lu tick=%lu\n",
++                     phase, service, status, error, GetTickCount());
++    if (count >= sizeof(line)) goto done;
++    AcquireSRWLockExclusive(&lock);
++    file = CreateFileA(path, FILE_APPEND_DATA | FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE,
++                       NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
++    if (file != INVALID_HANDLE_VALUE)
++    {
++        if (GetFileSizeEx(file, &size) && size.QuadPart + count <= 32768 &&
++            SetFilePointerEx(file, zero, NULL, FILE_END)) WriteFile(file, line, count, &written, NULL);
++        CloseHandle(file);
++    }
++    ReleaseSRWLockExclusive(&lock);
++done:
++    SetLastError(last_error);
++}
++
+ /* return the size of data available to be read immediately */
+ static DWORD query_data_stream( struct request *request )
+ {
+@@ -3404,7 +3460,7 @@
+ static DWORD receive_response( struct request *request )
+ {
+     BOOL async_mode = request->connect->hdr.flags & WINHTTP_FLAG_ASYNC;
+-    DWORD ret, size, query, status;
++    DWORD ret, size, query, status = 0;
+ 
+     TRACE( "request state %d.\n", request->state );
+ 
+@@ -3461,6 +3517,7 @@
+     size = sizeof(DWORD);
+     query = WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER;
+     if ((ret = query_headers( request, query, NULL, &status, &size, NULL ))) goto done;
++    status_note("http-response", status_service(request->connect->hostname), status, 0);
+ 
+     if ((ret = set_content_length( request, status ))) goto done;
+ 
+@@ -3502,6 +3559,7 @@
+         request->state = REQUEST_RESPONSE_STATE_RESPONSE_RECEIVED;
+         if (request->netconn) netconn_set_timeout( request->netconn, FALSE, request->receive_timeout );
+     }
++    else status_note("http-error", status_service(request->connect->hostname), status, ret);
+     if (async_mode)
+     {
+         if (!ret) send_callback( &request->hdr, WINHTTP_CALLBACK_STATUS_HEADERS_AVAILABLE, NULL, 0 );
+@@ -4002,6 +4060,7 @@
+     socket->hdr.notify_mask = request->hdr.notify_mask;
+     socket->hdr.context = context;
+     socket->hdr.flags = request->connect->hdr.flags & WINHTTP_FLAG_ASYNC;
++    socket->status_service = status_service(request->connect->hostname);
+     socket->keepalive_interval = 30000;
+     socket->close_timeout = 10000;
+     socket->send_buffer_size = request->websocket_send_buffer_size;
+@@ -4036,6 +4095,7 @@
+     }
+ 
+     release_object( &socket->hdr );
++    if (hsocket) status_note("websocket-upgrade", status_service(request->connect->hostname), 101, 0);
+     release_object( &request->hdr );
+     TRACE("returning %p\n", hsocket);
+     if (hsocket) SetLastError( ERROR_SUCCESS );
+@@ -4720,6 +4780,8 @@
+ 
+ static void socket_receive_complete( struct socket *socket, DWORD ret, WINHTTP_WEB_SOCKET_BUFFER_TYPE type, DWORD len )
+ {
++    if (ret || type == WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE)
++        status_note("websocket-receive", socket->status_service, ret ? 0 : socket->status, ret);
+     if (!ret)
+     {
+         WINHTTP_WEB_SOCKET_STATUS status;
+@@ -4806,7 +4868,12 @@
+             free( r );
+         }
+     }
+-    else ret = socket_receive( socket, buf, len, ret_len, ret_type );
++    else
++    {
++        ret = socket_receive( socket, buf, len, ret_len, ret_type );
++        if (ret || *ret_type == WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE)
++            status_note("websocket-receive", socket->status_service, ret ? 0 : socket->status, ret);
++    }
+ 
+     release_object( &socket->hdr );
+     return ret;
+--- a/dlls/winhttp/winhttp_private.h
++++ b/dlls/winhttp/winhttp_private.h
+@@ -309,6 +309,7 @@
+ {
+     struct object_header hdr;
+     struct netconn *netconn;
++    const char *status_service;
+     int keepalive_interval;
+     int close_timeout;
+     unsigned int send_buffer_size;
