@@ -47,10 +47,16 @@ last Steam run. The two observations were not measured over a matched route.
 The same run logged 221 pipelines marked no-op, including 148
 `sv_shadingrate0` failures and 73 fragment compilation errors. The
 [upstream MetalHorizon notes](https://github.com/alexandreunitypro/MetalHorizon-FH6-Mac-Launcher/blob/2b8a57c126c51efcb2adefcd275c2d08ef621e3e/docs/PASSATION-IA.md)
-describe these signatures. On this machine, the upstream simplified VRS
-probe returned the same GPU pixel on both isolated shim variants. This is
-insufficient to adopt a replacement or to attribute the measured stall to
-the compilation failures. The raw thread sample and Metal record stay local.
+describe these signatures. In a corrected A/B, the owned probe executable was separated from the candidate
+DLL so Windows search order could not silently load the same shim twice.
+Both variants used the installed D3DMetal `apd12.dll`. The installed shim
+reproduced the `sv_shadingrate0` refusal and read back `00000000` through
+both the descriptor and pipeline-stream APIs. The pinned MetalHorizon
+shim restored `00ff7f7f` through both APIs. Disabling the upstream shading
+rate transform reproduced the refusal and zero pixel on the same shim.
+This validates the shader correction for the reproduced failure. Full
+provider integration and correlation with the measured stalls remain open.
+The raw thread sample and Metal record stay local.
 
 ## Exhaust, Xbox Live and Car Pass
 
@@ -76,7 +82,9 @@ Car Pass add-ons from a populated list. The follow-up source patch adds
 an empty/nonempty event after signed checks, without logging IDs or tokens.
 The offline catalog, durable and add-on exercises returned their expected
 results. A paired transport candidate was not accepted after isolated HTTP/2
-and WebSocket regressions failed. No new network module was installed.
+and WebSocket regressions failed. The installed WinHTTP passed the same
+six-worker loopback test, while the rebuilt candidate faulted on execute
+access before that test completed. The network module was left in place.
 
 To reproduce the validated frame provider, build with
 `fh6/rosetta/fg-chain/build.py`. Run the two `run_native_ui_probe.py`
