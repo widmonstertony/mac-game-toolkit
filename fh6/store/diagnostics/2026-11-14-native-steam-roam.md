@@ -54,8 +54,10 @@ reproduced the `sv_shadingrate0` refusal and read back `00000000` through
 both the descriptor and pipeline-stream APIs. The pinned MetalHorizon
 shim restored `00ff7f7f` through both APIs. Disabling the upstream shading
 rate transform reproduced the refusal and zero pixel on the same shim.
-This validates the shader correction for the reproduced failure. Full
-provider integration and correlation with the measured stalls remain open.
+The combined shim and recycled FFX provider then passed on the Store's
+isolated D3DMetal setup, with zero reference-pixel errors and zero UI
+errors. Correlation between these shader failures and the measured stalls
+remains open.
 The raw thread sample and Metal record stay local.
 
 ## Exhaust, Xbox Live and Car Pass
@@ -90,7 +92,24 @@ To reproduce the validated frame provider, build with
 `fh6/rosetta/fg-chain/build.py`. Run the two `run_native_ui_probe.py`
 commands in the [previous procedure](2026-11-13-nexus-and-playback.md),
 then `history-post-probe.exe` with adjacent private captured inputs.
-Install with `fh6/store/install_fg_capture.py` after FH6 closes. To revert,
+To build the optional renderer shim, check out the pinned MetalHorizon
+commit linked above and use an x64 LLVM MinGW toolchain:
+
+```sh
+"$CC" -shared -O2 -Wall -o /path/to/d3d12.dll \
+  "$UPSTREAM/tools/tsshim/d3d12.c" \
+  "$UPSTREAM/tools/tsshim/dxil_shadingrate.c" \
+  "$UPSTREAM/tools/tsshim/inspect.c" "$UPSTREAM/tools/tsshim/d3d12.def"
+python3 fh6/store/install_fg_capture.py "$FG_BUILD" --renderer /path/to/d3d12.dll
+```
+
+Run installation after FH6 closes. The installer checks the locally
+tested renderer build hash. It updates only the Store-only D3D12 copies
+and receipt alongside the generated-frame wrapper. The signed-off
+baseline D3D12 shim remains in the shared engine and can be restored to
+those two Store-only paths with its corresponding receipt digest. The
+audio script update first deployed during this run takes effect on the
+next launch. To revert the frame provider,
 rebuild the previous Git revision and restore its matching provider and
 profile digest while the game is closed. Keep the native Steam shortcut,
 resolution, scaling, generation, audio device, cloud data and caches.
