@@ -383,3 +383,10 @@ and the replacement digest is
 Restore by rebuilding without the public-catalog patch and reinstalling
 the prior DLL and its corresponding receipt. A real Car Pass redemption
 is still a signed-in game check.
+
+The initial installer used `drive_c/windows/ProgramData`. The Win32
+lookup reads `C:\\ProgramData`, so the corrected installer writes the
+catalog directly below `drive_c`. It records the content digest and the
+normal launcher checks the same path before proceeding. On this Mac,
+the installed catalog and its digest matched, the stale identical file
+was removed, and the launcher reported `publicCatalog: true`.

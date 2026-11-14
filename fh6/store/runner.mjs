@@ -26,6 +26,7 @@ const repairModules = ['winhttp.dll', 'xgameruntime.dll'];
 const hashFile = file => createHash('sha256').update(readFileSync(file)).digest('hex');
 const runtimeOverrides = runtimeOverrideDirectory(dataRoot);
 let nexusRepair;
+let expectedCatalog;
 if (existsSync(repairManifest)) {
   const receipt = JSON.parse(readFileSync(repairManifest, 'utf8'));
   const runtime = path.basename(path.resolve(runtimeDllDir, '../../../..'));
@@ -39,6 +40,7 @@ if (existsSync(repairManifest)) {
     if (hashFile(path.join(repairRoot, name)) !== receipt.files?.[name])
       throw Error('Updated FH6 repair module does not match the receipt: '+name);
   }
+  expectedCatalog = receipt.catalogSha256;
   nexusRepair = repairRoot;
 }
 
@@ -83,11 +85,14 @@ if (mode === 'setup') {
     if(hashFile(file)!==expected)
       throw Error('FH6 Store component changed; reconfigure before launch: '+path.basename(file));
   }
+  const drive = path.join(runner.compatibilityDataPath, 'drive_c');
+  if (expectedCatalog && hashFile(path.join(drive, 'ProgramData/MACxus/fh6-public-catalog.tsv')) !== expectedCatalog)
+    throw Error('FH6 public catalog changed; reinstall the Store repair before launch');
   if (mode === 'check') {
     console.log(JSON.stringify({ready:true,packageVersion:profile.packageVersion,
       resolution:profile.resolution,upscaler:profile.upscaler,frameGeneration:profile.frameGeneration,
       priorFixes:runner.priorFixes,
-      nexusRepair:Boolean(nexusRepair),
+      nexusRepair:Boolean(nexusRepair), publicCatalog:Boolean(expectedCatalog),
       cloudSave:'official Nexus/PlayFab auto sync; no save copied or conflict fabricated',
       gameplayVerified:false},null,2));
     process.exit(0);
@@ -98,7 +103,6 @@ if (mode === 'setup') {
   const {cli}=await readBundledBackend('/Applications/MACxus.app/Contents/Resources/backend');
   const {startXodusService, cloudSaveRuntime}=await import(path.join(modulesRoot,'xodus-service.js'));
   if (!await cloudSaveRuntime(pointer.winePath)) throw Error('Expected the pinned cloud-save runtime');
-  const drive = path.join(runner.compatibilityDataPath, 'drive_c');
   const trace = path.join(drive, 'highball/store-plugins/fh6-fg-chain.jsonl');
   const traceStat = statSync(trace, {throwIfNoEntry:false});
   const directory = nexusRepair ? mkdtempSync(path.join(drive, 'fh6-xbox-status-')) : null;
