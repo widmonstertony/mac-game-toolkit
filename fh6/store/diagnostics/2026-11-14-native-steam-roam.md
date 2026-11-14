@@ -203,3 +203,50 @@ fixture is `fh6/rosetta/probes/taskdialog-utf8.c`, with its ordinal import
 library, and its manifest embedded as resource type 24, ID 1. The installer
 pairs the two GPU receipts and dialog verification with the candidate hashes
 using `install_fg_capture.py ARTIFACTS --dialog PATH_TO_ASI`.
+
+## Live validation after FHE11 and TaskDialog repair
+
+The next launch from native Steam reached online free roam and was still
+running after 38 minutes. The FH6/D3DMetal Anti-Lag guard logged installation.
+The first-fault log retained its pre-launch timestamp; no new FHE11 was
+observed in this run. This run did not produce a fatal dialog to retest the
+Chinese text in-game. The player reported restored exhaust audio and online
+play, and confirmed residual car-tail ghosting and stutter. Xbox title auth
+and the RTA WebSocket 101 upgrade were recorded. The generic Xbox host still
+logged three timeouts; the instrument did not return a session-join result.
+The signed add-on query returned a nonempty result. No particular Car Pass
+car was tested during this run.
+
+All 778 interpolation calls in the first snapshot of the new launch segment
+returned success requesting one generated frame. Four native-resolution
+images of generated frames were also read back after GPU fences. In the
+moving wet-road pair, the generated output differed from the rendered frame
+at 45,422 and 45,770 of 123,256 sampled pixels. The extra bumper/exhaust
+contour was visible before native UI composition and persisted afterward;
+the corresponding HUDless and normal rendered inputs did not contain that
+contour. There were no sampled native UI composition mismatches. The existing
+history correction was active for the moving pair. Replaying its actual
+adjacent inputs through the official FFX provider and the installed candidate
+reproduced a residual trail. The current candidate changed 320 of 5,162
+trail-region samples relative to unmodified replay and reduced mean absolute
+RGB difference from the current rendered image there from 3.31 to 2.82.
+That comparison is a diagnostic, since the current base image is not a
+reference for all correct intermediate pixels. Raw image evidence stays local.
+
+A combined Metal/scheduler capture matched 234 present requests with
+submissions and GPU completions. Its 1,832, 1,106 and 201 ms gaps occurred
+mostly before the next present submission. During the three gaps the same
+D3DMetal submitter was blocked for 1,831, 1,106 and 201 ms respectively;
+recorded GPU work covered 27.2, 3.6 and 25.0 ms. There were no recorded
+drawable-wait intervals. The 1,106 ms gap ended with a wake by a Wine thread
+whose nearby address is Rosetta JIT and unresolved; it and a second
+clock-polling thread were running for nearly the full gap. The other long
+gaps ended with a different Wine thread seen encoding D3DMetal commands,
+and overlapped Metal resource tracing on a separate thread. Some gaps may
+therefore include profiler overhead. Wakeups identify when submission
+resumed; they do not identify the fence or producer responsible. The
+presented-handler timestamp domain was incompatible with the trace clock
+(253 seconds versus 6 seconds for the same callbacks), so the analyzer now
+rejects that display FPS instead of publishing it. The recording timeout was
+also raised because Instruments took over a minute to save this live trace.
+No game or graphics settings were changed. No restart was required.

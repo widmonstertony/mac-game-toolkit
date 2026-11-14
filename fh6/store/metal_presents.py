@@ -233,11 +233,17 @@ def summarize(directory, pid, threshold_ms):
     callbacks_file = directory / "ca-client-presented-handler.xml"
     # Callback time is separate from the drawable's recorded presentation time.
     # Exclude missing or zero at-time records and never count a duplicate time.
-    displayed = sorted({
-        int(at) for at, process in rows(callbacks_file, "at-time", "process")
-        if owned(process) and at and int(at) > 0
-    }) if callbacks_file.is_file() else []
-    display_intervals = [current - previous for previous, current in zip(displayed, displayed[1:])]
+    callbacks = [(int(stamp), int(at)) for stamp, at, process in rows(callbacks_file, "timestamp", "at-time", "process")
+                 if owned(process) and stamp and at and int(at) > 0] if callbacks_file.is_file() else []
+    displayed = sorted({at for _, at in callbacks})
+    callback_span = max(stamp for stamp, _ in callbacks) - min(stamp for stamp, _ in callbacks) if callbacks else 0
+    # A different origin is fine, but mismatched units produce impossible FPS.
+    # Allow callback scheduling skew without silently guessing a clock scale.
+    at_time_span = displayed[-1] - displayed[0] if displayed else 0
+    valid_display_clock = bool(callback_span and at_time_span and
+                               0.5 <= at_time_span / callback_span <= 2.0)
+    usable_displayed = displayed if valid_display_clock else []
+    display_intervals = [current - previous for previous, current in zip(usable_displayed, usable_displayed[1:])]
     display_gaps = [value for value in display_intervals if value >= threshold_ms * 1_000_000]
     return {
         "present_requests": len(requests),
@@ -247,10 +253,12 @@ def summarize(directory, pid, threshold_ms):
         "median_request_interval_ms": ms(median(intervals)) if intervals else None,
         "long_request_gaps": len(gaps),
         "longest_request_gaps": sorted(gaps, key=lambda gap: gap["request_gap_ms"], reverse=True)[:20],
-        "drawable_presentation_times": len(displayed),
-        "drawable_capture_seconds": round((displayed[-1] - displayed[0]) / 1e9, 3)
+        "drawable_callback_records": len(callbacks),
+        "drawable_presentation_clock_valid": valid_display_clock,
+        "drawable_presentation_times": len(usable_displayed),
+        "drawable_capture_seconds": round(at_time_span / 1e9, 3)
         if display_intervals else None,
-        "drawable_presentation_rate_hz": round(len(display_intervals) * 1e9 / (displayed[-1] - displayed[0]), 2)
+        "drawable_presentation_rate_hz": round(len(display_intervals) * 1e9 / at_time_span, 2)
         if display_intervals else None,
         "drawable_presentation_long_gaps": len(display_gaps) if display_intervals else None,
         "drawable_presentation_max_interval_ms": ms(max(display_intervals)) if display_intervals else None,
@@ -268,10 +276,10 @@ def record(directory, pid, seconds):
     subprocess.run([*command, "record", "--template", "Metal System Trace", "--instrument", "Thread Activity",
                     "--attach", str(pid),
                     "--time-limit", f"{seconds}s", "--no-prompt", "--output", trace],
-                   check=True, env=env, timeout=seconds + 30, stdout=sys.stderr)
+                   check=True, env=env, timeout=seconds + 240, stdout=sys.stderr)
     toc = directory / "toc.xml"
     subprocess.run([*command, "export", "--input", trace, "--toc", "--output", toc],
-                   check=True, env=env, timeout=30, stdout=sys.stderr)
+                   check=True, env=env, timeout=90, stdout=sys.stderr)
     present = {table.get("schema") for table in ET.parse(toc).findall(".//run[@number='1']/data/table")}
     missing = set(REQUIRED_TABLES + ("thread-state",)) - present
     if missing:
@@ -280,7 +288,7 @@ def record(directory, pid, seconds):
         if schema in present:
             subprocess.run([*command, "export", "--input", trace,
                             "--xpath", f"/trace-toc/run[@number='1']/data/table[@schema='{schema}']",
-                            "--output", directory / (schema + ".xml")], check=True, env=env, timeout=90,
+                            "--output", directory / (schema + ".xml")], check=True, env=env, timeout=240,
                            stdout=sys.stderr)
 
 
