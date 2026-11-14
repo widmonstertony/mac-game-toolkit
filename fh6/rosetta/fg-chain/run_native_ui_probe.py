@@ -147,6 +147,15 @@ def main():
         if ('PASS named interpolation fence stalls and advances' not in contents
                 or polls != [('stalled', 0), ('advanced', 1)]):
             raise RuntimeError('Named fence diagnostic did not match the controlled wait')
+        stalled = next(row for row in rows if row['event'] == 'fg_fence_poll'
+                       and row['fence'] == 'interpolation' and row['phase'] == 'stalled')
+        edges = [row for row in rows if row['event'] == 'fg_fence_queue'
+                 and row['observedInstance'] == stalled['instance']]
+        if ([(e['kind'], e['fence'], e['value']) for e in edges]
+                != [('wait', 'game', 1), ('signal', 'interpolation', 1)]
+                or edges[0]['queue'] != edges[1]['queue'] or edges[0]['queue'] == '0'
+                or not edges[0]['operationQpc'] <= edges[1]['operationQpc'] <= stalled['qpc']):
+            raise RuntimeError('The pending signal and preceding queue wait were not correlated')
     applied = [row for row in rows if row['event'] == 'native_ui_dispatch']
     if len(applied) != (0 if args.missing_ui else 8) or any(row['result'] or row['frames'] != 1 for row in applied):
         raise RuntimeError('Real candidate did not execute the validated native UI path')
@@ -185,6 +194,7 @@ def main():
     receipt = {'passed': True, 'kind': 'synthetic real D3DMetal GPU / official FFX 3.1.6 / full candidate provider and real DXGI queue',
                'missing_ui': args.missing_ui, 'store_renderer': bool(args.store_test_prefix),
                'latency_guard': args.latency_guard, 'fence_diagnostics': args.fence_diagnostics,
+               'fence_queue_edges': args.fence_diagnostics,
                'game_visual_verified': False,
                'manifest_sha256': sha(out / 'build-manifest.json'), 'artifacts': manifest['artifacts'],
                'original_provider_sha256': sha(original), 'log_sha256': sha(log),

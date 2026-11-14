@@ -78,6 +78,7 @@ int wmain(int argc,wchar_t **argv){
    CHECK(SUCCEEDED(g.d->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&gate))));
    CHECK(SUCCEEDED(g.d->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&observed))));
    // Insert a known two-fence dependency and let real Metal submission retire it.
+   CHECK(SUCCEEDED(gate->SetName(L"AMD FSR GameFence")));
    CHECK(SUCCEEDED(observed->SetName(L"AMD FSR InterpolationFence")));
    CHECK(SUCCEEDED(g.q->Wait(gate,1)));CHECK(SUCCEEDED(g.q->Signal(observed,1)));
    const auto until=GetTickCount64()+150;

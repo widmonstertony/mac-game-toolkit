@@ -357,3 +357,36 @@ or excluding a problem in a preceding frame. A separate Steam/CrossOver
 [upstream frame-pause comparison](https://github.com/EDM115/FH6-on-Mac/blob/master/experiments/frame-pauses/README.md)
 observed regular pauses offline and at reduced resolution. Its identified
 thread activity was correlation, with no confirmed performance fix.
+
+## Installed FSR history correction and queue diagnostics
+
+The Store provider now runs the same-depth history correction and the bounded
+named-fence observer in the same build. When a fence is polled without progress
+for at least 80 ms, the observer reports the next recorded signal and the last
+recorded wait before it on that queue, where available. These are queue events,
+so a reported preceding wait is a lead and does not by itself prove causality.
+The controlled D3DMetal regression verified a game-fence wait followed by an
+interpolation-fence signal on one queue. Tagged and absent UI passed the
+complete official FFX 3.1.6 provider checks; the latter matched the original
+output byte for byte. The 43-frame GPU ownership check released all references.
+
+The exact installed build was compared against the previously installed DLL
+using capture pairs 73199/73200 and 64787/64788. Both rendered the generated
+output at 3472 × 2266. On 13,268 wet-road samples the local luminance error
+fell from 6.1985 to 1.2514. The new result differed from each real input frame
+at more than 48,000 sampled RGB pixels. The second pair had no qualifying
+same-depth tail samples in the selected region; 185 out of 123,256 sampled RGB
+pixels across that output differed from the previous build. The measurements
+do not cover every disocclusion or prove visual correctness in live play.
+
+The title-only installer updated the provider and enabled the fence diagnostic.
+Its readiness check confirmed native output, FSR 3.1.6 Quality at 1.5x and 2x
+frame generation. Native Steam, Nexus sync and audio continue using the
+existing configuration. The game was not launched by this check.
+
+Installed provider SHA-256:
+`dd54291dd991c723dbfcd878200d5d39310ff3ed1abfca80a95ddbbfd1d6ca0d`.
+The previous provider SHA-256 is the `D3DMETAL_LATENCY_GUARD` build in
+`install_fg_capture.py`. Source recovery uses that previous build and the
+title-specific provider installer. Live checks still needed are car-tail
+appearance and whether a long stall reaches one of these instrumented fences.
