@@ -1,7 +1,6 @@
 #pragma once
-// Bounded, explicitly armed GPU readbacks. All copies stay in the actual FFX
-// interpolation command list, before/after UI composition. Never guess that a
-// CPU return value means GPU completion.
+// Bounded, explicitly armed GPU readbacks on the FFX Prepare and interpolation
+// command lists. A CPU return value does not establish GPU completion.
 #include <windows.h>
 #include <d3d12.h>
 #include <cstdio>
@@ -24,7 +23,7 @@ struct FgGpuCapture {
         ID3D12Device *device{};volatile LONG *active{};
         HMODULE module{},reporterModule{};ChainReport report{};wchar_t folder[32768]{};
         uint64_t frame{};UINT64 total{};ChainFrame native{};CapturePrepare prepare{};
-        UINT transfer{};bool recorded{},nativeUi{};
+        UINT transfer{};bool recorded{},nativeUi{},preparedInputs{},skip{};
     };
     Job *pending[JobCount]{};unsigned remaining{},poll{};HMODULE module{};ChainReport report{};
     volatile LONG activeJobs{};
@@ -70,6 +69,10 @@ struct FgGpuCapture {
             return 1;
         }
         if(event)CloseHandle(event);
+        if(!j->recorded){
+            if(j->report)j->report("{\"event\":\"gpu_capture_missing_interpolation\"}");
+            HMODULE keep=j->module;cleanup(j);FreeLibraryAndExitThread(keep,1);return 1;
+        }
         BYTE *mapped=nullptr;D3D12_RANGE range{0,(SIZE_T)j->total};bool ok=SUCCEEDED(j->readback->Map(0,&range,(void**)&mapped));
         wchar_t path[32768];
         if(ok)for(auto &i:j->image){if(!i.source)continue;wcscpy(path,j->folder);wcscat(path,L"\\");
@@ -111,47 +114,37 @@ struct FgGpuCapture {
     }
     void drained(ID3D12CommandQueue *queue) {
         // Context teardown already drained the original SDK's queue here.
-        for(auto &j:pending)if(j && j->recorded)if(schedule(j,queue))j=nullptr;
+        for(auto &j:pending)if(j && (j->recorded || j->preparedInputs))if(schedule(j,queue))j=nullptr;
     }
-    Job *begin(ID3D12Device *device,const ChainFrame &f,const CapturePrepare &prep,const ffxDispatchDescFrameGeneration &p,bool nativeUi=true) {
-        if(!module || !root[0] || p.reset || InterlockedCompareExchange(&activeJobs,0,0)>=JobCount)return nullptr;
-        if(!nativeUi && (f.frame!=p.frameID || !f.hasConstants || !prep.known || prep.frame!=p.frameID ||
-            !f.tags[0].native || !f.tags[1].native || f.tags[2].native || f.tags[3].native ||
-            !p.commandList || p.header.pNext || p.numGeneratedFrames!=1 ||
-            !p.presentColor.resource || !p.outputs[0].resource || p.presentColor.resource==p.outputs[0].resource ||
-            !p.presentColor.description.width || !p.presentColor.description.height ||
-            p.presentColor.description.width!=p.outputs[0].description.width ||
-            p.presentColor.description.height!=p.outputs[0].description.height ||
-            p.presentColor.description.format!=FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM ||
-            p.outputs[0].description.format!=FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM ||
-            (p.presentColor.state!=FFX_API_RESOURCE_STATE_PRESENT &&
-             p.presentColor.state!=FFX_API_RESOURCE_STATE_PIXEL_COMPUTE_READ) ||
-            p.outputs[0].state!=FFX_API_RESOURCE_STATE_UNORDERED_ACCESS))return nullptr;
+    bool armed() {
+        if(!module || !root[0] || InterlockedCompareExchange(&activeJobs,0,0)>=JobCount)return false;
         if(!remaining && (++poll%120==1) && !pending[0] && !pending[1] && GetFileAttributesW(request)!=INVALID_FILE_ATTRIBUTES) {
             if(DeleteFileW(request)){remaining=JobCount;CreateDirectoryW(root,nullptr);if(report)report("{\"event\":\"gpu_capture_armed\",\"frames\":2}");}
         }
-        if(!remaining)return nullptr;
-        unsigned slot=JobCount;for(unsigned i=0;i<JobCount;i++)if(!pending[i]){slot=i;break;}if(slot==JobCount)return nullptr;
+        return remaining!=0;
+    }
+    Job *makeJob(ID3D12Device *device,const ChainFrame &f,const CapturePrepare &prep,bool nativeUi) {
         auto j=(Job*)HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(Job));if(!j)return nullptr;
         j->active=&activeJobs;InterlockedIncrement(&activeJobs);j->device=device;device->AddRef();
-        j->frame=p.frameID;j->native=f;j->prepare=prep;j->prepare.known=prep.known && prep.frame==p.frameID;j->transfer=p.backbufferTransferFunction;j->report=report;j->nativeUi=nativeUi;
-        const char *names[]={"depth","motion","scene","ui","present",nativeUi?"generated-before-ui":"generated-provider-output","generated-after-ui"};
-        const uint64_t ptrs[]={f.tags[0].native,f.tags[1].native,f.tags[2].native,f.tags[3].native,(uint64_t)p.presentColor.resource,(uint64_t)p.outputs[0].resource,(uint64_t)p.outputs[0].resource};
-        const D3D12_RESOURCE_STATES states[]={D3D12_RESOURCE_STATES(f.tags[0].state),D3D12_RESOURCE_STATES(f.tags[1].state),D3D12_RESOURCE_STATES(f.tags[2].state),D3D12_RESOURCE_STATES(f.tags[3].state),apiState(p.presentColor.state),apiState(p.outputs[0].state),apiState(p.outputs[0].state)};
-        bool valid=true;
-        for(unsigned k=0;k<ImageCount;k++) {
-            if(!nativeUi && k!=4 && k!=5)continue;
-            auto &i=j->image[k];i.name=names[k];i.source=(ID3D12Resource*)ptrs[k];i.state=states[k];
-            if(!i.source){valid=false;break;}i.source->AddRef();const auto d=i.source->GetDesc();
-            if(d.Dimension!=D3D12_RESOURCE_DIMENSION_TEXTURE2D || d.SampleDesc.Count!=1 || d.DepthOrArraySize!=1){valid=false;break;}
-            if(!nativeUi && d.Format!=DXGI_FORMAT_R8G8B8A8_UNORM){valid=false;break;}
-            i.width=(UINT)d.Width;i.height=d.Height;i.format=(UINT)d.Format;
-            UINT rows;UINT64 total;device->GetCopyableFootprints(&d,0,1,0,&i.footprint,&rows,&i.rowBytes,&total);
-            if(!i.footprint.Footprint.RowPitch || i.footprint.Footprint.Depth!=1 || i.footprint.Footprint.Width!=i.width || i.footprint.Footprint.Height!=i.height){valid=false;break;}
-            j->total=(j->total+511)&~UINT64(511);i.footprint.Offset=j->total;
-            i.bytes=UINT64(i.footprint.Footprint.RowPitch)*rows;j->total+=i.bytes;
-            if(j->total>256ull*1024*1024){valid=false;break;}
-        }
+        j->frame=prep.frame;j->native=f;j->prepare=prep;j->report=report;j->nativeUi=nativeUi;
+        return j;
+    }
+    static bool addImage(Job *j,unsigned slot,const char *name,ID3D12Resource *source,D3D12_RESOURCE_STATES state,const D3D12_RESOURCE_DESC &d) {
+        if(d.Dimension!=D3D12_RESOURCE_DIMENSION_TEXTURE2D || d.SampleDesc.Count!=1 || d.DepthOrArraySize!=1 ||
+           !d.Width || d.Width>16384 || !d.Height || d.Height>16384)return false;
+        auto &i=j->image[slot];i.name=name;i.source=source;i.state=state;
+        if(source)source->AddRef();
+        i.width=(UINT)d.Width;i.height=d.Height;i.format=(UINT)d.Format;
+        UINT rows;UINT64 total;
+        j->device->GetCopyableFootprints(&d,0,1,0,&i.footprint,&rows,&i.rowBytes,&total);
+        if(!i.footprint.Footprint.RowPitch || i.footprint.Footprint.Depth!=1 ||
+           i.footprint.Footprint.Width!=i.width || i.footprint.Footprint.Height!=i.height)return false;
+        j->total=(j->total+511)&~UINT64(511);i.footprint.Offset=j->total;
+        i.bytes=UINT64(i.footprint.Footprint.RowPitch)*rows;j->total+=i.bytes;
+        return j->total<=256ull*1024*1024;
+    }
+    Job *queueJob(Job *j,bool valid) {
+        auto device=j->device;
         D3D12_HEAP_PROPERTIES heap{};heap.Type=D3D12_HEAP_TYPE_READBACK;
         D3D12_RESOURCE_DESC buffer{};buffer.Dimension=D3D12_RESOURCE_DIMENSION_BUFFER;buffer.Width=j->total;buffer.Height=buffer.DepthOrArraySize=buffer.MipLevels=buffer.SampleDesc.Count=1;buffer.Layout=D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         if(valid)valid=SUCCEEDED(device->CreateCommittedResource(&heap,D3D12_HEAP_FLAG_NONE,&buffer,D3D12_RESOURCE_STATE_COPY_DEST,nullptr,IID_ID3D12Resource,(void**)&j->readback));
@@ -159,7 +152,68 @@ struct FgGpuCapture {
         if(!valid){cleanup(j);remaining=0;if(report)report("{\"event\":\"gpu_capture_allocation_declined\"}");return nullptr;}
         swprintf(j->folder,32768,L"%ls\\pid-%lu-frame-%llu-%llu",root,GetCurrentProcessId(),(unsigned long long)j->frame,(unsigned long long)GetTickCount64());
         if(!CreateDirectoryW(j->folder,nullptr)){cleanup(j);remaining=0;return nullptr;}
-        pending[slot]=j;remaining--;return j;
+        for(auto &slot:pending)if(!slot){slot=j;remaining--;return j;}
+        cleanup(j);return nullptr;
+    }
+    Job *begin(ID3D12Device *device,const ChainFrame &f,const CapturePrepare &prep,const ffxDispatchDescFrameGeneration &p) {
+        if(p.reset || !prep.known || prep.frame!=p.frameID || !armed())return nullptr;
+        auto j=makeJob(device,f,prep,true);if(!j)return nullptr;
+        j->transfer=p.backbufferTransferFunction;
+        const char *names[]={"depth","motion","scene","ui","present","generated-before-ui","generated-after-ui"};
+        const uint64_t ptrs[]={f.tags[0].native,f.tags[1].native,f.tags[2].native,f.tags[3].native,(uint64_t)p.presentColor.resource,(uint64_t)p.outputs[0].resource,(uint64_t)p.outputs[0].resource};
+        const D3D12_RESOURCE_STATES states[]={D3D12_RESOURCE_STATES(f.tags[0].state),D3D12_RESOURCE_STATES(f.tags[1].state),D3D12_RESOURCE_STATES(f.tags[2].state),D3D12_RESOURCE_STATES(f.tags[3].state),apiState(p.presentColor.state),apiState(p.outputs[0].state),apiState(p.outputs[0].state)};
+        for(unsigned k=0;k<ImageCount;k++){
+            auto source=(ID3D12Resource*)ptrs[k];
+            if(!source||!addImage(j,k,names[k],source,states[k],source->GetDesc()))return queueJob(j,false);
+        }
+        return queueJob(j,true);
+    }
+    template<typename Prepare> void prepareInputs(ID3D12Device *device,const ChainFrame &f,const CapturePrepare &prep,const Prepare &p,UINT width,UINT height) {
+        if(!f.hasConstants || f.reset==1 || f.frame!=p.frameID || f.tags[2].native || f.tags[3].native || !width || !height ||
+           !p.depth.resource || !p.motionVectors.resource || p.depth.resource==p.motionVectors.resource ||
+           f.tags[0].native!=(uint64_t)p.depth.resource || f.tags[1].native!=(uint64_t)p.motionVectors.resource ||
+           p.depth.state!=FFX_API_RESOURCE_STATE_PIXEL_COMPUTE_READ || p.motionVectors.state!=FFX_API_RESOURCE_STATE_PIXEL_COMPUTE_READ ||
+           !p.commandList || ((ID3D12GraphicsCommandList*)p.commandList)->GetType()!=D3D12_COMMAND_LIST_TYPE_DIRECT)return;
+        for(auto j:pending)if(j && j->frame==p.frameID){if(j->preparedInputs)j->skip=true;return;}
+        auto depth=(ID3D12Resource*)p.depth.resource,motion=(ID3D12Resource*)p.motionVectors.resource;
+        auto dd=depth->GetDesc(),md=motion->GetDesc();
+        if((dd.Format!=DXGI_FORMAT_R32G8X24_TYPELESS && dd.Format!=DXGI_FORMAT_R32_FLOAT) ||
+           md.Format!=DXGI_FORMAT_R16G16_FLOAT || dd.Width!=prep.render[0] || dd.Height!=prep.render[1] ||
+           md.Width!=dd.Width || md.Height!=dd.Height || !armed())return;
+        auto j=makeJob(device,f,prep,false);if(!j)return;
+        D3D12_RESOURCE_DESC color{};color.Dimension=D3D12_RESOURCE_DIMENSION_TEXTURE2D; color.Width=width;color.Height=height;
+        color.DepthOrArraySize=color.MipLevels=color.SampleDesc.Count=1;color.Format=DXGI_FORMAT_R8G8B8A8_UNORM;
+        auto read=apiState(p.depth.state);
+        bool valid=addImage(j,0,"depth",depth,read,dd)&&addImage(j,1,"motion",motion,read,md)&&
+            addImage(j,4,"present",nullptr,D3D12_RESOURCE_STATE_COMMON,color)&&
+            addImage(j,5,"generated-provider-output",nullptr,D3D12_RESOURCE_STATE_UNORDERED_ACCESS,color);
+        if(auto queued=queueJob(j,valid)){
+            queued->preparedInputs=true;
+            copies((ID3D12GraphicsCommandList*)p.commandList,queued,0,2);
+        }
+    }
+    Job *attachOutput(const ffxDispatchDescFrameGeneration &p) {
+        if(p.reset || p.header.pNext || p.numGeneratedFrames!=1 || !p.commandList ||
+           p.presentColor.description.format!=FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM ||
+           p.outputs[0].description.format!=FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM ||
+           (p.presentColor.state!=FFX_API_RESOURCE_STATE_PRESENT &&
+            p.presentColor.state!=FFX_API_RESOURCE_STATE_PIXEL_COMPUTE_READ) ||
+           p.outputs[0].state!=FFX_API_RESOURCE_STATE_UNORDERED_ACCESS ||
+           !p.presentColor.resource || !p.outputs[0].resource || p.presentColor.resource==p.outputs[0].resource ||
+           ((ID3D12GraphicsCommandList*)p.commandList)->GetType()!=D3D12_COMMAND_LIST_TYPE_DIRECT)return nullptr;
+        for(auto j:pending)if(j && j->preparedInputs && !j->recorded && !j->skip && j->frame==p.frameID){
+            auto input=(ID3D12Resource*)p.presentColor.resource,output=(ID3D12Resource*)p.outputs[0].resource;
+            const auto matches=[](const Image &i,const D3D12_RESOURCE_DESC &d){
+                return d.Dimension==D3D12_RESOURCE_DIMENSION_TEXTURE2D && d.Width==i.width && d.Height==i.height &&
+                    d.Format==DXGI_FORMAT_R8G8B8A8_UNORM && d.SampleDesc.Count==1 &&
+                    d.DepthOrArraySize==1 && d.MipLevels==1;
+            };
+            if(!matches(j->image[4],input->GetDesc()) || !matches(j->image[5],output->GetDesc()))return nullptr;
+            j->image[4].source=input;input->AddRef();j->image[4].state=apiState(p.presentColor.state);
+            j->image[5].source=output;output->AddRef();j->transfer=p.backbufferTransferFunction;
+            return j;
+        }
+        return nullptr;
     }
     static void copies(ID3D12GraphicsCommandList *list,Job *j,unsigned first,unsigned end) {
         for(unsigned k=first;k<end;k++) {

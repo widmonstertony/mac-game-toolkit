@@ -147,7 +147,7 @@ def main():
             raise RuntimeError('Expected exactly two completed synthetic GPU captures: ' + str(len(files)))
         for file in files:
             meta = json.loads(file.read_text())
-            expected_images = ({'present','generated-provider-output'} if args.missing_ui else
+            expected_images = ({'depth','motion','present','generated-provider-output'} if args.missing_ui else
                                {'depth','motion','scene','ui','present','generated-before-ui','generated-after-ui'})
             if (not meta['gpu_fence_completed'] or not meta['pixel_files_complete']
                     or {i['name'] for i in meta['images']} != expected_images
@@ -157,6 +157,8 @@ def main():
                 pixel_file = file.parent / (image['name'] + '.bin')
                 if pixel_file.stat().st_size != image['bytes']:
                     raise RuntimeError('Truncated GPU capture: ' + image['name'])
+            if args.missing_ui:
+                validate_prepare_pixels(file.parent, meta)
             capture_results.append({'frame': meta['frame'], 'images': len(meta['images']), 'gpu_fence_completed': True,
                                     'bytes': sum(image['bytes'] for image in meta['images'])})
         print('PASS fenced GPU readbacks, two synthetic frames:', capture_results)
@@ -181,6 +183,23 @@ def main():
         'history-native-ui-gpu-verification.json' if args.history else 'native-ui-gpu-verification.json')
     (out / filename).write_text(json.dumps(receipt, indent=2) + '\n')
     print('PASS complete candidate provider and GPU pixel comparison')
+
+
+def validate_prepare_pixels(folder, meta):
+    for name, fmt in (('depth', 19), ('motion', 34)):
+        image = next(i for i in meta['images'] if i['name'] == name)
+        if image['source_format'] != fmt or image['row_bytes'] != image['width'] * 4:
+            raise RuntimeError('Wrong Prepare format or row layout: ' + name)
+        data = (folder / (name + '.bin')).read_bytes()
+        frame = meta['frame']
+        for y in range(image['height']):
+            for x in range(image['width']):
+                car = 20 + frame * 2 <= x < 52 + frame * 2 and 40 <= y < 72
+                offset = y * image['row_pitch'] + x * 4
+                expected = struct.pack('<f', .8 if car else .2) if name == 'depth' else (
+                    struct.pack('<HH', 0xc000 if car else 0, 0))
+                if data[offset:offset + 4] != expected:
+                    raise RuntimeError('Prepare pixel does not match the frame input: ' + name)
 
 
 if __name__ == '__main__':

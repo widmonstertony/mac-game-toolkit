@@ -61,7 +61,10 @@ int wmain(int argc,wchar_t **argv){
  ffxCreateContextDescFrameGenerationSwapChainForHwndDX12 sw{};sw.header.type=FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATIONSWAPCHAIN_FOR_HWND_DX12;sw.swapchain=&swapchain;sw.hwnd=window;sw.desc=&sc;sw.dxgiFactory=factory;sw.gameQueue=g.q;
  CHECK(candidateCreate(&swapContext,&sw.header,nullptr)==0);CHECK(swapchain);
  uint64_t count=8,ids[8]{};const char *names[8]{};ffxQueryDescGetVersions versions{{FFX_API_QUERY_DESC_TYPE_GET_VERSIONS},FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATION,g.d,&count,ids,names};CHECK(query(nullptr,&versions.header)==0&&count==1);printf("REAL provider=%s\n",names[0]);
- Texture depth,motion,scene,ui,present,outputs[3];CHECK(depth.init(g.d,DXGI_FORMAT_R32_FLOAT));CHECK(motion.init(g.d,DXGI_FORMAT_R16G16_FLOAT));CHECK(scene.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM));CHECK(ui.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM));CHECK(present.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM));for(auto &o:outputs)CHECK(o.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM,D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS));
+ Texture depth,motion,scene,ui,present,outputs[3];
+ CHECK(depth.init(g.d,missingUi?DXGI_FORMAT_R32G8X24_TYPELESS:DXGI_FORMAT_R32_FLOAT,
+                         missingUi?D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL:D3D12_RESOURCE_FLAG_NONE));
+ CHECK(depth.rowBytes==W*4);CHECK(motion.init(g.d,DXGI_FORMAT_R16G16_FLOAT));CHECK(scene.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM));CHECK(ui.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM));CHECK(present.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM));for(auto &o:outputs)CHECK(o.init(g.d,DXGI_FORMAT_R8G8B8A8_UNORM,D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS));
  ffxContext contexts[3]{};NativeUiCompositor compositors[3];
  // Match the startup lifecycle: create a 10-bit context, configure FG OFF,
  // then destroy it. The candidate must not create a compositor pipeline here.
@@ -105,7 +108,7 @@ int wmain(int argc,wchar_t **argv){
   }
   CHECK(g.begin());const auto read=D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
   CHECK(depth.write(g.l,(BYTE*)z,W*4,read));CHECK(motion.write(g.l,(BYTE*)mv,W*4,read));CHECK(scene.write(g.l,source,W*4,read));CHECK(ui.write(g.l,overlay,W*4,read));CHECK(present.write(g.l,final,W*4,read));
-  Token token((uint32_t)id);sl::ViewportHandle viewport(0);sl::Constants constants{};constants.cameraNear=.1f;constants.cameraFar=50000;constants.depthInverted=sl::Boolean::eTrue;constants.cameraMotionIncluded=sl::Boolean::eTrue;constants.motionVectors3D=sl::Boolean::eFalse;constants.reset=sl::Boolean::eFalse;
+  Token token((uint32_t)id);sl::ViewportHandle viewport(0);sl::Constants constants{};constants.cameraNear=.1f;constants.cameraFar=50000;constants.depthInverted=sl::Boolean::eTrue;constants.cameraMotionIncluded=sl::Boolean::eTrue;constants.motionVectors3D=sl::Boolean::eFalse;constants.reset=id==0?sl::Boolean::eTrue:sl::Boolean::eFalse;
   float identity[16]{};for(int k=0;k<16;k++)identity[k]=k%5==0?1.f:0.f;memcpy(&constants.clipToPrevClip,identity,64);
   CHECK(nativeConstants(constants,token,viewport)==sl::Result::eOk);
   sl::Resource sceneTag(sl::ResourceType::eTex2d,scene.gpu,read),uiTag(sl::ResourceType::eTex2d,ui.gpu,read),depthTag(sl::ResourceType::eTex2d,depth.gpu,read),motionTag(sl::ResourceType::eTex2d,motion.gpu,read);
@@ -115,6 +118,7 @@ int wmain(int argc,wchar_t **argv){
    CHECK(outputs[k].write(g.l,zero,W*4,D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
    ffxConfigureDescFrameGeneration cfg{};cfg.header.type=FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION;cfg.frameID=id;cfg.frameGenerationEnabled=true;cfg.flags=FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY;if(!missingUi || k==1)cfg.HUDLessColor=res(scene);cfg.generationRect={0,0,W,H};CHECK((k==2?candidateConfigure:configure)(&contexts[k],&cfg.header)==0);
    ffxDispatchDescFrameGenerationPrepareV2 prep{};prep.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2;prep.frameID=id;prep.commandList=g.l;prep.renderSize={W,H};prep.motionVectorScale={1,1};prep.frameTimeDelta=16.6667f;prep.reset=id==0;prep.cameraNear=.1f;prep.cameraFar=50000;prep.cameraFovAngleVertical=1.05f;prep.viewSpaceToMetersFactor=1;prep.depth=res(depth);prep.motionVectors=res(motion);prep.cameraUp[1]=prep.cameraRight[0]=prep.cameraForward[2]=1;CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&prep.header)==0);
+   if(missingUi && k==2){CHECK(g.end());CHECK(g.begin());}
    ffxDispatchDescFrameGeneration p{};p.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION;p.commandList=g.l;p.frameID=id;p.numGeneratedFrames=1;p.reset=id==0;p.presentColor=res(k==1?scene:present);p.outputs[0]=ffxApiGetResourceDX12(outputs[k].gpu,FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);p.generationRect={0,0,W,H};p.backbufferTransferFunction=FFX_API_BACKBUFFER_TRANSFER_FUNCTION_SRGB;p.minMaxLuminance[1]=100;
    auto f=frame(id,scene,ui);NativeUiCompositor::Binding *binding=nullptr;
    if(k>0){binding=compositors[k].prepare(f,res(scene),p);CHECK(binding);}

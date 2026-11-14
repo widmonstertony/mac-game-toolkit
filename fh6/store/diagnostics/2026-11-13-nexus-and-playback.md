@@ -315,3 +315,34 @@ car-tail disocclusion. The Steam inputs and cold replay do not establish the
 Xbox defect and do not justify fabricating HUDless color from the earlier
 upscale result. Use the next live Xbox capture to establish whether the Xbox
 artifact already exists at the provider output.
+
+### Matched Prepare inputs for the next Xbox capture
+
+All 1,124 old Xbox Prepare records use the exact original tagged depth and
+motion pointers in pixel/compute-read state. The installed OptiScaler revision
+records Prepare and submits it to the game queue. The capture therefore copies
+depth and motion plane zero in that Prepare command list and restores their
+states immediately. It collects the paired original and generated colors in
+the matching interpolation command list. This avoids reading expired tag
+resources from the later callback. A reset, unknown queue, incompatible
+format or duplicate Prepare can prevent capture. Neither the interpolation
+algorithm nor ordinary gameplay frames use this readback path unless the
+two-frame request is armed. [Pinned OptiScaler code](https://github.com/optiscaler/OptiScaler/blob/2fff542e78e257a1e4ff5a1e21a69a166c78c335/OptiScaler/framegen/ffx/FSRFG_Dx12.cpp)
+
+The isolated Store GPU checks used separate Prepare and interpolation
+submissions, the actual typeless depth format, and FFX 3.1.6. Both four-image
+captures had byte-exact expected depth and motion data at every sampled
+pixel (24,576 depth and 24,576 motion pixels in total). The official
+interpolation comparison and the seven-image native-UI regression both passed.
+The four images from each adjacent frame replayed through the original
+provider; the Wine module log confirmed the Store D3DMetal shim's `apd12.dll`.
+
+The new verified Store wrapper SHA-256 is
+`eb7fd784ee4f40e16293b72f9c1233555a8cc9c5940821c2ff8d8286a1a56713`.
+The same installation command above requires the four-image and seven-image
+receipts for one build. The previously installed two-image diagnostic is
+recoverable from commit `8f290e4` and the profile digest recorded above. Run
+`prepare_replay.py` on two adjacent four-image captures and pass
+`composited-input` to `replay-capture.exe`. These GPU checks exercise the
+capture and replay path; determining and fixing the Xbox artifact requires
+the user's in-game frames.

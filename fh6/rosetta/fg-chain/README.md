@@ -253,11 +253,11 @@ be true. Game pixels stay private and are not committed to this repository.
 
 When frame-matched depth and motion tags are present but the game supplies
 neither HUDless color nor a UI texture, the synchronous direct-queue path can
-capture two RGBA8 images: `present` and `generated-provider-output`. The
-official provider performs interpolation on the original descriptors. Only
-its live color input and output are copied; depth and motion metadata are
-retained without copying their tagged resources. These captures record
-`native_ui_composited: false` and cannot show a separate scene or UI pass.
+capture `depth`, `motion`, `present` and `generated-provider-output`. Depth and
+motion are copied inside their Prepare command list while the input descriptors
+are valid. The matching interpolation command list copies the colors. Captures
+record `native_ui_composited: false`. The original two-color-only captures also
+remain readable. Neither layout includes a separate scene or UI pass.
 
 `analyze_pixels.py CAPTURE_FOLDER --png` uses only the Python standard library.
 It checks frame provenance, actual device row layout, native-UI composition
@@ -266,7 +266,7 @@ depth/motion distributions. PNGs are exports of the captured RGBA8 buffers for
 inspection. Differences by themselves do not prove a wrong MV sign, a ghosting
 root cause or a presentation fault. Inspect the scene/present and before/after
 UI images first, then compare both captured frames' geometry and motion.
-For two-image captures, compare the `present` and `generated-provider-output`
+For captures without HUDless color, compare the `present` and `generated-provider-output`
 PNGs at the reported artifact. A matching pair by itself does not establish
 that subsequently presented frames match.
 
@@ -344,9 +344,8 @@ directories and warmup count, using separate output directories. The control
 uses the HUDless color; `composited-input` uses the saved final RGBA8 color and
 leaves the SDK's HUDless descriptor empty. Both use the same original depth,
 motion and camera inputs. This option cannot be combined with `provider` or
-`mask-control`. It tests the effect of a composited input while retaining the
-real scene capture as a control; it does not reconstruct Xbox pixels or
-separate a HUD when only the final color was captured.
+`mask-control`. Use `composited-input` for a four-image capture without HUDless
+color. A color-only capture still needs matching depth and motion to replay.
 
 **Discarded suspicion:** actual 3.1.6 interpolation intentionally copies red to
 output alpha and writes inpainting weight into a separate UAV. A different

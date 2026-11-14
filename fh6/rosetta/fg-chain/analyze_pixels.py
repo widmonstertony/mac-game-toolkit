@@ -113,6 +113,9 @@ def analyze(folder, png=False):
             'generated_differs_from_present_input': differing,
             'limits': 'No separate UI or HUDless pixels were supplied. Compare the input and provider output visually.',
         }
+        if 'depth' in images and 'motion' in images:
+            result['prepare_images'] = {name: [images[name].width, images[name].height]
+                                        for name in ('depth', 'motion')}
         (folder/'pixel-analysis.json').write_text(json.dumps(result, indent=2, allow_nan=False)+'\n')
         return result
     scene, ui, final, before, after = [images[n] for n in ('scene', 'ui', 'present', 'generated-before-ui', 'generated-after-ui')]

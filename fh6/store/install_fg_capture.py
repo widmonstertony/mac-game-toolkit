@@ -10,6 +10,7 @@ import tempfile
 from prior_fixes import replace_file, sha
 
 BASELINE = '4b3b9a6ff9b21120ac17452f06b065d8bf245743a12224a68942a8bf4ab9e506'
+COLOR_CAPTURE = '9cdc49afcaf1e98bc25b363ef6faf908bf888d1507ba3524f41b02248d35cb0d'
 PROVIDER = 'framegeneration-history-ui.dll'
 
 
@@ -31,7 +32,7 @@ def install(artifacts):
         raise RuntimeError('Installed original frame generator differs from the Store profile')
     manifest_digest = sha(artifacts/'build-manifest.json')
     for file, missing_ui, image_count in (
-        ('missing-ui-gpu-verification.json', True, 2),
+        ('missing-ui-gpu-verification.json', True, 4),
         ('history-native-ui-gpu-verification.json', False, 7),
     ):
         receipt = json.loads((artifacts/file).read_text())
@@ -49,7 +50,7 @@ def install(artifacts):
     if expected == digest:
         print('The verified FH6 Store capture provider is already installed.')
         return
-    if expected != BASELINE:
+    if expected not in (BASELINE, COLOR_CAPTURE):
         raise RuntimeError('Review the different installed FH6 frame generator before replacing it')
     processes = subprocess.check_output(['/bin/ps', '-axo', 'command='], text=True)
     if any('forzahorizon6.exe' in line.lower() or 'runtime/runner.mjs run ' in line.lower()

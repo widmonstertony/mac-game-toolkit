@@ -13,6 +13,7 @@ struct NativeContext {
     struct Config { uint64_t frame{}; bool valid{},enabled{},async{};FfxApiResource hudless{}; } config[8];
     ffxContext context{};
     ID3D12Device *device{};
+    FfxApiDimensions2D display{};
     NativeUiCompositor compositor;
 #ifdef HISTORY_VISIBILITY_FIX
     HistoryPost history;
@@ -50,6 +51,7 @@ static void nativeCreated(ffxContext context,ffxCreateContextDescHeader *desc,ff
         if(device)for(auto &c:nativeContexts)if(!c.context && !c.device) {
             c.context=context;
             c.device=device;device->AddRef();
+            c.display=((const ffxCreateContextDescFrameGeneration*)desc)->displaySize;
             c.capture.setup(self,report);
             // Opening video/HDR/disabled contexts must remain a pure forward.
             // No compiler DLL, shader compilation, root signature or GPU PSO
@@ -85,13 +87,20 @@ static void nativeConfigured(ffxContext context,const ffxConfigureDescHeader *de
     }
     ReleaseSRWLockExclusive(&nativeLock);
 }
-template<typename Prepare> static void nativePrepared(ffxContext context,const Prepare &p) {
+template<typename Prepare> static void nativePrepared(ffxContext context,const Prepare &p,bool reset=false) {
     AcquireSRWLockExclusive(&nativeLock);
     for(auto &c:nativeContexts)if(c.context==context) {
         auto &data=c.prepared[p.frameID%8];data.frame=p.frameID;data.known=true;data.milliseconds=p.frameTimeDelta;
         data.render[0]=p.renderSize.width;data.render[1]=p.renderSize.height;
         data.scale[0]=p.motionVectorScale.x;data.scale[1]=p.motionVectorScale.y;
-        data.jitter[0]=p.jitterOffset.x;data.jitter[1]=p.jitterOffset.y;break;
+        data.jitter[0]=p.jitterOffset.x;data.jitter[1]=p.jitterOffset.y;
+        const auto &cfg=c.config[p.frameID%8];
+        if(!reset && c.queue && cfg.valid && cfg.frame==p.frameID && cfg.enabled && !cfg.async && !cfg.hudless.resource && getFrame) {
+            ChainFrame frame{};
+            if(getFrame(p.frameID,&frame))
+                c.capture.prepareInputs(c.device,frame,data,p,c.display.width,c.display.height);
+        }
+        break;
     }
     ReleaseSRWLockExclusive(&nativeLock);
 }
@@ -115,17 +124,22 @@ template<typename Prepare> static void historyPrepared(ffxContext context,const 
 #endif
 static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescHeader *desc) {
     if(!desc || desc->type!=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION) {
-        if(context && desc && desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE)
-            nativePrepared(*context,*(const ffxDispatchDescFrameGenerationPrepare*)desc);
-        else if(context && desc && desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2)
-            nativePrepared(*context,*(const ffxDispatchDescFrameGenerationPrepareV2*)desc);
         auto result=dispatch?dispatch(context,desc):FFX_API_RETURN_NO_PROVIDER;
-#ifdef HISTORY_VISIBILITY_FIX
         if(!result&&context&&desc){
-            if(desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE)historyPrepared(*context,*(const ffxDispatchDescFrameGenerationPrepare*)desc);
-            else if(desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2)historyPrepared(*context,*(const ffxDispatchDescFrameGenerationPrepareV2*)desc);
-        }
+            if(desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE){
+                const auto &p=*(const ffxDispatchDescFrameGenerationPrepare*)desc;
+                nativePrepared(*context,p);
+#ifdef HISTORY_VISIBILITY_FIX
+                historyPrepared(*context,p);
 #endif
+            } else if(desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2){
+                const auto &p=*(const ffxDispatchDescFrameGenerationPrepareV2*)desc;
+                nativePrepared(*context,p,p.reset);
+#ifdef HISTORY_VISIBILITY_FIX
+                historyPrepared(*context,p);
+#endif
+            }
+        }
         return result;
     }
     auto &p=*(const ffxDispatchDescFrameGeneration*)desc;
@@ -186,9 +200,9 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
         if(!result && c && c->queue) {
             const auto &cfg=c->config[p.frameID%8];
             if(cfg.valid && cfg.frame==p.frameID && cfg.enabled && !cfg.async && !cfg.hudless.resource &&
-               p.commandList && ((ID3D12GraphicsCommandList*)p.commandList)->GetType()==D3D12_COMMAND_LIST_TYPE_DIRECT) {
-                auto job=c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p,false);
-                if(job)FgGpuCapture::copies((ID3D12GraphicsCommandList*)p.commandList,job,0,FgGpuCapture::ImageCount);
+               frame.frame==p.frameID && frame.hasConstants && !frame.tags[2].native && !frame.tags[3].native) {
+                auto job=c->capture.attachOutput(p);
+                if(job)FgGpuCapture::copies((ID3D12GraphicsCommandList*)p.commandList,job,4,FgGpuCapture::ImageCount);
             }
         }
         if(c && report && (c->declined++<4 || p.frameID%600==0)) {
