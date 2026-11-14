@@ -251,6 +251,14 @@ Completed folders under `captures` contain `capture.json`, seven pixel files
 and `native-frame.bin`. `gpu_fence_completed` and `pixel_files_complete` must both
 be true. Game pixels stay private and are not committed to this repository.
 
+When frame-matched depth and motion tags are present but the game supplies
+neither HUDless color nor a UI texture, the synchronous direct-queue path can
+capture two RGBA8 images: `present` and `generated-provider-output`. The
+official provider performs interpolation on the original descriptors. Only
+its live color input and output are copied; depth and motion metadata are
+retained without copying their tagged resources. These captures record
+`native_ui_composited: false` and cannot show a separate scene or UI pass.
+
 `analyze_pixels.py CAPTURE_FOLDER --png` uses only the Python standard library.
 It checks frame provenance, actual device row layout, native-UI composition
 error, RGB under transparent UI, non-UI scene/final differences, and finite
@@ -258,6 +266,9 @@ depth/motion distributions. PNGs are exports of the captured RGBA8 buffers for
 inspection. Differences by themselves do not prove a wrong MV sign, a ghosting
 root cause or a presentation fault. Inspect the scene/present and before/after
 UI images first, then compare both captured frames' geometry and motion.
+For two-image captures, compare the `present` and `generated-provider-output`
+PNGs at the reported artifact. A matching pair by itself does not establish
+that subsequently presented frames match.
 
 `run_native_ui_probe.py --artifacts BUILD_DIRECTORY --capture` validates this
 route with the real official FFX provider, a real GPU and two synthetic frames.

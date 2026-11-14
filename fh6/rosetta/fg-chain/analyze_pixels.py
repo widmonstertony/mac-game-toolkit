@@ -91,6 +91,30 @@ def analyze(folder, png=False):
     if native.frame != meta['frame'] or not meta['prepare']['known'] or meta['prepare']['frame'] != meta['frame']:
         raise ValueError('Frame identity is incomplete')
     images = {i['name']: Image(folder, i) for i in meta['images']}
+    if meta.get('native_ui_composited') is False:
+        present, generated = (images[name] for name in ('present', 'generated-provider-output'))
+        if (present.width, present.height) != (generated.width, generated.height):
+            raise ValueError('Color capture dimensions differ')
+        samples = differing = 0
+        for y in range(0, present.height, 8):
+            for x in range(0, present.width, 8):
+                a, b = present.rgba(x, y), generated.rgba(x, y)
+                samples += 1
+                differing += max(abs(a[k] - b[k]) for k in range(3)) > 3
+        if png:
+            for name, image in images.items():
+                image.png(folder / (name + '.png'))
+        result = {
+            'frame': meta['frame'],
+            'gpu_fence_completed': True,
+            'native_ui_composited': False,
+            'output': [present.width, present.height],
+            'samples': samples,
+            'generated_differs_from_present_input': differing,
+            'limits': 'No separate UI or HUDless pixels were supplied. Compare the input and provider output visually.',
+        }
+        (folder/'pixel-analysis.json').write_text(json.dumps(result, indent=2, allow_nan=False)+'\n')
+        return result
     scene, ui, final, before, after = [images[n] for n in ('scene', 'ui', 'present', 'generated-before-ui', 'generated-after-ui')]
     if len({(i.width, i.height) for i in (scene, ui, final, before, after)}) != 1:
         raise ValueError('Color capture dimensions differ')

@@ -24,7 +24,7 @@ struct FgGpuCapture {
         ID3D12Device *device{};volatile LONG *active{};
         HMODULE module{},reporterModule{};ChainReport report{};wchar_t folder[32768]{};
         uint64_t frame{};UINT64 total{};ChainFrame native{};CapturePrepare prepare{};
-        UINT transfer{};bool recorded{};
+        UINT transfer{};bool recorded{},nativeUi{};
     };
     Job *pending[JobCount]{};unsigned remaining{},poll{};HMODULE module{};ChainReport report{};
     volatile LONG activeJobs{};
@@ -72,18 +72,20 @@ struct FgGpuCapture {
         if(event)CloseHandle(event);
         BYTE *mapped=nullptr;D3D12_RANGE range{0,(SIZE_T)j->total};bool ok=SUCCEEDED(j->readback->Map(0,&range,(void**)&mapped));
         wchar_t path[32768];
-        if(ok)for(auto &i:j->image){wcscpy(path,j->folder);wcscat(path,L"\\");
+        if(ok)for(auto &i:j->image){if(!i.source)continue;wcscpy(path,j->folder);wcscat(path,L"\\");
             wchar_t name[64];MultiByteToWideChar(CP_UTF8,0,i.name,-1,name,64);wcscat(path,name);wcscat(path,L".bin");
             if(!save(path,mapped+i.footprint.Offset,i.bytes))ok=false;}
         if(mapped){D3D12_RANGE noWrite{};j->readback->Unmap(0,&noWrite);}
         // A single metadata file, written last, is the completed-capture marker.
-        char meta[6000];int n=snprintf(meta,sizeof(meta),"{\"frame\":%llu,\"gpu_fence_completed\":%s,\"pixel_files_complete\":%s,\"transfer\":%u,\"native_frame_size\":%u,\"prepare\":{\"known\":%s,\"frame\":%llu,\"milliseconds\":%.9g,\"render\":[%u,%u],\"scale\":[%.9g,%.9g],\"jitter\":[%.9g,%.9g]},\"images\":[",
-            (unsigned long long)j->frame,complete?"true":"false",ok?"true":"false",j->transfer,(unsigned)sizeof(j->native),
+        wcscpy(path,j->folder);wcscat(path,L"\\native-frame.bin");ok=save(path,&j->native,sizeof(j->native))&&ok;
+        char meta[6000];int n=snprintf(meta,sizeof(meta),"{\"frame\":%llu,\"gpu_fence_completed\":%s,\"pixel_files_complete\":%s,\"native_ui_composited\":%s,\"transfer\":%u,\"native_frame_size\":%u,\"prepare\":{\"known\":%s,\"frame\":%llu,\"milliseconds\":%.9g,\"render\":[%u,%u],\"scale\":[%.9g,%.9g],\"jitter\":[%.9g,%.9g]},\"images\":[",
+            (unsigned long long)j->frame,complete?"true":"false",ok?"true":"false",j->nativeUi?"true":"false",j->transfer,(unsigned)sizeof(j->native),
             j->prepare.known?"true":"false",(unsigned long long)j->prepare.frame,j->prepare.milliseconds,j->prepare.render[0],j->prepare.render[1],j->prepare.scale[0],j->prepare.scale[1],j->prepare.jitter[0],j->prepare.jitter[1]);
-        for(unsigned k=0;k<ImageCount && n>0 && n<(int)sizeof(meta);k++){const auto &i=j->image[k];n+=snprintf(meta+n,sizeof(meta)-n,"%s{\"name\":\"%s\",\"ptr\":\"%llx\",\"source_format\":%u,\"copy_format\":%u,\"width\":%u,\"height\":%u,\"row_pitch\":%u,\"row_bytes\":%llu,\"bytes\":%llu,\"state_restored\":%u}",
-            k?",":"",i.name,(unsigned long long)i.source,i.format,(unsigned)i.footprint.Footprint.Format,i.width,i.height,i.footprint.Footprint.RowPitch,(unsigned long long)i.rowBytes,(unsigned long long)i.bytes,(unsigned)i.state);}
+        bool first=true;
+        for(const auto &i:j->image){if(!i.source || n<=0 || n>=(int)sizeof(meta))continue;
+            n+=snprintf(meta+n,sizeof(meta)-n,"%s{\"name\":\"%s\",\"ptr\":\"%llx\",\"source_format\":%u,\"copy_format\":%u,\"width\":%u,\"height\":%u,\"row_pitch\":%u,\"row_bytes\":%llu,\"bytes\":%llu,\"state_restored\":%u}",
+            first?"":",",i.name,(unsigned long long)i.source,i.format,(unsigned)i.footprint.Footprint.Format,i.width,i.height,i.footprint.Footprint.RowPitch,(unsigned long long)i.rowBytes,(unsigned long long)i.bytes,(unsigned)i.state);first=false;}
         if(n>0 && n+3<(int)sizeof(meta)){memcpy(meta+n,"]}\n",3);n+=3;
-            wcscpy(path,j->folder);wcscat(path,L"\\native-frame.bin");ok=save(path,&j->native,sizeof(j->native))&&ok;
             wcscpy(path,j->folder);wcscat(path,L"\\capture.json");ok=save(path,meta,n)&&ok;}
         else ok=false;
         if(j->report){char line[200];snprintf(line,sizeof(line),"{\"event\":\"gpu_capture_saved\",\"frame\":%llu,\"success\":%s,\"bytes\":%llu}",(unsigned long long)j->frame,ok?"true":"false",(unsigned long long)j->total);j->report(line);}
@@ -111,8 +113,20 @@ struct FgGpuCapture {
         // Context teardown already drained the original SDK's queue here.
         for(auto &j:pending)if(j && j->recorded)if(schedule(j,queue))j=nullptr;
     }
-    Job *begin(ID3D12Device *device,const ChainFrame &f,const CapturePrepare &prep,const ffxDispatchDescFrameGeneration &p) {
+    Job *begin(ID3D12Device *device,const ChainFrame &f,const CapturePrepare &prep,const ffxDispatchDescFrameGeneration &p,bool nativeUi=true) {
         if(!module || !root[0] || p.reset || InterlockedCompareExchange(&activeJobs,0,0)>=JobCount)return nullptr;
+        if(!nativeUi && (f.frame!=p.frameID || !f.hasConstants || !prep.known || prep.frame!=p.frameID ||
+            !f.tags[0].native || !f.tags[1].native || f.tags[2].native || f.tags[3].native ||
+            !p.commandList || p.header.pNext || p.numGeneratedFrames!=1 ||
+            !p.presentColor.resource || !p.outputs[0].resource || p.presentColor.resource==p.outputs[0].resource ||
+            !p.presentColor.description.width || !p.presentColor.description.height ||
+            p.presentColor.description.width!=p.outputs[0].description.width ||
+            p.presentColor.description.height!=p.outputs[0].description.height ||
+            p.presentColor.description.format!=FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM ||
+            p.outputs[0].description.format!=FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM ||
+            (p.presentColor.state!=FFX_API_RESOURCE_STATE_PRESENT &&
+             p.presentColor.state!=FFX_API_RESOURCE_STATE_PIXEL_COMPUTE_READ) ||
+            p.outputs[0].state!=FFX_API_RESOURCE_STATE_UNORDERED_ACCESS))return nullptr;
         if(!remaining && (++poll%120==1) && !pending[0] && !pending[1] && GetFileAttributesW(request)!=INVALID_FILE_ATTRIBUTES) {
             if(DeleteFileW(request)){remaining=JobCount;CreateDirectoryW(root,nullptr);if(report)report("{\"event\":\"gpu_capture_armed\",\"frames\":2}");}
         }
@@ -120,15 +134,17 @@ struct FgGpuCapture {
         unsigned slot=JobCount;for(unsigned i=0;i<JobCount;i++)if(!pending[i]){slot=i;break;}if(slot==JobCount)return nullptr;
         auto j=(Job*)HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(Job));if(!j)return nullptr;
         j->active=&activeJobs;InterlockedIncrement(&activeJobs);j->device=device;device->AddRef();
-        j->frame=p.frameID;j->native=f;j->prepare=prep;j->prepare.known=prep.known && prep.frame==p.frameID;j->transfer=p.backbufferTransferFunction;j->report=report;
-        const char *names[]={"depth","motion","scene","ui","present","generated-before-ui","generated-after-ui"};
+        j->frame=p.frameID;j->native=f;j->prepare=prep;j->prepare.known=prep.known && prep.frame==p.frameID;j->transfer=p.backbufferTransferFunction;j->report=report;j->nativeUi=nativeUi;
+        const char *names[]={"depth","motion","scene","ui","present",nativeUi?"generated-before-ui":"generated-provider-output","generated-after-ui"};
         const uint64_t ptrs[]={f.tags[0].native,f.tags[1].native,f.tags[2].native,f.tags[3].native,(uint64_t)p.presentColor.resource,(uint64_t)p.outputs[0].resource,(uint64_t)p.outputs[0].resource};
         const D3D12_RESOURCE_STATES states[]={D3D12_RESOURCE_STATES(f.tags[0].state),D3D12_RESOURCE_STATES(f.tags[1].state),D3D12_RESOURCE_STATES(f.tags[2].state),D3D12_RESOURCE_STATES(f.tags[3].state),apiState(p.presentColor.state),apiState(p.outputs[0].state),apiState(p.outputs[0].state)};
         bool valid=true;
         for(unsigned k=0;k<ImageCount;k++) {
+            if(!nativeUi && k!=4 && k!=5)continue;
             auto &i=j->image[k];i.name=names[k];i.source=(ID3D12Resource*)ptrs[k];i.state=states[k];
             if(!i.source){valid=false;break;}i.source->AddRef();const auto d=i.source->GetDesc();
             if(d.Dimension!=D3D12_RESOURCE_DIMENSION_TEXTURE2D || d.SampleDesc.Count!=1 || d.DepthOrArraySize!=1){valid=false;break;}
+            if(!nativeUi && d.Format!=DXGI_FORMAT_R8G8B8A8_UNORM){valid=false;break;}
             i.width=(UINT)d.Width;i.height=d.Height;i.format=(UINT)d.Format;
             UINT rows;UINT64 total;device->GetCopyableFootprints(&d,0,1,0,&i.footprint,&rows,&i.rowBytes,&total);
             if(!i.footprint.Footprint.RowPitch || i.footprint.Footprint.Depth!=1 || i.footprint.Footprint.Width!=i.width || i.footprint.Footprint.Height!=i.height){valid=false;break;}
@@ -147,7 +163,7 @@ struct FgGpuCapture {
     }
     static void copies(ID3D12GraphicsCommandList *list,Job *j,unsigned first,unsigned end) {
         for(unsigned k=first;k<end;k++) {
-            auto &i=j->image[k];D3D12_RESOURCE_BARRIER b{};b.Type=D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;b.Transition={i.source,0,i.state,D3D12_RESOURCE_STATE_COPY_SOURCE};list->ResourceBarrier(1,&b);
+            auto &i=j->image[k];if(!i.source)continue;D3D12_RESOURCE_BARRIER b{};b.Type=D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;b.Transition={i.source,0,i.state,D3D12_RESOURCE_STATE_COPY_SOURCE};list->ResourceBarrier(1,&b);
             D3D12_TEXTURE_COPY_LOCATION from{},to{};from.pResource=i.source;from.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;from.SubresourceIndex=0;to.pResource=j->readback;to.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;to.PlacedFootprint=i.footprint;
             list->CopyTextureRegion(&to,0,0,0,&from,nullptr);b.Transition.StateBefore=D3D12_RESOURCE_STATE_COPY_SOURCE;b.Transition.StateAfter=i.state;list->ResourceBarrier(1,&b);
         }

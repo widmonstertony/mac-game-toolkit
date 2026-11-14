@@ -183,6 +183,14 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
         // Unknown/absent resources, async queues, extensions or formats retain
         // the existing algorithm; do not switch off FG or fake success.
         result=dispatch?dispatch(context,desc):FFX_API_RETURN_NO_PROVIDER;
+        if(!result && c && c->queue) {
+            const auto &cfg=c->config[p.frameID%8];
+            if(cfg.valid && cfg.frame==p.frameID && cfg.enabled && !cfg.async && !cfg.hudless.resource &&
+               p.commandList && ((ID3D12GraphicsCommandList*)p.commandList)->GetType()==D3D12_COMMAND_LIST_TYPE_DIRECT) {
+                auto job=c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p,false);
+                if(job)FgGpuCapture::copies((ID3D12GraphicsCommandList*)p.commandList,job,0,FgGpuCapture::ImageCount);
+            }
+        }
         if(c && report && (c->declined++<4 || p.frameID%600==0)) {
             char line[220];snprintf(line,sizeof(line),"{\"event\":\"native_ui_passthrough\",\"frame\":%llu,\"queueKnown\":%u,\"nativeTags\":%u,\"result\":%u}",
                 (unsigned long long)p.frameID,(unsigned)(c->queue!=nullptr),frame.tagsMask,result);report(line);

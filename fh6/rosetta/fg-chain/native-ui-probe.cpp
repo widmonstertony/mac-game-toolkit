@@ -42,7 +42,9 @@ static int nativeDepthCopyTest(GPU &g) {
  printf("Native game depth format19 plane0 readback: copyFormat=%u pixelStride=%u errors=%u pixels=%u\n",(unsigned)depth.fp.Footprint.Format,rowBytes/W,errors,W*H);CHECK(errors==0);return 0;
 }
 int wmain(int argc,wchar_t **argv){
- setvbuf(stdout,nullptr,_IONBF,0);CHECK(argc==3);GPU g;CHECK(g.init());CHECK(mathTest(g)==0);CHECK(nativeDepthCopyTest(g)==0);
+ setvbuf(stdout,nullptr,_IONBF,0);CHECK(argc==3 || (argc==4 && !wcscmp(argv[3],L"--missing-ui")));
+ const bool missingUi=argc==4;
+ GPU g;CHECK(g.init());CHECK(mathTest(g)==0);CHECK(nativeDepthCopyTest(g)==0);
  HMODULE observer=LoadLibraryW(L"fh6-fg-chain.asi");CHECK(observer);
  auto init=(void(*)())GetProcAddress(observer,"InitializeASI");CHECK(init);init();
  HMODULE slFixture=LoadLibraryW(L"sl.interposer.dll");CHECK(slFixture);
@@ -108,10 +110,10 @@ int wmain(int argc,wchar_t **argv){
   CHECK(nativeConstants(constants,token,viewport)==sl::Result::eOk);
   sl::Resource sceneTag(sl::ResourceType::eTex2d,scene.gpu,read),uiTag(sl::ResourceType::eTex2d,ui.gpu,read),depthTag(sl::ResourceType::eTex2d,depth.gpu,read),motionTag(sl::ResourceType::eTex2d,motion.gpu,read);
   sl::ResourceTag tags[]={sl::ResourceTag(&sceneTag,sl::kBufferTypeHUDLessColor,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&uiTag,sl::kBufferTypeUIColorAndAlpha,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&depthTag,sl::kBufferTypeDepth,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&motionTag,sl::kBufferTypeMotionVectors,sl::ResourceLifecycle::eValidUntilPresent)};
-  CHECK(nativeTags(token,viewport,tags,4,nullptr)==sl::Result::eOk);
+  CHECK(nativeTags(token,viewport,tags+(missingUi?2:0),missingUi?2:4,nullptr)==sl::Result::eOk);
   for(int k=0;k<3;k++){
    CHECK(outputs[k].write(g.l,zero,W*4,D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-   ffxConfigureDescFrameGeneration cfg{};cfg.header.type=FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION;cfg.frameID=id;cfg.frameGenerationEnabled=true;cfg.flags=FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY;cfg.HUDLessColor=res(scene);cfg.generationRect={0,0,W,H};CHECK((k==2?candidateConfigure:configure)(&contexts[k],&cfg.header)==0);
+   ffxConfigureDescFrameGeneration cfg{};cfg.header.type=FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION;cfg.frameID=id;cfg.frameGenerationEnabled=true;cfg.flags=FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY;if(!missingUi || k==1)cfg.HUDLessColor=res(scene);cfg.generationRect={0,0,W,H};CHECK((k==2?candidateConfigure:configure)(&contexts[k],&cfg.header)==0);
    ffxDispatchDescFrameGenerationPrepareV2 prep{};prep.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2;prep.frameID=id;prep.commandList=g.l;prep.renderSize={W,H};prep.motionVectorScale={1,1};prep.frameTimeDelta=16.6667f;prep.reset=id==0;prep.cameraNear=.1f;prep.cameraFar=50000;prep.cameraFovAngleVertical=1.05f;prep.viewSpaceToMetersFactor=1;prep.depth=res(depth);prep.motionVectors=res(motion);prep.cameraUp[1]=prep.cameraRight[0]=prep.cameraForward[2]=1;CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&prep.header)==0);
    ffxDispatchDescFrameGeneration p{};p.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION;p.commandList=g.l;p.frameID=id;p.numGeneratedFrames=1;p.reset=id==0;p.presentColor=res(k==1?scene:present);p.outputs[0]=ffxApiGetResourceDX12(outputs[k].gpu,FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);p.generationRect={0,0,W,H};p.backbufferTransferFunction=FFX_API_BACKBUFFER_TRANSFER_FUNCTION_SRGB;p.minMaxLuminance[1]=100;
    auto f=frame(id,scene,ui);NativeUiCompositor::Binding *binding=nullptr;
@@ -130,14 +132,17 @@ int wmain(int argc,wchar_t **argv){
  for(UINT y=0;y<H;y++)for(UINT x=0;x<W;x++){const UINT i=y*W+x;for(UINT k=0;k<3;k++){
   if(abs(int(pixels[1][i*4+k])-int(pixels[2][i*4+k]))>1)refErrors++;
   if(y>=36&&y<76&&abs(int(pixels[0][i*4+k])-int(pixels[2][i*4+k]))>2)oldDiff++;
-  if(y>=36&&y<76&&abs(int(source[i*4+k])-int(pixels[2][i*4+k]))>2)generatedDifferent++;
+ if(y>=36&&y<76&&abs(int(source[i*4+k])-int(pixels[2][i*4+k]))>2)generatedDifferent++;
   if(y<12&&x<40){const float expected=overlay[i*4+k]+(1-overlay[i*4+3]/255.f)*source[i*4+k];if(fabsf(pixels[2][i*4+k]-expected)>2)uiErrors++;}
  }}
  printf("GPU contrast: reference_errors=%u non_ui_difference_components=%u generated_differs_from_base_components=%u ui_errors=%u frames=12 contexts=3\n",refErrors,oldDiff,generatedDifferent,uiErrors);
- CHECK(refErrors==0);CHECK(oldDiff>100);CHECK(generatedDifferent>0);CHECK(uiErrors==0);
+ if(missingUi) CHECK(!memcmp(pixels[0],pixels[2],sizeof(pixels[0])));
+ else {CHECK(refErrors==0);CHECK(oldDiff>100);CHECK(generatedDifferent>0);CHECK(uiErrors==0);}
  for(int k=0;k<3;k++){CHECK((k==2?candidateDestroy:destroy)(&contexts[k],nullptr)==0);compositors[k].release();}
  swapchain->Release();CHECK(candidateDestroy(&swapContext,nullptr)==0);factory->Release();DestroyWindow(window);
  auto activeCaptures=(unsigned(*)())GetProcAddress(candidate,"FH6CaptureActive");CHECK(activeCaptures);
  const auto deadline=GetTickCount64()+10000;while(activeCaptures() && GetTickCount64()<deadline)Sleep(10);CHECK(activeCaptures()==0);
- puts("PASS official FFX generated output + native UI; postprocess difference outside native UI triggers old extraction; candidate matches scene-only reference. This is synthetic GPU evidence, not proof FH6 car ghosting is fixed.");return 0;
+ if(missingUi) puts("PASS missing HUDless/UI passthrough matches the original provider byte for byte");
+ else puts("PASS official FFX generated output + native UI; postprocess difference outside native UI triggers old extraction; candidate matches scene-only reference. This is synthetic GPU evidence, not proof FH6 car ghosting is fixed.");
+ return 0;
 }

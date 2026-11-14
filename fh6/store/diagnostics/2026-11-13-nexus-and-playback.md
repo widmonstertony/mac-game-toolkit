@@ -240,3 +240,49 @@ and producer waits over the same gap before assigning a cause. Actual
 drawable pacing requires nonzero drawable presentation times. Identifying
 intermediate images still requires the frame-generation records and visual
 evidence. Keep the raw Metal trace private.
+# November 14 follow-up — Xbox interpolation color capture
+
+The retained Xbox run had 1,124 successful frame-generation Prepare calls
+with frame-matched original motion and depth textures. All 1,124 omitted
+separate HUDless and UI textures in the original tags. The FFX configure
+descriptor also left its HUDless texture null. The existing seven-image
+capture therefore could not establish which stage first shows the duplicate.
+
+The Store-only candidate now records the actual color input and the official
+provider's generated output when both UI textures are absent. It uses only
+the original synchronous direct-queue interpolation command list and waits
+on its GPU fence. The normal provider descriptors and interpolation remain in
+use. The marker is armed after reaching free roam, and only two eligible
+frames are copied. Keep those frames out of frame-time comparisons.
+
+The private renderer and the original FFX 3.1.6 provider passed both GPU
+regressions on Apple M5 Max. The no-UI run captured two fenced RGBA8 input/output
+pairs and the candidate's generated pixels matched the unwrapped
+provider byte for byte over 12 synthetic frames. The tagged-UI run captured
+two seven-image sets and the original native UI comparison had zero out-of-
+tolerance pixels. These synthetic observations do not locate the live
+ghosting or establish that the generated frame reached the screen.
+
+Reproduce on a disposable Wine prefix with the Store D3D12, D3D12Core and
+DXGI DLLs. Use the build directory made by `fh6/rosetta/fg-chain/build.py`.
+
+```sh
+python3 fh6/rosetta/fg-chain/run_native_ui_probe.py --artifacts "$build" --history --capture --store-test-prefix "$probe_prefix" --missing-ui
+python3 fh6/rosetta/fg-chain/run_native_ui_probe.py --artifacts "$build" --history --capture --store-test-prefix "$probe_prefix"
+python3 fh6/store/install_fg_capture.py "$build"
+```
+
+Applying requires FH6 to be closed and both receipts for the same build.
+On this machine the previous provider SHA-256 was
+`4b3b9a6ff9b21120ac17452f06b065d8bf245743a12224a68942a8bf4ab9e506`.
+The verified candidate SHA-256 is
+`9cdc49afcaf1e98bc25b363ef6faf908bf888d1507ba3524f41b02248d35cb0d`.
+The Store runner validates the provider digest alongside the other components.
+If restoring the original wrapper, restore the retained matching provider and
+its profile digest together while FH6 is closed, then run `runner.mjs check`.
+
+For the next normal launch from native Steam, verify the Car Pass vehicle
+and retry online matchmaking with the same game process. Capture frame timing
+in stable free roam before arming the color capture; compare the paired images
+along with the previously installed Metal completion observation. Keep live
+game pixels, service identifiers and authorization data out of the repository.
