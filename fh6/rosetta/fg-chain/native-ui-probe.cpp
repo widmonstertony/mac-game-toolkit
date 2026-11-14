@@ -74,19 +74,26 @@ int wmain(int argc,wchar_t **argv){
   for(int i=0;i<4;i++) CHECK(SUCCEEDED(swapchain->Present(0,0)));
   puts("PASS D3DMetal presents after rejecting truncated and empty Anti-Lag 2 metadata; other DXGI data preserved");
   if(GetEnvironmentVariableW(L"FH6_D3DMETAL_FENCE_DIAGNOSTICS",nullptr,0)) {
-   ID3D12Fence *gate=nullptr,*observed=nullptr;
+   ID3D12CommandQueue *compositionQueue=nullptr;
+   const auto compositionDesc=g.q->GetDesc();
+   CHECK(SUCCEEDED(g.d->CreateCommandQueue(&compositionDesc,IID_PPV_ARGS(&compositionQueue))));
+   ID3D12Fence *gate=nullptr,*composition=nullptr,*observed=nullptr;
    CHECK(SUCCEEDED(g.d->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&gate))));
+   CHECK(SUCCEEDED(g.d->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&composition))));
    CHECK(SUCCEEDED(g.d->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&observed))));
-   // Insert a known two-fence dependency and let real Metal submission retire it.
-   CHECK(SUCCEEDED(gate->SetName(L"AMD FSR GameFence")));
+   // Delay a known cross-queue dependency and let real Metal retire it.
+   CHECK(SUCCEEDED(composition->SetName(L"AMD FSR CompositionFence GPU")));
    CHECK(SUCCEEDED(observed->SetName(L"AMD FSR InterpolationFence")));
-   CHECK(SUCCEEDED(g.q->Wait(gate,1)));CHECK(SUCCEEDED(g.q->Signal(observed,1)));
+   CHECK(SUCCEEDED(compositionQueue->Wait(gate,1)));
+   CHECK(SUCCEEDED(compositionQueue->Signal(composition,3)));
+   CHECK(SUCCEEDED(g.q->Wait(composition,3)));CHECK(SUCCEEDED(g.q->Signal(observed,1)));
    const auto until=GetTickCount64()+150;
    while(GetTickCount64()<until) {CHECK(observed->GetCompletedValue()==0);SwitchToThread();}
    CHECK(SUCCEEDED(gate->Signal(1)));
    const auto deadline=GetTickCount64()+2000;
    while(observed->GetCompletedValue()!=1) {CHECK(GetTickCount64()<deadline);SwitchToThread();}
-   observed->Release();gate->Release();
+   CHECK(composition->GetCompletedValue()==3);
+   observed->Release();composition->Release();gate->Release();compositionQueue->Release();
    puts("PASS named interpolation fence stalls and advances after the Metal queue dependency resolves");
   }
  }

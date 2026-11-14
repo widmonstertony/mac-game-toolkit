@@ -152,10 +152,19 @@ def main():
         edges = [row for row in rows if row['event'] == 'fg_fence_queue'
                  and row['observedInstance'] == stalled['instance']]
         if ([(e['kind'], e['fence'], e['value']) for e in edges]
-                != [('wait', 'game', 1), ('signal', 'interpolation', 1)]
+                != [('wait', 'composition-gpu', 3), ('signal', 'interpolation', 1)]
                 or edges[0]['queue'] != edges[1]['queue'] or edges[0]['queue'] == '0'
                 or not edges[0]['operationQpc'] <= edges[1]['operationQpc'] <= stalled['qpc']):
             raise RuntimeError('The pending signal and preceding queue wait were not correlated')
+        dependency = [row for row in rows if row['event'] == 'fg_fence_dependency'
+                      and row['observedInstance'] == stalled['instance']]
+        if ([(row['phase'], row['status'], row['completed']) for row in dependency]
+                != [('stalled', 'pending', 0), ('advanced', 'reached', 3)]
+                or any(row['instance'] != edges[0]['instance'] or row['value'] != 3
+                       or row['producerValue'] != 3 or row['producerQueue'] in ('0', edges[0]['queue'])
+                       or row['producerQpc'] > edges[0]['operationQpc'] for row in dependency)
+                or dependency[0]['producerQueue'] != dependency[1]['producerQueue']):
+            raise RuntimeError('The composition producer and its pending/completed states were not observed')
     applied = [row for row in rows if row['event'] == 'native_ui_dispatch']
     if len(applied) != (0 if args.missing_ui else 8) or any(row['result'] or row['frames'] != 1 for row in applied):
         raise RuntimeError('Real candidate did not execute the validated native UI path')
@@ -195,6 +204,7 @@ def main():
                'missing_ui': args.missing_ui, 'store_renderer': bool(args.store_test_prefix),
                'latency_guard': args.latency_guard, 'fence_diagnostics': args.fence_diagnostics,
                'fence_queue_edges': args.fence_diagnostics,
+               'fence_dependency_progress': args.fence_diagnostics,
                'game_visual_verified': False,
                'manifest_sha256': sha(out / 'build-manifest.json'), 'artifacts': manifest['artifacts'],
                'original_provider_sha256': sha(original), 'log_sha256': sha(log),

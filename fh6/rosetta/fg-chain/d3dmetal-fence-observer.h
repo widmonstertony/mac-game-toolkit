@@ -38,7 +38,7 @@ struct Operation {
     int64_t qpc;
 };
 static SRWLOCK operationLock = SRWLOCK_INIT;
-static Operation operations[256]{};
+static Operation operations[512]{};
 static unsigned operationCursor;
 
 static Fence *findFence(ID3D12Fence *fence)
@@ -61,7 +61,7 @@ static void noteOperation(const char *kind, ID3D12Fence *fence, UINT64 value, ID
     ReleaseSRWLockExclusive(&operationLock);
 }
 
-static void reportOperations(unsigned instance, UINT64 completedValue)
+static Operation reportOperations(unsigned instance, UINT64 completedValue)
 {
     // All normal operations stay in memory. On a long wait, emit the first
     // pending value's producer and the latest queued dependency before it.
@@ -86,6 +86,41 @@ static void reportOperations(unsigned instance, UINT64 completedValue)
             (unsigned long long)op.queue, (unsigned long)op.thread, (long long)op.qpc);
         report(line);
     }
+    return dependency;
+}
+
+static void reportDependency(const Operation &dependency, unsigned observedInstance, const char *phase)
+{
+    if (!dependency.kind) return;
+    Operation signal{};
+    AcquireSRWLockShared(&operationLock);
+    for (const auto &op : operations) {
+        if (op.instance != dependency.instance || !op.kind || strcmp(op.kind, "signal") ||
+            op.value < dependency.value) continue;
+        if (!signal.kind || op.value < signal.value || (op.value == signal.value && op.qpc < signal.qpc))
+            signal = op;
+    }
+    ReleaseSRWLockShared(&operationLock);
+
+    // Hold the registry lock across the query to exclude final Release. This
+    // queries only on a long stall and its recovery, outside the polling path.
+    UINT64 done = UINT64_MAX;
+    AcquireSRWLockShared(&registry);
+    for (auto &f : fences) {
+        if (f.instance.load(std::memory_order_relaxed) != dependency.instance) continue;
+        if (auto object = f.object.load(std::memory_order_relaxed)) done = completed(object);
+        break;
+    }
+    ReleaseSRWLockShared(&registry);
+    const char *status = done == UINT64_MAX ? "unknown" : done >= dependency.value ? "reached" : "pending";
+    char line[410];
+    snprintf(line, sizeof(line), "{\"event\":\"fg_fence_dependency\",\"phase\":\"%s\",\"fence\":\"%s\","
+        "\"instance\":%u,\"observedInstance\":%u,\"value\":%llu,\"completed\":%llu,\"status\":\"%s\","
+        "\"producerValue\":%llu,\"producerQueue\":\"%llx\",\"producerThread\":%lu,\"producerQpc\":%lld}",
+        phase, labels[dependency.id], dependency.instance, observedInstance, (unsigned long long)dependency.value,
+        (unsigned long long)done, status, (unsigned long long)signal.value, (unsigned long long)signal.queue,
+        (unsigned long)signal.thread, (long long)signal.qpc);
+    report(line);
 }
 
 static HRESULT STDMETHODCALLTYPE nameFence(ID3D12Fence *fence, LPCWSTR name)
@@ -126,17 +161,17 @@ static ULONG STDMETHODCALLTYPE releaseFence(ID3D12Fence *fence)
     return count;
 }
 
-static void emit(const char *phase, unsigned id, unsigned instance, UINT64 value, int64_t duration)
+static bool emit(const char *phase, unsigned id, unsigned instance, UINT64 value, int64_t duration)
 {
-    if (!report || InterlockedIncrement(&reports) > 96) return;
+    if (!report || InterlockedIncrement(&reports) > 96) return false;
     LARGE_INTEGER frequency;
-    if (!QueryPerformanceFrequency(&frequency)) return;
+    if (!QueryPerformanceFrequency(&frequency)) return false;
     char line[260];
     snprintf(line, sizeof(line), "{\"event\":\"fg_fence_poll\",\"phase\":\"%s\",\"fence\":\"%s\","
         "\"instance\":%u,\"thread\":%lu,\"completed\":%llu,\"durationQpc\":%lld,\"qpcHz\":%lld}", phase, labels[id], instance,
         (unsigned long)GetCurrentThreadId(), (unsigned long long)value, (long long)duration, (long long)frequency.QuadPart);
     report(line);
-    if (!strcmp(phase, "stalled")) reportOperations(instance, value);
+    return true;
 }
 
 static UINT64 STDMETHODCALLTYPE pollFence(ID3D12Fence *fence)
@@ -144,7 +179,7 @@ static UINT64 STDMETHODCALLTYPE pollFence(ID3D12Fence *fence)
     const UINT64 value = completed(fence);
     const auto threshold = interval.load(std::memory_order_relaxed);
     if (!threshold || !report || value == UINT64_MAX) return value;
-    struct Poll { ID3D12Fence *object; unsigned instance; UINT64 value; int64_t first, last; bool reported; };
+    struct Poll { ID3D12Fence *object; unsigned instance; UINT64 value; int64_t first, last; bool reported; Operation dependency; };
     static thread_local Poll state{};
     // Sample every 64 reads to keep an extra timer syscall out of the hot spin.
     static thread_local unsigned calls;
@@ -156,12 +191,16 @@ static UINT64 STDMETHODCALLTYPE pollFence(ID3D12Fence *fence)
         const auto stamp = now.QuadPart;
         const auto id = f.id.load(std::memory_order_relaxed);
         const auto instance = f.instance.load(std::memory_order_relaxed);
-        if (state.instance == instance && state.reported && state.value != value)
-            emit("advanced", id, instance, value, stamp - state.first);
+        if (state.instance == instance && state.reported && state.value != value &&
+            emit("advanced", id, instance, value, stamp - state.first))
+            reportDependency(state.dependency, instance, "advanced");
         if (state.instance != instance || state.value != value || stamp - state.last > threshold / 4)
-            state = {fence, instance, value, stamp, stamp, false};
+            state = {fence, instance, value, stamp, stamp, false, {}};
         if (!state.reported && stamp - state.first >= threshold) {
-            emit("stalled", id, instance, value, stamp - state.first);
+            if (emit("stalled", id, instance, value, stamp - state.first)) {
+                state.dependency = reportOperations(instance, value);
+                reportDependency(state.dependency, instance, "stalled");
+            }
             state.reported = true;
         }
         state.last = stamp;

@@ -423,3 +423,32 @@ input frames at more than 48,000 sampled RGB positions in that replay.
 The running game was preserved. The release candidate is ready for a
 title-only installation after exit. The previous named-fence observation
 has not established why the composition dependency took that long.
+
+## Cross-queue completion probe and installation
+
+The game process was ended at the player's request and the edge correction
+was installed. The final provider combines that shader with cross-queue
+completion telemetry. The FFX source schedules an interpolation-output reuse
+wait on the composition GPU fence and signals that fence from the presentation
+queue after submitting composition. The original 177 ms live record captured
+the queued wait and interpolation completion, but had no composition
+completion sample. It is insufficient to identify the producer's delay.
+
+The new observer retains the selected dependency for both ends of a sampled
+stall. It emits the dependency's completed value, the requested value and
+the matching signal's queue, caller and QPC when recorded. Ring occupancy is
+bounded and missing information is represented explicitly. The extra completion
+query runs at the stall and recovery samples. It does not remove queue waits.
+
+An isolated D3DMetal test submitted a composition signal to a separate direct
+queue blocked by a controlled GPU dependency. The trace recorded the
+composition value as pending (0 of 3) then reached (3 of 3), with the same
+producer queue distinct from the interpolation queue. Official FFX 3.1.6 2x
+checks passed with and without native UI. Both real captured-pixel replays
+passed with the final build. The dry strip was 99/2844 (3.5%) versus 579/2844
+(20.4%) before the edge fix; the wet pair retained the 1.2826 luma result.
+
+Store installation and profile verification passed for provider SHA-256
+`b53b9b0f3d3d3ccf4122838bb1d3b07816d95bf16375482644436681b5f86aba`.
+The player will launch the next native Steam run. Live frame pacing and
+residual car-edge appearance still require that run.

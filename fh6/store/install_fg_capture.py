@@ -16,6 +16,8 @@ DIALOG_BASELINE = 'bd10eb5e796cd5d21cbd390c61c7015ffb00cbed1d4b4d27e7c8764d91d7b
 MATCHED_PREPARE_CAPTURE = 'eb7fd784ee4f40e16293b72f9c1233555a8cc9c5940821c2ff8d8286a1a56713'
 D3DMETAL_LATENCY_GUARD = '40225ecd6e814ea003097085d87afab9c931957c9d1b59562f87eae8a57a34ce'
 FENCE_QUEUE_DIAGNOSTIC = 'dd54291dd991c723dbfcd878200d5d39310ff3ed1abfca80a95ddbbfd1d6ca0d'
+BORDER_REFLECTION = 'df3f0366362ba025b8063476720ac9e220dc6d6cb2ab383ccd0315446854fdd9'
+COMPOSITION_FENCE_DIAGNOSTIC = 'b53b9b0f3d3d3ccf4122838bb1d3b07816d95bf16375482644436681b5f86aba'
 PROVIDER = 'framegeneration-history-ui.dll'
 
 
@@ -34,7 +36,8 @@ def install(artifacts, renderer=None, dialog=None, fence_diagnostics=False):
     if not target.is_file() or target.is_symlink() or verified.get(str(target)) != sha(target):
         raise RuntimeError('Installed FH6 provider differs from the Store profile')
     expected = verified[str(target)]
-    require_latency_guard = dialog is not None or expected in (D3DMETAL_LATENCY_GUARD, FENCE_QUEUE_DIAGNOSTIC) or fence_diagnostics
+    guarded_versions = (D3DMETAL_LATENCY_GUARD, FENCE_QUEUE_DIAGNOSTIC, BORDER_REFLECTION, COMPOSITION_FENCE_DIAGNOSTIC)
+    require_latency_guard = dialog is not None or fence_diagnostics or expected in guarded_versions
     candidate = artifacts/PROVIDER
     digest = sha(candidate)
     original_digest = sha(original)
@@ -61,8 +64,7 @@ def install(artifacts, renderer=None, dialog=None, fence_diagnostics=False):
     if expected == digest and renderer is None and dialog is None and fence_enabled == fence_diagnostics:
         print('The verified FH6 Store capture provider is already installed.')
         return
-    if expected not in (digest, BASELINE, COLOR_CAPTURE, MATCHED_PREPARE_CAPTURE,
-                        RECYCLED_HISTORY, D3DMETAL_LATENCY_GUARD, FENCE_QUEUE_DIAGNOSTIC):
+    if expected not in (digest, BASELINE, COLOR_CAPTURE, MATCHED_PREPARE_CAPTURE, RECYCLED_HISTORY, *guarded_versions):
         raise RuntimeError('Review the different installed FH6 frame generator before replacing it')
     processes = subprocess.check_output(['/bin/ps', '-axo', 'command='], text=True)
     if any('forzahorizon6.exe' in line.lower() or 'runtime/runner.mjs run ' in line.lower()
