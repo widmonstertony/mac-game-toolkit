@@ -97,6 +97,17 @@ authentication and joining still require the signed-in game.
 - [Microsoft's durable content contract](https://learn.microsoft.com/en-us/xbox/gdk/docs/store/commerce/fundamentals/xstore-dwobs?view=gdk-2604)
 - [Microsoft's digital add-on enumeration contract](https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/system/xstore/functions/xstorequeryaddonlicensesasync?view=gdk-2604)
 
+The additional `--fh6-udp-controls` mode of
+[the loopback probe](../../arm64/network/probe.c) exercised the deployed
+Store Wine's matching `ws2_32.dll` in an isolated prefix. Both reset controls
+returned success with zero output bytes on a bound dual-stack UDP socket.
+The same socket set IPv4 fragmentation and TTL options, read back the
+IPv6 hop limit, rejected invalid input, and exchanged real mapped IPv4
+datagrams. This covers the socket setup sequence described by MetalHorizon.
+It does not prove receipt of TTL-expiry ICMP notifications, remote QoS
+responses, or successful Xbox matchmaking. A title-signed service request
+and the actual join response are still needed to diagnose `0x8060046B`.
+
 ## Build and deploy
 
 Use the installed MACxus v0.3.11-mac.12 release manifest for

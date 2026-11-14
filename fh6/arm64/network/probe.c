@@ -10,6 +10,13 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifndef SIO_UDP_CONNRESET
+#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
+#endif
+#ifndef SIO_UDP_NETRESET
+#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)
+#endif
+
 static LONG failures;
 static INTERNET_PORT http_port;
 static volatile LONG worker_stage[6];
@@ -17,7 +24,15 @@ static volatile LONG worker_stage[6];
     printf("FAIL %s (error %lu)\n", label, GetLastError()); \
     InterlockedIncrement(&failures); } else printf("PASS %s\n", label); } while (0)
 
-static void udp_test(void)
+static void check_reset_control(SOCKET socket, DWORD code, const char *label)
+{
+    BOOL enabled = FALSE;
+    DWORD bytes = 0;
+    int result = WSAIoctl(socket, code, &enabled, sizeof(enabled), NULL, 0, &bytes, NULL, NULL);
+    CHECK(result == 0 && bytes == 0, label);
+}
+
+static void udp_test(BOOL check_reset_controls)
 {
     SOCKET dual = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
     SOCKET peer = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -30,6 +45,10 @@ static void udp_test(void)
     CHECK(!setsockopt(dual, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&zero, sizeof(zero)), "UDP dual-stack enabled");
     bind6.sin6_family = AF_INET6;
     CHECK(!bind(dual, (struct sockaddr *)&bind6, sizeof(bind6)), "UDP dual-stack bind");
+    if (check_reset_controls) {
+        check_reset_control(dual, SIO_UDP_CONNRESET, "UDP connection-reset control accepted");
+        check_reset_control(dual, SIO_UDP_NETRESET, "UDP network-reset control accepted");
+    }
     CHECK(!setsockopt(dual, IPPROTO_IP, IP_DONTFRAGMENT, (char *)&one, sizeof(one)), "IPv4 DONTFRAGMENT on dual-stack socket");
     CHECK(!setsockopt(dual, IPPROTO_IP, IP_TTL, (char *)&ttl, sizeof(ttl)), "IPv4 TTL on dual-stack socket");
     value = -1; value_size = sizeof(value);
@@ -152,8 +171,9 @@ int main(int argc, char **argv)
     setvbuf(stdout, NULL, _IONBF, 0);
     http_port = (INTERNET_PORT)atoi(argv[1]);
     CHECK(!WSAStartup(MAKEWORD(2, 2), &data), "WSAStartup");
-    udp_test();
-    if (!strcmp(argv[1], "--udp-only")) {
+    BOOL check_reset_controls = !strcmp(argv[1], "--fh6-udp-controls");
+    udp_test(check_reset_controls);
+    if (check_reset_controls || !strcmp(argv[1], "--udp-only")) {
         WSACleanup();
         printf("RESULT failures=%ld\n", failures);
         return failures ? 1 : 0;
