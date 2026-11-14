@@ -37,6 +37,8 @@ def install(probe_system32, apply):
     root = data / 'external-highball'
     prefix = data / 'bottles/xbox-highball/drive_c/windows/system32'
     dest = root / 'fh6-nexus-repairs'
+    catalog_target = prefix.parent / 'ProgramData/MACxus/fh6-public-catalog.tsv'
+    catalog = Path(__file__).with_name('fh6-public-catalog.tsv')
     installed_runner = root / 'runner.mjs'
     runner = Path(__file__).with_name('runner.mjs')
     pointer = json.loads((data / 'runtimes/current.json').read_text())
@@ -74,6 +76,10 @@ def install(probe_system32, apply):
                     raise RuntimeError('Probe module changed during staging: ' + name)
             (incoming / 'verified.json').write_text(json.dumps(receipt, indent=2) + '\n')
             shutil.copy2(installed_runner, temporary / 'runner.mjs')
+            if catalog_target.exists() or catalog_target.is_symlink():
+                if catalog_target.is_symlink() or not catalog_target.is_file():
+                    raise RuntimeError('Unexpected FH6 public catalog path')
+                shutil.copy2(catalog_target, temporary / 'previous-catalog')
             for name in MODULES + OTHER_RUNTIME_MODULES:
                 shutil.copy2(prefix / name, temporary / name)
             backup = temporary / 'previous-repair'
@@ -82,6 +88,9 @@ def install(probe_system32, apply):
             try:
                 incoming.rename(dest)
                 replace_file(runner, installed_runner)
+                if catalog.is_file():
+                    catalog_target.parent.mkdir(parents=True, exist_ok=True)
+                    replace_file(catalog, catalog_target)
                 result = subprocess.run([node, str(installed_runner), 'check'], check=True,
                                         text=True, stdout=subprocess.PIPE, timeout=90)
                 status = json.loads(result.stdout)
@@ -93,11 +102,17 @@ def install(probe_system32, apply):
                 for name in OTHER_RUNTIME_MODULES:
                     if digest(prefix / name) != digest(temporary / name):
                         raise RuntimeError('Unexpected change to existing ' + name)
+                if catalog.is_file() and digest(catalog_target) != digest(catalog):
+                    raise RuntimeError('The installed public catalog differs from the verified input')
                 print(json.dumps(status, indent=2))
             except BaseException:
                 replace_file(temporary / 'runner.mjs', installed_runner)
                 for name in MODULES + OTHER_RUNTIME_MODULES:
                     replace_file(temporary / name, prefix / name)
+                if (temporary / 'previous-catalog').is_file():
+                    replace_file(temporary / 'previous-catalog', catalog_target)
+                elif catalog.is_file():
+                    catalog_target.unlink(missing_ok=True)
                 if dest.exists():
                     shutil.rmtree(dest)
                 if backup.exists():

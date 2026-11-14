@@ -51,7 +51,21 @@ static int endpoint_policy(void)
     return result != 1;
 }
 
-static int xstore(BOOL unrelated, BOOL addons)
+static BOOLEAN CALLBACK collect_catalog(const XStoreProduct *product, void *context)
+{
+    UINT32 *count = context;
+    if (!product || strcmp(product->storeId, "9PKWSPL4R607") ||
+        product->productKind != XStoreProductKind_Durable || product->isInUserCollection ||
+        product->hasDigitalDownload || strcmp(product->inAppOfferToken, "1972_Datsun_240Z_Carbon") ||
+        product->skusCount != 1 || strcmp(product->skus[0].skuId, "0010")) {
+        *count = ~0u;
+        return FALSE;
+    }
+    ++*count;
+    return TRUE;
+}
+
+static int xstore(BOOL unrelated, BOOL addons, BOOL catalog)
 {
     struct initialize_options options = {0, TRUE, unrelated ?
         "<Game><StoreId>9NTBFBZMB84T</StoreId></Game>" :
@@ -76,6 +90,21 @@ static int xstore(BOOL unrelated, BOOL addons)
         FAILED(hr = query(&CLSID_XStoreImpl, &IID_IXStoreImpl6, (void **)&store)) ||
         FAILED(hr = query(&CLSID_XThreadingImpl, &IID_IXThreadingImpl, (void **)&threading)) ||
         FAILED(hr = IXStoreImpl6_XStoreCreateContext(store, NULL, &context))) goto done;
+    if (catalog) {
+        const char *ids[] = {"9PKWSPL4R607", "9ZZZZZZZZZZZ"};
+        XStoreProductQueryHandle products = NULL;
+        addon_count = 0;
+        hr = IXStoreImpl6_XStoreQueryProductsAsync(store, context, XStoreProductKind_Durable,
+                ids, sizeof(ids) / sizeof(ids[0]), NULL, 0, &async);
+        if (SUCCEEDED(hr)) status = IXThreadingImpl_XAsyncGetStatus(threading, &async, TRUE);
+        if (SUCCEEDED(status)) hr = IXStoreImpl6_XStoreQueryProductsResult(store, &async, &products);
+        if (SUCCEEDED(hr) && products) {
+            hr = IXStoreImpl6_XStoreEnumerateProductsQuery(store, products, &addon_count, collect_catalog);
+            passed = SUCCEEDED(hr) && addon_count == (unrelated ? 0 : 1);
+            IXStoreImpl6_XStoreCloseProductsQueryHandle(store, products);
+        }
+        goto done;
+    }
     if (addons) {
         hr = IXStoreImpl6_XStoreQueryAddOnLicensesAsync(store, context, &async);
         if (SUCCEEDED(hr)) {
@@ -99,8 +128,8 @@ static int xstore(BOOL unrelated, BOOL addons)
         if (license) IXStoreImpl6_XStoreCloseLicenseHandle(store, license);
     }
 done:
-    printf("XStore unrelated=%u addons=%u count=%u hr=0x%08lx status=0x%08lx passed=%u\n",
-           unrelated, addons, addon_count, hr, status, passed);
+    printf("XStore unrelated=%u addons=%u catalog=%u count=%u hr=0x%08lx status=0x%08lx passed=%u\n",
+           unrelated, addons, catalog, addon_count, hr, status, passed);
     if (context) IXStoreImpl6_XStoreCloseContextHandle(store, context);
     if (threading) IXThreadingImpl_Release(threading);
     if (store) IXStoreImpl6_Release(store);
@@ -112,9 +141,11 @@ int main(int argc, char **argv)
     if (argc != 2) return 2;
     if (!strcmp(argv[1], "http2")) return http2();
     if (!strcmp(argv[1], "endpoint-policy")) return endpoint_policy();
-    if (!strcmp(argv[1], "durable")) return xstore(FALSE, FALSE);
-    if (!strcmp(argv[1], "unrelated")) return xstore(TRUE, FALSE);
-    if (!strcmp(argv[1], "addons")) return xstore(FALSE, TRUE);
-    if (!strcmp(argv[1], "unrelated-addons")) return xstore(TRUE, TRUE);
+    if (!strcmp(argv[1], "durable")) return xstore(FALSE, FALSE, FALSE);
+    if (!strcmp(argv[1], "unrelated")) return xstore(TRUE, FALSE, FALSE);
+    if (!strcmp(argv[1], "addons")) return xstore(FALSE, TRUE, FALSE);
+    if (!strcmp(argv[1], "unrelated-addons")) return xstore(TRUE, TRUE, FALSE);
+    if (!strcmp(argv[1], "catalog")) return xstore(FALSE, FALSE, TRUE);
+    if (!strcmp(argv[1], "unrelated-catalog")) return xstore(TRUE, FALSE, TRUE);
     return 2;
 }

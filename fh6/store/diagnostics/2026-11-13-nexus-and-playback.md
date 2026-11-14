@@ -143,7 +143,8 @@ Then apply [the WebSocket patch](../../rosetta/wine11-websocket.patch) and
 to XGameRuntime, one `git apply` per patch in that order. Apply
 [the XUser policy lifetime patch](../xgameruntime-endpoint-policy-lifetime.patch)
 and then [the fallback string lifetime patch](../xgameruntime-fh6-auth-string-lifetime.patch)
-to the same XGameRuntime tree.
+to the same XGameRuntime tree. Apply the
+[FH6 public catalog patch](../xgameruntime-fh6-public-catalog.patch) last.
 From a source export, regenerate Wine's configure inputs, spec files and
 winevulkan stubs before configuring. Use an x86_64 MinGW compiler, archiver and
 headers, including nghttp2's public headers. Build Wine's x86_64 Windows
@@ -352,3 +353,33 @@ recoverable from commit `8f290e4` and the profile digest recorded above. Run
 `composited-input` to `replay-capture.exe`. These GPU checks exercise the
 capture and replay path; determining and fixing the Xbox artifact requires
 the user's in-game frames.
+
+### Car Pass product lookup
+
+The public Microsoft catalog returned the same 26 vehicle IDs for both
+published Car Pass SKUs in the US and CN markets. All 26 were present in
+the prior signed-receipt query's candidate list. The external launcher
+did not supply the metadata file that the native `XStoreQueryProductsAsync`
+path reads. A direct query for an individual Car Pass vehicle therefore
+produced no listing. The title-specific resolver now supplies Microsoft's
+verified public product ID, preferred SKU, vehicle offer token and title.
+These are unpackaged durables. The metadata path leaves ownership false;
+license acquisition and add-on enumeration still require Microsoft's
+signed response. [Xbox Car Pass](https://www.xbox.com/en-US/games/store/forza-horizon-6-car-pass/9NTBFBZMB84T) ·
+[GDK product lookup](https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/system/xstore/functions/xstorequeryproductsasync)
+
+To regenerate the checked-in TSV, pass Microsoft's public Car Pass bundle
+JSON and the JSON containing its child products to
+`python3 fh6/store/car_pass_catalog.py PARENT CHILDREN`. Compare candidate
+IDs in both market responses before changing the runtime allowlist. The
+isolated prefix's native DLL returned the expected Datsun record, kept an
+unknown ID out, and kept the special catalog out of an unrelated title.
+The offline durable and add-on tests still issued zero licenses, and native
+WinHTTP still negotiated HTTP/2 with the public catalog. On this host the
+previous XGameRuntime digest is
+`05a866e1bb2d21ad61dc4b873b6f03cbf64639c8d9310d458b7879ab35539979`
+and the replacement digest is
+`a50ba639f67a1b2b29cf1f091394a25777a50cc14ea10b64b4ca89217ce7b5e5`.
+Restore by rebuilding without the public-catalog patch and reinstalling
+the prior DLL and its corresponding receipt. A real Car Pass redemption
+is still a signed-in game check.

@@ -1,0 +1,106 @@
+--- a/dlls/xgameruntime/xstore.c
++++ b/dlls/xgameruntime/xstore.c
+@@ -115,6 +115,37 @@
+     char ids[64][13];
+ };
+ 
++static BOOL fh6_public_catalog_lookup( const char *id, XStoreProductKind kinds, char record[1024],
++                                      const char **sku, const char **language, const char **offer, const char **title )
++{
++    char *end, *fields[5];
++    unsigned int i;
++    FILE *file;
++    BOOL found = FALSE;
++
++    if (!(kinds & XStoreProductKind_Durable) || !is_fh6_car_pass_product( id )) return FALSE;
++    if (!(file = fopen( "C:\\ProgramData\\MACxus\\fh6-public-catalog.tsv", "rb" ))) return FALSE;
++    while (fgets( record, 1024, file ))
++    {
++        if (!(end = strchr( record, '\n' ))) continue;
++        *end = 0;
++        fields[0] = record;
++        for (i = 1; i < ARRAY_SIZE(fields); i++)
++        {
++            if (!(end = strchr( fields[i-1], '\t' ))) break;
++            *end = 0;
++            fields[i] = end + 1;
++        }
++        if (i != ARRAY_SIZE(fields) || strcmp( fields[0], id ) || !entitled_sku_id( fields[1] ) ||
++            !*fields[2] || !*fields[4] || strchr( fields[4], '\t' )) continue;
++        *sku = fields[1]; *language = fields[2]; *offer = fields[3]; *title = fields[4];
++        found = TRUE;
++        break;
++    }
++    fclose( file );
++    return found;
++}
++
+ static BOOL store_catalog_lookup( const char *id, XStoreProductKind *kind, char *title, SIZE_T title_size )
+ {
+     char line[512], *tab1, *tab2, *eol;
+@@ -140,7 +171,7 @@
+ {
+     struct entitled_snapshot *snapshot;
+     XStoreProductKind kind;
+-    char title[256];
++    char title[256], record[1024];
+     SIZE_T i;
+ 
+     if (!(snapshot = calloc( 1, sizeof(*snapshot) ))) return NULL;
+@@ -154,29 +185,42 @@
+     for (i = 0; query && i < query->count; i++)
+     {
+         XStoreProduct *product = &snapshot->products[snapshot->count];
+-        if (!store_catalog_lookup( query->ids[i], &kind, title, sizeof(title) ) || !(kind & query->kinds))
++        const char *sku = "0010", *language = "", *offer = "", *name = title;
++        BOOL public_fh6 = fh6_public_catalog_lookup( query->ids[i], query->kinds, record,
++                                                    &sku, &language, &offer, &name );
++        if (public_fh6) kind = XStoreProductKind_Durable;
++        else if (!store_catalog_lookup( query->ids[i], &kind, title, sizeof(title) ) || !(kind & query->kinds))
+         {
+             TRACE( "  %s not in catalog, skipped.\n", debugstr_a( query->ids[i] ) );
+             continue;
+         }
+-        product->storeId = strdup( query->ids[i] );
+-        product->title = strdup( title );
++        snapshot->count++;
++        product->storeId = strdup( query->ids[i] );
++        product->title = strdup( name );
+         product->description = strdup( "" );
+-        product->language = strdup( "" );
+-        product->inAppOfferToken = strdup( "" );
++        product->language = strdup( language );
++        product->inAppOfferToken = strdup( offer );
+         product->productKind = kind;
+-        product->hasDigitalDownload = TRUE;
++        product->hasDigitalDownload = !public_fh6;
+         product->isInUserCollection = FALSE;
+-        if ((product->skus = calloc( 1, sizeof(*product->skus) )))
++        if (!product->storeId || !product->title || !product->description || !product->language ||
++            !product->inAppOfferToken || !(product->skus = calloc( 1, sizeof(*product->skus) )))
+         {
+-            product->skusCount = 1;
+-            product->skus[0].skuId = strdup( "0010" );
+-            product->skus[0].title = strdup( title );
+-            product->skus[0].description = strdup( "" );
+-            product->skus[0].language = strdup( "" );
++            entitled_snapshot_release( snapshot );
++            return NULL;
+         }
+-        TRACE( "  %s kind %#x %s, not owned.\n", debugstr_a( product->storeId ), kind, debugstr_a( title ) );
+-        snapshot->count++;
++        product->skusCount = 1;
++        product->skus[0].skuId = strdup( sku );
++        product->skus[0].title = strdup( name );
++        product->skus[0].description = strdup( "" );
++        product->skus[0].language = strdup( language );
++        if (!product->skus[0].skuId || !product->skus[0].title || !product->skus[0].description ||
++            !product->skus[0].language)
++        {
++            entitled_snapshot_release( snapshot );
++            return NULL;
++        }
++        TRACE( "  %s kind %#x %s, not owned.\n", debugstr_a( product->storeId ), kind, debugstr_a( name ) );
+     }
+     return snapshot;
+ }
