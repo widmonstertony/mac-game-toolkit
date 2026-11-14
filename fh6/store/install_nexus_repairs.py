@@ -1,0 +1,105 @@
+"""Install the two validated Nexus modules for the dedicated Xbox FH6 launcher."""
+
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import struct
+import subprocess
+import tempfile
+
+from prior_fixes import replace_file
+
+
+RUNTIME = 'xodus-nexus-runtime-11.0-20261022-gf4adc821'
+MODULES = ('winhttp.dll', 'xgameruntime.dll')
+OTHER_RUNTIME_MODULES = ('windows.web.dll', 'twinapi.appcore.dll', 'gamingtcui.dll', 'libnghttp2.dll')
+
+
+def digest(file):
+    with file.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def native_pe(file):
+    with file.open('rb') as stream:
+        header = stream.read(80)
+        if len(header) < 80 or header[:2] != b'MZ' or header[64:80] == b'Wine builtin DLL':
+            raise RuntimeError('Use the native PE from the isolated probe: ' + file.name)
+        stream.seek(struct.unpack_from('<I', header, 60)[0])
+        if stream.read(6) != b'PE\0\0\x64\x86':
+            raise RuntimeError('Expected the validated x64 module: ' + file.name)
+
+
+def install(probe_system32, apply):
+    data = Path.home() / 'Library/Application Support/MACxus'
+    root = data / 'external-highball'
+    prefix = data / 'bottles/xbox-highball/drive_c/windows/system32'
+    dest = root / 'fh6-nexus-repairs'
+    installed_runner = root / 'runner.mjs'
+    runner = Path(__file__).with_name('runner.mjs')
+    pointer = json.loads((data / 'runtimes/current.json').read_text())
+    runtime = Path(pointer['winePath']).parents[2].name
+    if runtime != RUNTIME or not installed_runner.is_file():
+        raise RuntimeError('The pinned Xbox FH6 Nexus launcher must be present')
+    if dest.exists():
+        raise RuntimeError('An existing FH6 Nexus repair is already installed')
+    if any((data / 'runtime-overrides' / name).exists() for name in MODULES + OTHER_RUNTIME_MODULES):
+        raise RuntimeError('Resolve existing Nexus runtime overrides before installing the title repair')
+    if probe_system32.resolve() == prefix.resolve():
+        raise RuntimeError('Use the isolated probe directory')
+    for name in MODULES:
+        native_pe(probe_system32 / name)
+    receipt = {'schema': 1, 'runtime': runtime,
+               'files': {name: digest(probe_system32 / name) for name in MODULES}}
+    if apply:
+        processes = subprocess.check_output(['/bin/ps', '-axo', 'comm='], text=True)
+        if 'forzahorizon6.exe' in processes.lower():
+            raise RuntimeError('Close Xbox FH6 before installing the two Nexus modules')
+        node = shutil.which('node')
+        if not node:
+            raise RuntimeError('Native Node.js is required')
+        with tempfile.TemporaryDirectory(prefix='.fh6-nexus-install-', dir=root) as directory:
+            temporary = Path(directory)
+            incoming = temporary / 'repair'
+            incoming.mkdir()
+            for name in MODULES:
+                shutil.copy2(probe_system32 / name, incoming / name)
+                if digest(incoming / name) != receipt['files'][name]:
+                    raise RuntimeError('Probe module changed during staging: ' + name)
+            (incoming / 'verified.json').write_text(json.dumps(receipt, indent=2) + '\n')
+            shutil.copy2(installed_runner, temporary / 'runner.mjs')
+            for name in MODULES + OTHER_RUNTIME_MODULES:
+                shutil.copy2(prefix / name, temporary / name)
+            incoming.rename(dest)
+            try:
+                replace_file(runner, installed_runner)
+                result = subprocess.run([node, str(installed_runner), 'check'], check=True,
+                                        text=True, stdout=subprocess.PIPE, timeout=90)
+                status = json.loads(result.stdout)
+                if not all(status.get(key) is True for key in ('ready', 'nexusRepair', 'priorFixes')):
+                    raise RuntimeError('The FH6 launcher did not select both repair layers')
+                for name in MODULES:
+                    if digest(prefix / name) != receipt['files'][name]:
+                        raise RuntimeError('The launcher did not install the verified ' + name)
+                for name in OTHER_RUNTIME_MODULES:
+                    if digest(prefix / name) != digest(temporary / name):
+                        raise RuntimeError('Unexpected change to existing ' + name)
+                print(json.dumps(status, indent=2))
+            except BaseException:
+                replace_file(temporary / 'runner.mjs', installed_runner)
+                for name in MODULES + OTHER_RUNTIME_MODULES:
+                    replace_file(temporary / name, prefix / name)
+                shutil.rmtree(dest)
+                raise
+    else:
+        print(json.dumps(receipt, indent=2))
+
+
+if __name__ == '__main__':
+    cli = argparse.ArgumentParser(description=__doc__)
+    cli.add_argument('probe_system32', type=Path)
+    cli.add_argument('--apply', action='store_true')
+    args = cli.parse_args()
+    install(args.probe_system32, args.apply)

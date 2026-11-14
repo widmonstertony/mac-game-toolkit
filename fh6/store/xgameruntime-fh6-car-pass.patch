@@ -1,0 +1,185 @@
+--- a/dlls/xgameruntime/xstore_entitled.h
++++ b/dlls/xgameruntime/xstore_entitled.h
+@@ -8,7 +8,37 @@
+ #define ENTITLED_MAX_SKUS 16
+ static char entitled_related[256][13];
+ static UINT32 entitled_related_count;
++
++/* Microsoft's FH6 Car Pass catalog, including the durable vehicle offers it
++ * lists. These are query candidates; every result still requires the normal
++ * Microsoft license receipt, including signature, nonce, scope and expiry. */
++static const char fh6_car_pass_products[][13] =
++{
++    "9NTBFBZMB84T",
++    "9PKWSPL4R607", "9N88KS4F0F60", "9PC5RBTX2QCZ", "9N3HP1DD128Z",
++    "9NQK8HJ5SR33", "9NSMH0WMCWLM", "9P6VRW1B7CBW", "9NWNWB9THLF0",
++    "9P39F261M2XH", "9N7P9PTR9JD5", "9P1KDJR46D0N", "9NHQ9Q2P05B3",
++    "9PGP2M3TD77B", "9P6BF7MJMQH4", "9P327WP7CNSJ", "9N7WLRF1LLJ9",
++    "9PCHSGWV2GXC", "9NXK9Z6G8MRD", "9PGC982B5X72", "9NM1HNVMS21Z",
++    "9N1J3D5WNSKP", "9PFFJ5XZ4VB8", "9NF7XZZ3HJN4", "9N455JB6GV10",
++    "9NPKBPKCPCNF", "9MZ15R3NHPSK",
++};
++
++static BOOL is_fh6_store( void )
++{
++    return storeId && !strcmp(storeId, "9NR1R1XWLCNB") &&
++        packageFamilyName && !strcmp(packageFamilyName, "Microsoft.ForteBaseGame_8wekyb3d8bbwe");
++}
+ 
++static BOOL is_fh6_car_pass_product( const char *product )
++{
++    unsigned int i;
++    if (!is_fh6_store() || !product) return FALSE;
++    for (i = 0; i < ARRAY_SIZE(fh6_car_pass_products); i++)
++        if (!strcmp(product, fh6_car_pass_products[i])) return TRUE;
++    return FALSE;
++}
++
+ static BOOL entitled_id( const char *text )
+ {
+     UINT32 i;
+@@ -441,6 +471,12 @@
+     xmlNewTextChild(root, NULL, BAD_CAST "ParentProductId", BAD_CAST storeId);
+     for (i = 0; i < entitled_related_count; i++)
+         if (strcmp(storeId, entitled_related[i])) xmlNewTextChild(root, NULL, BAD_CAST "ProductId", BAD_CAST entitled_related[i]);
++    if (!entitled_related_count && (kinds & 2) && is_fh6_store())
++    {
++        for (i = 0; i < ARRAY_SIZE(fh6_car_pass_products); i++)
++            xmlNewTextChild(root, NULL, BAD_CAST "ProductId", BAD_CAST fh6_car_pass_products[i]);
++        xodus_store_license_note("fh6-car-pass-query", S_OK);
++    }
+     xmlNewTextChild(root, NULL, BAD_CAST "ProductKinds", BAD_CAST kind);
+     xmlNewTextChild(root, NULL, BAD_CAST "Market", BAD_CAST market);
+     xmlNewTextChild(root, NULL, BAD_CAST "Language", BAD_CAST language);
+--- a/dlls/xgameruntime/xstore.c
++++ b/dlls/xgameruntime/xstore.c
+@@ -336,12 +336,12 @@
+ 
+ static HRESULT WINAPI x_store_XStoreAcquireLicenseForPackageAsync( IXStoreImpl6 *iface, const XStoreProductQueryHandle productQueryHandle, const char *packageIdentifier, XAsyncBlock *async )
+ {
+-    return package_license_begin((XStoreContextHandle)productQueryHandle, packageIdentifier, async);
++    return package_license_begin((XStoreContextHandle)productQueryHandle, packageIdentifier, FALSE, async);
+ }
+ 
+ static HRESULT WINAPI x_store_XStoreAcquireLicenseForPackageResult( IXStoreImpl6 *iface, XAsyncBlock *async, XStoreLicenseHandle *storeLicenseHandle )
+ {
+-    return package_license_result(async, storeLicenseHandle);
++    return package_license_result(async, FALSE, storeLicenseHandle);
+ }
+ 
+ static BOOLEAN WINAPI x_store_XStoreIsLicenseValid( IXStoreImpl6 *iface, const XStoreLicenseHandle storeLicenseHandle )
+@@ -984,14 +984,12 @@
+ 
+ static HRESULT WINAPI x_store_XStoreAcquireLicenseForDurablesAsync( IXStoreImpl6 *iface, const XStoreContextHandle storeContextHandle, const char *storeId, XAsyncBlock *async )
+ {
+-    FIXME( "iface %p, storeContextHandle %p, storeId %s, async %p stub!\n", iface, storeContextHandle, debugstr_a( storeId ), async );
+-    return E_NOTIMPL;
++    return package_license_begin(storeContextHandle, storeId, TRUE, async);
+ }
+ 
+ static HRESULT WINAPI x_store_XStoreAcquireLicenseForDurablesResult( IXStoreImpl6 *iface, XAsyncBlock *async, XStoreLicenseHandle *storeLicenseHandle )
+ {
+-    FIXME( "iface %p, async %p, storeLicenseHandle %p stub!\n", iface, async, storeLicenseHandle );
+-    return E_NOTIMPL;
++    return package_license_result(async, TRUE, storeLicenseHandle);
+ }
+ 
+ static HRESULT WINAPI x_store_XStoreShowAssociatedProductsUIAsync( IXStoreImpl6 *iface, const XStoreContextHandle storeContextHandle, const char *storeId, XStoreProductKind productKinds, XAsyncBlock *async )
+--- a/dlls/xgameruntime/xstore_package_license.h
++++ b/dlls/xgameruntime/xstore_package_license.h
+@@ -256,11 +256,13 @@
+ {
+     LONG refs, canceled, started;
+     char store[13], request[1024];
++    BOOL unpackaged;
+     struct package_license *license;
+     IXThreadingImpl *threading;
+     XAsyncBlock *async;
+ };
+ static const char package_license_identity;
++static const char durable_license_identity;
+ 
+ static void package_license_async_release( struct package_license_async *context )
+ {
+@@ -271,7 +273,7 @@
+ }
+ 
+ static HRESULT package_license_from_snapshot( struct entitled_snapshot *snapshot, const char *store,
+-    IXThreadingImpl *threading, struct package_license **out )
++    BOOL unpackaged, IXThreadingImpl *threading, struct package_license **out )
+ {
+     UINT i, j;
+     UINT64 until;
+@@ -281,7 +283,7 @@
+     {
+         XStoreProduct *product = &snapshot->products[i];
+         if (strcmp(product->storeId, store) || product->productKind != XStoreProductKind_Durable ||
+-            !product->isInUserCollection || !product->hasDigitalDownload) continue;
++            !product->isInUserCollection || product->hasDigitalDownload == unpackaged) continue;
+         for (j = 0; j < product->skusCount; j++)
+         {
+             XStoreSku *sku = &product->skus[j];
+@@ -300,10 +302,10 @@
+     HRESULT hr = E_ABORT;
+     if (!InterlockedCompareExchange(&context->canceled, 0, 0))
+         hr = entitled_fetch(context->request, &context->canceled, &snapshot);
+-    if (SUCCEEDED(hr)) hr = package_license_from_snapshot(snapshot, context->store, context->threading, &context->license);
++    if (SUCCEEDED(hr)) hr = package_license_from_snapshot(snapshot, context->store, context->unpackaged, context->threading, &context->license);
+     if (snapshot) entitled_snapshot_release(snapshot);
+     if (InterlockedCompareExchange(&context->canceled, 0, 0)) hr = E_ABORT;
+-    xodus_store_license_note("store-package-license-result", hr);
++    xodus_store_license_note(context->unpackaged ? "fh6-durable-license-result" : "store-package-license-result", hr);
+     IXThreadingImpl_XAsyncComplete(context->threading, context->async, hr, SUCCEEDED(hr) ? sizeof(void *) : 0);
+     package_license_async_release(context);
+     return 0;
+@@ -341,7 +343,7 @@
+     return S_OK;
+ }
+ 
+-static HRESULT package_license_begin( XStoreContextHandle store, const char *identifier, XAsyncBlock *async )
++static HRESULT package_license_begin( XStoreContextHandle store, const char *identifier, BOOL unpackaged, XAsyncBlock *async )
+ {
+     struct package_license_async *context;
+     UINT64 xuid;
+@@ -351,27 +353,36 @@
+     if (!entitled_id(storeId)) return E_GAME_MISSING_GAME_CONFIG;
+     if (!(context = calloc(1, sizeof(*context)))) return E_OUTOFMEMORY;
+     context->refs = 1;
+-    if (FAILED(hr = xpackage_query_content_store(identifier, sizeof(context->store), context->store)))
++    context->unpackaged = unpackaged;
++    if (unpackaged)
++    {
++        if (!is_fh6_car_pass_product(identifier)) { free(context); return E_NOTIMPL; }
++        memcpy(context->store, identifier, sizeof(context->store));
++    }
++    else if (FAILED(hr = xpackage_query_content_store(identifier, sizeof(context->store), context->store)))
+     { free(context); return hr; }
+     snprintf(context->request, sizeof(context->request),
+         "<Request><ParentProductId>%s</ParentProductId><ProductId>%s</ProductId>"
+         "<ProductKinds>2</ProductKinds><Market>US</Market><Language>en-US</Language></Request>", storeId, context->store);
+     if (FAILED(hr = QueryApiImpl(&CLSID_XThreadingImpl, &IID_IXThreadingImpl, (void **)&context->threading)))
+     { free(context); return hr; }
+-    hr = IXThreadingImpl_XAsyncBegin(context->threading, async, context, &package_license_identity,
+-        "XStoreAcquireLicenseForPackageAsync", package_license_provider);
++    hr = IXThreadingImpl_XAsyncBegin(context->threading, async, context,
++        unpackaged ? &durable_license_identity : &package_license_identity,
++        unpackaged ? "XStoreAcquireLicenseForDurablesAsync" : "XStoreAcquireLicenseForPackageAsync",
++        package_license_provider);
+     if (FAILED(hr)) package_license_async_release(context);
+     return hr;
+ }
+ 
+-static HRESULT package_license_result( XAsyncBlock *async, XStoreLicenseHandle *out )
++static HRESULT package_license_result( XAsyncBlock *async, BOOL unpackaged, XStoreLicenseHandle *out )
+ {
+     IXThreadingImpl *threading;
+     HRESULT hr;
+     if (!out || !async) return E_INVALIDARG;
+     *out = NULL;
+     if (FAILED(hr = QueryApiImpl(&CLSID_XThreadingImpl, &IID_IXThreadingImpl, (void **)&threading))) return hr;
+-    hr = IXThreadingImpl_XAsyncGetResult(threading, async, &package_license_identity, sizeof(void *), out, NULL);
++    hr = IXThreadingImpl_XAsyncGetResult(threading, async,
++        unpackaged ? &durable_license_identity : &package_license_identity, sizeof(void *), out, NULL);
+     IXThreadingImpl_Release(threading);
+     return hr;
+ }

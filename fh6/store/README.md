@@ -6,7 +6,9 @@ shortcut is a front end for the licensed Store game. It is not the Steam edition
 
 See [the Store migration record](diagnostics/2026-11-13-store-migration.md) for
 the earlier fixes now installed for the next launch and the ones that do not
-carry over.
+carry over. The [Nexus and playback follow-up](diagnostics/2026-11-13-nexus-and-playback.md)
+covers the current title-only WebSocket and Car Pass changes, GPU evidence
+from the prior launch, and remaining in-game checks.
 
 ## Downloaded-package profile (2026-11-13)
 
