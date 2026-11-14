@@ -2,11 +2,68 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <d3d12.h>
+#include <dxgi1_4.h>
 #include <cstdio>
 #include <cstring>
 
 #define CHECK(x) do { HRESULT hr=(x); if(FAILED(hr)){printf("FAIL line=%d hr=%08lx\n",__LINE__,(unsigned long)hr);return 1;} } while(0)
-int main() {
+
+static int probe_present(ID3D12CommandQueue *queue)
+{
+    HWND window=CreateWindowExW(0,L"STATIC",L"Isolated DXGI presentation probe",WS_OVERLAPPEDWINDOW,
+                                CW_USEDEFAULT,CW_USEDEFAULT,320,240,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);
+    if(!window)return 5;
+    IDXGIFactory2 *factory=nullptr;
+    CHECK(CreateDXGIFactory1(IID_IDXGIFactory2,(void**)&factory));
+    DXGI_SWAP_CHAIN_DESC1 desc{};
+    desc.Width=256;
+    desc.Height=144;
+    desc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count=1;
+    desc.BufferUsage=DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    desc.BufferCount=3;
+    desc.SwapEffect=DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    IDXGISwapChain1 *swapchain=nullptr;
+    CHECK(factory->CreateSwapChainForHwnd(queue,window,&desc,nullptr,nullptr,&swapchain));
+    ShowWindow(window,SW_SHOWNOACTIVATE);
+
+    UINT base_count=0,end_count=0,display_updates=0;
+    DXGI_FRAME_STATISTICS base{},previous{},last{};
+    HRESULT base_calls=swapchain->GetLastPresentCount(&base_count);
+    HRESULT base_stats=swapchain->GetFrameStatistics(&base);
+    previous=base;
+    HRESULT stats_status=base_stats;
+    unsigned submitted=0,occluded=0;
+    for(unsigned i=0;i<12;++i)
+    {
+        MSG event{};
+        while(PeekMessageW(&event,nullptr,0,0,PM_REMOVE))DispatchMessageW(&event);
+        const HRESULT result=swapchain->Present(1,0);
+        CHECK(result);
+        submitted+=result==S_OK;
+        occluded+=result==DXGI_STATUS_OCCLUDED;
+        Sleep(34);
+        stats_status=swapchain->GetFrameStatistics(&last);
+        if(stats_status==S_OK && last.PresentCount!=previous.PresentCount &&
+           last.PresentRefreshCount!=previous.PresentRefreshCount && last.SyncQPCTime.QuadPart>0)
+            ++display_updates;
+        if(stats_status==S_OK)previous=last;
+    }
+    const HRESULT end_calls=swapchain->GetLastPresentCount(&end_count);
+    printf("DXGI Present success=%u occluded=%u call_count_hr=%08lx/%08lx count=%u->%u "
+           "stats_hr=%08lx/%08lx stats_present=%u->%u stats_refresh=%u->%u final_sync_qpc=%lld "
+           "advancing_refresh_samples=%u\n",
+           submitted,occluded,(unsigned long)base_calls,(unsigned long)end_calls,base_count,end_count,
+           (unsigned long)base_stats,(unsigned long)stats_status,base.PresentCount,last.PresentCount,
+           base.PresentRefreshCount,last.PresentRefreshCount,(long long)last.SyncQPCTime.QuadPart,display_updates);
+    swapchain->Release();
+    factory->Release();
+    DestroyWindow(window);
+    return submitted ? 0 : 6;
+}
+
+int main(int argc,char **argv) {
+ if(argc>2 || (argc==2 && strcmp(argv[1],"--present")))return 2;
  ID3D12Device *device=nullptr;
  CHECK(D3D12CreateDevice(nullptr,D3D_FEATURE_LEVEL_12_0,IID_ID3D12Device,(void**)&device));
  ID3D12CommandQueue *queue=nullptr;D3D12_COMMAND_QUEUE_DESC q{};
@@ -33,5 +90,6 @@ int main() {
  D3D12_RANGE all{0,256};CHECK(resources[2]->Map(0,&all,(void**)&mapped));
  for(unsigned i=0;i<64;i++)if(mapped[i]!=0x1367a800u+i){printf("FAIL readback word=%u\n",i);return 4;}
  resources[2]->Unmap(0,&none);puts("PASS D3D12 device + real GPU queue copy + fence + 64-word exact readback");
- CloseHandle(event);for(auto r:resources)r->Release();fence->Release();list->Release();allocator->Release();queue->Release();device->Release();return 0;
+ const int result=argc==2?probe_present(queue):0;
+ CloseHandle(event);for(auto r:resources)r->Release();fence->Release();list->Release();allocator->Release();queue->Release();device->Release();return result;
 }

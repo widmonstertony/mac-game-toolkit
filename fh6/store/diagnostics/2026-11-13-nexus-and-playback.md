@@ -165,3 +165,17 @@ The launcher also records the graphics log's byte offset before starting the
 account service. The summary counts only subsequent records and explicitly
 reports when there has been no launch with this diagnostic, preventing a
 previous run's generation requests from being attributed to the current build.
+
+## Measuring actual presentation
+
+The optional `--present` mode of [the isolated GPU probe](../environment-probe.cpp)
+uses the same private Highball/D3DMetal path and an owned 256×144 flip-model
+swap chain. The 64-word GPU copy passed, all 12 Present calls succeeded, and
+both DXGI frame-stat counters advanced from zero to 12. The accompanying
+`SyncQPCTime` remained zero for every sample. This profile therefore did
+not supply display timing through DXGI, even though the API returned success.
+The counters alone cannot identify displayed frames or distinguish real from
+generated images. The next in-game check needs a macOS presentation trace
+alongside the existing FidelityFX dispatch log and visual check. Build the
+probe with x64 MinGW and link `-ld3d12 -ldxgi -ldxguid`; the default invocation
+remains the headless GPU copy. [DXGI frame-statistics contract](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/ns-dxgi-dxgi_frame_statistics)
