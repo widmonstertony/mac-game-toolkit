@@ -20,12 +20,13 @@ static BYTE *pixels(const wchar_t *dir,const wchar_t *name,UINT w,UINT h,UINT pi
  if(ok)for(UINT y=0;y<h;y++)memcpy(tight+SIZE_T(y)*w*4,raw+SIZE_T(y)*pitch,w*4);
  if(raw)HeapFree(GetProcessHeap(),0,raw);if(!ok&&tight){HeapFree(GetProcessHeap(),0,tight);tight=nullptr;}return tight;
 }
-static bool load(const wchar_t *dir,Input &v){
+static bool load(const wchar_t *dir,Input &v,bool compositedInput){
  HANDLE f=open(dir,L"replay-input.bin",GENERIC_READ,OPEN_EXISTING);if(f==INVALID_HANDLE_VALUE)return false;
  bool ok=read(f,&v.h,sizeof(v.h))&&read(f,&v.frame,sizeof(v.frame));CloseHandle(f);
  if(!ok||v.h.magic!=0x31594c5052484646ull||v.h.version!=1||v.h.size!=sizeof(v.h)||v.h.frameSize!=sizeof(v.frame))return false;
  v.depth=pixels(dir,L"depth.bin",v.h.rw,v.h.rh,v.h.pitch[0]);
  v.motion=pixels(dir,L"motion.bin",v.h.rw,v.h.rh,v.h.pitch[1]);
- v.scene=pixels(dir,L"scene.bin",v.h.w,v.h.h,v.h.pitch[2]);
+ v.scene=compositedInput ? pixels(dir,L"present.bin",v.h.w,v.h.h,v.h.pitch[4])
+                         : pixels(dir,L"scene.bin",v.h.w,v.h.h,v.h.pitch[2]);
  return v.depth&&v.motion&&v.scene;
 }

@@ -293,3 +293,25 @@ and retry online matchmaking with the same game process. Capture frame timing
 in stable free roam before arming the color capture; compare the paired images
 along with the previously installed Metal completion observation. Keep live
 game pixels, service identifiers and authorization data out of the repository.
+
+### Composited-color replay on the private Xbox renderer
+
+The old Xbox trace explicitly set both Streamline tags to null in all 1,124
+sampled Prepare calls. Forty sampled FFX UI registration calls also supplied
+a null texture. The saved Steam pair 14902–14903 previously demonstrated a
+car-tail disocclusion error before the UI was applied. To separate it from
+the missing tags, the unchanged original FFX 3.1.6 DLL replayed that pair and
+two others on the private Store D3DMetal path. Each pair ran both the original
+scene-only control and `composited-input`, with identical motion, depth,
+camera data, four warmup frames and native 3472×2266 output.
+
+All six GPU replays completed. For 14902–14903, comparing the two variants
+on that pair, 7,221 of 14,325 sampled pixels with UI alpha above one differed
+by more than 3 RGB levels. In the lower-middle comparison box with
+X=1215–2255 and Y=1586–2038, only 15 of 1,886,292 RGBA components changed.
+This control indicates
+that providing the original separate UI can address a different problem from
+car-tail disocclusion. The Steam inputs and cold replay do not establish the
+Xbox defect and do not justify fabricating HUDless color from the earlier
+upscale result. Use the next live Xbox capture to establish whether the Xbox
+artifact already exists at the provider output.

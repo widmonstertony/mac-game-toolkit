@@ -23,7 +23,18 @@ struct Token:sl::FrameToken{uint32_t id;Token(uint32_t i):id(i){}operator uint32
 #include "trace-command-list.h"
 static FfxApiResource res(Texture &t){return ffxApiGetResourceDX12(t.gpu,FFX_API_RESOURCE_STATE_PIXEL_COMPUTE_READ);}
 int wmain(int argc,wchar_t **argv){
- setvbuf(stdout,nullptr,_IONBF,0);CHECK(argc>=5 && argc<=10);UINT warmup=4;bool tight=false,trace=false,maskControl=false,provider=false;for(int i=5;i<argc;i++){if(!wcscmp(argv[i],L"tight-max-render"))tight=true;else if(!wcscmp(argv[i],L"trace"))trace=true;else if(!wcscmp(argv[i],L"mask-control"))maskControl=true;else if(!wcscmp(argv[i],L"provider"))provider=true;else if(!wcsncmp(argv[i],L"warmup=",7)){warmup=wcstoul(argv[i]+7,nullptr,10);CHECK(warmup>=4&&warmup<=64);}else CHECK(false);}Input in[2];CHECK(load(argv[2],in[0]));CHECK(load(argv[3],in[1]));
+ setvbuf(stdout,nullptr,_IONBF,0);CHECK(argc>=5 && argc<=11);UINT warmup=4;bool tight=false,trace=false,maskControl=false,provider=false,compositedInput=false;
+ for(int i=5;i<argc;i++){
+  if(!wcscmp(argv[i],L"tight-max-render"))tight=true;
+  else if(!wcscmp(argv[i],L"trace"))trace=true;
+  else if(!wcscmp(argv[i],L"mask-control"))maskControl=true;
+  else if(!wcscmp(argv[i],L"provider"))provider=true;
+  else if(!wcscmp(argv[i],L"composited-input"))compositedInput=true;
+  else if(!wcsncmp(argv[i],L"warmup=",7)){warmup=wcstoul(argv[i]+7,nullptr,10);CHECK(warmup>=4&&warmup<=64);}
+  else CHECK(false);
+ }
+ CHECK(!compositedInput||(!provider&&!maskControl));
+ Input in[2];CHECK(load(argv[2],in[0],compositedInput));CHECK(load(argv[3],in[1],compositedInput));
  const auto &a=in[0].h,&b=in[1].h;CHECK(a.w==b.w&&a.h==b.h&&a.rw==b.rw&&a.rh==b.rh&&a.flags==b.flags);
  CHECK(in[1].frame.frame==in[0].frame.frame+1);CHECK(a.flags==FFX_FRAMEGENERATION_ENABLE_DEPTH_INVERTED);
  GPU g;CHECK(g.init());
@@ -41,7 +52,7 @@ int wmain(int argc,wchar_t **argv){
  TraceDevice tracedDevice;tracedDevice.real=g.d;
  ffxCreateBackendDX12Desc backend{{FFX_API_CREATE_CONTEXT_DESC_TYPE_BACKEND_DX12},trace?static_cast<ID3D12Device*>(&tracedDevice):g.d};
  const UINT maxW=tight?a.rw:a.w,maxH=tight?a.rh:a.h;
- printf("Replay maxRender=%ux%u actualRender=%ux%u\n",maxW,maxH,a.rw,a.rh);
+ printf("Replay maxRender=%ux%u actualRender=%ux%u colorInput=%s\n",maxW,maxH,a.rw,a.rh,compositedInput?"composited":"hudless");
  ffxCreateContextDescFrameGeneration cd{{FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATION,&backend.header},a.flags,{a.w,a.h},{maxW,maxH},FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM};
  ffxContext context=nullptr;CHECK(create(&context,&cd.header,nullptr)==0);
  Texture depth,motion,scene,out,ui;CHECK(depth.init(g.d,DXGI_FORMAT_R32G8X24_TYPELESS,D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL,a.rw,a.rh));
@@ -63,7 +74,9 @@ int wmain(int argc,wchar_t **argv){
    sl::Resource st(sl::ResourceType::eTex2d,scene.gpu,readable),ut(sl::ResourceType::eTex2d,ui.gpu,readable),dt(sl::ResourceType::eTex2d,depth.gpu,readable),mt(sl::ResourceType::eTex2d,motion.gpu,readable);
    sl::ResourceTag tags[]={sl::ResourceTag(&st,sl::kBufferTypeHUDLessColor,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&ut,sl::kBufferTypeUIColorAndAlpha,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&dt,sl::kBufferTypeDepth,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&mt,sl::kBufferTypeMotionVectors,sl::ResourceLifecycle::eValidUntilPresent)};CHECK(setTags(token,view,tags,4,nullptr)==sl::Result::eOk);
   }
-  ffxConfigureDescFrameGeneration cfg{};cfg.header.type=FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION;cfg.frameID=id;cfg.frameGenerationEnabled=true;cfg.flags=FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY;cfg.HUDLessColor=res(scene);cfg.generationRect={0,0,(int)h.w,(int)h.h};CHECK(configure(&context,&cfg.header)==0);
+  ffxConfigureDescFrameGeneration cfg{};cfg.header.type=FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION;cfg.frameID=id;cfg.frameGenerationEnabled=true;cfg.flags=FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY;
+  if(!compositedInput)cfg.HUDLessColor=res(scene);
+  cfg.generationRect={0,0,(int)h.w,(int)h.h};CHECK(configure(&context,&cfg.header)==0);
   ffxDispatchDescFrameGenerationPrepareCameraInfo camera{};camera.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_CAMERAINFO;
   memcpy(camera.cameraPosition,f.cameraBasis,12);memcpy(camera.cameraUp,f.cameraBasis+3,12);memcpy(camera.cameraRight,f.cameraBasis+6,12);memcpy(camera.cameraForward,f.cameraBasis+9,12);
   ffxDispatchDescFrameGenerationPrepare prep{};prep.header={FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE,&camera.header};prep.frameID=id;prep.commandList=trace?static_cast<ID3D12GraphicsCommandList*>(&traced):g.l;prep.renderSize={h.rw,h.rh};prep.motionVectorScale={h.scale[0],h.scale[1]};prep.jitterOffset={h.jitter[0],h.jitter[1]};prep.frameTimeDelta=h.ms;prep.cameraNear=f.nearPlane;prep.cameraFar=f.farPlane;prep.cameraFovAngleVertical=f.fov;prep.viewSpaceToMetersFactor=0;prep.depth=res(depth);prep.motionVectors=res(motion);CHECK(dispatch(&context,&prep.header)==0);

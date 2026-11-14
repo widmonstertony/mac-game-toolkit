@@ -338,6 +338,16 @@ shader scalar math matches all 15,537 sampled valid-vector interior GPU points
 some supposedly valid background samples were hidden by the car. This identifies
 a visibility-error contribution, not a universal verdict on FSR or D3DMetal.
 
+The standalone replay also supports `composited-input` for captures with both
+scene and final color. Run both variants with the same original provider, input
+directories and warmup count, using separate output directories. The control
+uses the HUDless color; `composited-input` uses the saved final RGBA8 color and
+leaves the SDK's HUDless descriptor empty. Both use the same original depth,
+motion and camera inputs. This option cannot be combined with `provider` or
+`mask-control`. It tests the effect of a composited input while retaining the
+real scene capture as a control; it does not reconstruct Xbox pixels or
+separate a HUD when only the final color was captured.
+
 **Discarded suspicion:** actual 3.1.6 interpolation intentionally copies red to
 output alpha and writes inpainting weight into a separate UAV. A different
 cached source revision had a different layout. Alpha=red is not the defect.
