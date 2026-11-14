@@ -163,3 +163,43 @@ showed the corresponding submitter blocked for almost the entire gap.
 Arm this capture against the existing FH6 PID during the next user-started
 free-roam test, alongside the provider, Nexus and audio checks. Keep the raw
 trace and any per-thread identifiers local.
+
+## FHE11 after the following native Steam launch
+
+The user's next launch reached the loading screen, then displayed FHE11 after
+an access violation (`c0000005`) inside the real FSR 3.1.6 frame-generation
+provider. Win32 window enumeration recovered the original error text, then
+UTF-16 inspection confirmed the title, SysLink body and custom button held
+widened UTF-8 bytes (`00e3 0080 008a` for `300a`). The materialized executable
+imports `TaskDialogIndirect` by COMCTL32 ordinal 345. The previous plugin did
+not intercept this API. The new plugin repairs valid UTF-8 containing CJK in
+TaskDialog fields and button labels, including byte-widened and CP1252 forms.
+The ordinal-345 regression verified the display strings and CJK glyphs in
+both cases, and retained already-correct Unicode.
+
+The first fault was at `framegeneration-original.dll+0x7c25`, dereferencing
+an invalid context value while setting the AMD Anti-Lag 2 frame type. The
+[SDK presenter](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/Kits/FidelityFX/framegeneration/fsr3/dx12/FrameInterpolationSwapchainDX12.cpp)
+checks `GetPrivateData` success, but does not check the returned size before
+reading the enable flag. The isolated D3DMetal swapchain reproduced `S_OK`
+with zero bytes after clearing the key and with eight bytes for a short
+record. The flag was left untouched in both cases. The trace does not show
+which writer put the record into the live swapchain or its exact length.
+
+The FH6 Store-only provider now treats the AMD driver key as unavailable
+on the D3DMetal swapchain created for FSR. Other DXGI private data round-trips
+unchanged. The isolated swapchain passed the malformed-data controls and
+four presents. Both real FSR GPU regressions passed with tagged UI and with
+no HUDless/UI input, and the fenced captures still showed generated output.
+The candidate and dialog plugin were installed together after the crashed
+process exited. The launcher check verified the existing native Steam entry,
+3472×2266, FSR 3.1.6 Quality, 2× frame generation and the Nexus repair layer.
+No game was relaunched after deployment. In-game verification is pending.
+
+Rebuild using `fh6/rosetta/fg-chain/build.py`; run the two existing real-GPU
+capture commands with `--latency-guard`. Build the dialog plugin with
+`fh6/arm64/src/dialog.c` and `fh6/arm64/src/version.def` as x64 PE. The dialog
+fixture is `fh6/rosetta/probes/taskdialog-utf8.c`, with its ordinal import
+library, and its manifest embedded as resource type 24, ID 1. The installer
+pairs the two GPU receipts and dialog verification with the candidate hashes
+using `install_fg_capture.py ARTIFACTS --dialog PATH_TO_ASI`.

@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <commctrl.h>
 #include <string.h>
 
 static BOOL contains_cjk(LPCWSTR text, int count)
@@ -30,17 +31,75 @@ static WCHAR *decode_utf8(LPCSTR source, int length)
 static WCHAR *decode_mojibake(LPCWSTR source)
 {
     if (!source || IS_INTRESOURCE(source)) return NULL;
-    BOOL replaced = FALSE;
-    int count = WideCharToMultiByte(1252, WC_NO_BEST_FIT_CHARS, source, -1, NULL, 0, NULL, &replaced);
-    if (!count || replaced) return NULL;
+    SIZE_T count = (SIZE_T)lstrlenW(source) + 1;
     char *bytes = HeapAlloc(GetProcessHeap(), 0, count);
     if (!bytes) return NULL;
     WCHAR *out = NULL;
-    if (WideCharToMultiByte(1252, WC_NO_BEST_FIT_CHARS, source, -1, bytes, count, NULL, &replaced) &&
-        !replaced)
-        out = decode_utf8(bytes, -1);
+    SIZE_T i;
+    for (i = 0; i < count && source[i] <= 0xff; ++i) bytes[i] = (char)source[i];
+    if (i == count) out = decode_utf8(bytes, -1);
+    if (!out)
+    {
+        BOOL replaced = FALSE;
+        if (WideCharToMultiByte(1252, WC_NO_BEST_FIT_CHARS, source, -1, bytes, (int)count, NULL, &replaced) &&
+            !replaced)
+            out = decode_utf8(bytes, -1);
+    }
     HeapFree(GetProcessHeap(), 0, bytes);
     return out;
+}
+
+typedef HRESULT (WINAPI *task_dialog_proc)(const TASKDIALOGCONFIG *, int *, int *, BOOL *);
+static task_dialog_proc original_task_dialog;
+
+static TASKDIALOG_BUTTON *decode_buttons(const TASKDIALOG_BUTTON *buttons, UINT count)
+{
+    if (!buttons || !count || count > 1024) return NULL;
+    TASKDIALOG_BUTTON *copy = HeapAlloc(GetProcessHeap(), 0, sizeof(*copy) * count);
+    if (!copy) return NULL;
+    for (UINT i = 0; i < count; ++i)
+    {
+        copy[i] = buttons[i];
+        WCHAR *text = decode_mojibake(copy[i].pszButtonText);
+        if (text) copy[i].pszButtonText = text;
+    }
+    return copy;
+}
+
+static void free_buttons(TASKDIALOG_BUTTON *copy, const TASKDIALOG_BUTTON *original, UINT count)
+{
+    if (!copy) return;
+    for (UINT i = 0; i < count; ++i)
+        if (copy[i].pszButtonText != original[i].pszButtonText)
+            HeapFree(GetProcessHeap(), 0, (void *)copy[i].pszButtonText);
+    HeapFree(GetProcessHeap(), 0, copy);
+}
+
+static HRESULT WINAPI utf8_task_dialog(const TASKDIALOGCONFIG *source, int *button, int *radio, BOOL *checked)
+{
+    if (!source || source->cbSize != sizeof(*source)) return original_task_dialog(source, button, radio, checked);
+    TASKDIALOGCONFIG dialog = *source;
+    PCWSTR *fields[] = {&dialog.pszWindowTitle, &dialog.pszMainInstruction, &dialog.pszContent,
+                       &dialog.pszVerificationText, &dialog.pszExpandedInformation,
+                       &dialog.pszExpandedControlText, &dialog.pszCollapsedControlText, &dialog.pszFooter};
+    WCHAR *strings[ARRAYSIZE(fields)];
+    for (UINT i = 0; i < ARRAYSIZE(fields); ++i)
+    {
+        strings[i] = decode_mojibake(*fields[i]);
+        if (strings[i]) *fields[i] = strings[i];
+    }
+    TASKDIALOG_BUTTON *buttons = decode_buttons(dialog.pButtons, dialog.cButtons);
+    TASKDIALOG_BUTTON *radios = decode_buttons(dialog.pRadioButtons, dialog.cRadioButtons);
+    if (buttons) dialog.pButtons = buttons;
+    if (radios) dialog.pRadioButtons = radios;
+    HRESULT result = original_task_dialog(&dialog, button, radio, checked);
+    DWORD previous = GetLastError();
+    free_buttons(buttons, source->pButtons, source->cButtons);
+    free_buttons(radios, source->pRadioButtons, source->cRadioButtons);
+    for (UINT i = 0; i < ARRAYSIZE(strings); ++i)
+        if (strings[i]) HeapFree(GetProcessHeap(), 0, strings[i]);
+    SetLastError(previous);
+    return result;
 }
 
 static int WINAPI utf8_to_wide(UINT page, DWORD flags, LPCCH source, int length, LPWSTR result, int size)
@@ -130,26 +189,37 @@ static void install(void)
     {
         const char *library = (const char *)(base + entry[i].Name);
         BOOL user = !lstrcmpiA(library, "user32.dll");
+        BOOL comctl = !lstrcmpiA(library, "comctl32.dll");
         BOOL kernel = !lstrcmpiA(library, "kernel32.dll") || !lstrcmpiA(library, "kernelbase.dll");
-        if ((!user && !kernel) || !entry[i].OriginalFirstThunk || !entry[i].FirstThunk)
+        if ((!user && !kernel && !comctl) || !entry[i].OriginalFirstThunk || !entry[i].FirstThunk)
             continue;
         IMAGE_THUNK_DATA64 *names = (IMAGE_THUNK_DATA64 *)(base + entry[i].OriginalFirstThunk);
         IMAGE_THUNK_DATA64 *iat = (IMAGE_THUNK_DATA64 *)(base + entry[i].FirstThunk);
         for (SIZE_T j = 0; names[j].u1.AddressOfData; ++j)
         {
-            if (IMAGE_SNAP_BY_ORDINAL64(names[j].u1.Ordinal)) continue;
-            IMAGE_IMPORT_BY_NAME *name = (IMAGE_IMPORT_BY_NAME *)(base + names[j].u1.AddressOfData);
-            const char *function = (const char *)name->Name;
             void *replacement = NULL;
-            if (user && !strcmp(function, "MessageBoxIndirectA")) replacement = (void *)utf8_message_box;
-            if (user && !strcmp(function, "CreateWindowExW")) replacement = (void *)utf8_window;
-            if (user && !strcmp(function, "SendMessageW")) replacement = (void *)utf8_window_message;
-            if (kernel && !strcmp(function, "MultiByteToWideChar")) replacement = (void *)utf8_to_wide;
+            if (IMAGE_SNAP_BY_ORDINAL64(names[j].u1.Ordinal))
+            {
+                if (comctl && IMAGE_ORDINAL64(names[j].u1.Ordinal) == 345)
+                    replacement = (void *)utf8_task_dialog;
+            }
+            else
+            {
+                const IMAGE_IMPORT_BY_NAME *name = (const IMAGE_IMPORT_BY_NAME *)(base + names[j].u1.AddressOfData);
+                const char *function = (const char *)name->Name;
+                if (comctl && !strcmp(function, "TaskDialogIndirect")) replacement = (void *)utf8_task_dialog;
+                if (user && !strcmp(function, "MessageBoxIndirectA")) replacement = (void *)utf8_message_box;
+                if (user && !strcmp(function, "CreateWindowExW")) replacement = (void *)utf8_window;
+                if (user && !strcmp(function, "SendMessageW")) replacement = (void *)utf8_window_message;
+                if (kernel && !strcmp(function, "MultiByteToWideChar")) replacement = (void *)utf8_to_wide;
+            }
             if (!replacement) continue;
             void *volatile *slot = (void *volatile *)&iat[j].u1.Function;
             DWORD protect, ignored;
             if (VirtualProtect((void *)slot, sizeof(*slot), PAGE_READWRITE, &protect))
             {
+                if (replacement == (void *)utf8_task_dialog && *slot != replacement)
+                    original_task_dialog = (task_dialog_proc)*slot;
                 InterlockedExchangePointer(slot, replacement);
                 VirtualProtect((void *)slot, sizeof(*slot), protect, &ignored);
             }

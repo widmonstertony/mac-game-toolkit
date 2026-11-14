@@ -42,6 +42,7 @@ function applyStoreLauncherPolicy(script, layer, config, shellQuote) {
     'export WINEDLLPATH_PREPEND="$WINEDLLPATH"',
     'export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES;}d3d12,d3d12core,dxgi=n,b;winhttp=n,b"',
     'export WINE_UTF8_DIALOGS=1',
+    'export FH6_D3DMETAL_NO_ANTILAG2=1',
     'export WINE_SOFTWARE_EXCEPTION_CHAIN=0',
     'case "${1:-}" in',
     '  Z:\\\\*)',

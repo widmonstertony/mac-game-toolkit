@@ -69,8 +69,11 @@ def main():
     p.add_argument('--history', action='store_true', help='Validate the history visibility provider too')
     p.add_argument('--capture', action='store_true', help='Also validate bounded fenced synthetic GPU captures')
     p.add_argument('--missing-ui', action='store_true', help='Validate passthrough when the game does not supply UI or HUDless color')
+    p.add_argument('--latency-guard', action='store_true', help='Exercise the FH6 Store-only D3DMetal presenter guard')
     p.add_argument('--store-test-prefix', type=Path, help='Use a separate test prefix with the Store renderer DLLs')
     args = p.parse_args()
+    if args.latency_guard and not (args.store_test_prefix and args.history):
+        p.error('--latency-guard requires --store-test-prefix and --history')
     if args.missing_ui and not args.capture:
         p.error('--missing-ui requires --capture')
     out = args.artifacts.resolve()
@@ -97,6 +100,8 @@ def main():
         wine, env = profile/'engine/bin/wine', module.environment(profile)
         original = Path.home() / 'Library/Application Support/Steam/steamapps/common/ForzaHorizon6/OptiScaler/amd_fidelityfx_framegeneration_dx12.dll'
     env['WINEDEBUG'] = '-all'
+    if args.latency_guard:
+        env['FH6_D3DMETAL_NO_ANTILAG2'] = '1'
     candidate = out / ('missing-ui-real' if args.missing_ui else
                        ('history-ui-real' if args.history else 'native-ui-real'))
     candidate.mkdir(exist_ok=True)
@@ -128,6 +133,9 @@ def main():
     if result.returncode or expected not in contents or 'ui_errors=0' not in contents:
         raise RuntimeError('Native UI GPU contrast failed: ' + str(result.returncode))
     rows = [json.loads(line) for line in trace.read_bytes()[offset:].decode().splitlines()]
+    if args.latency_guard and ('PASS D3DMetal presents after rejecting' not in contents or
+            not any(row['event'] == 'd3dmetal_antilag_unavailable' for row in rows)):
+        raise RuntimeError('D3DMetal latency guard/present validation did not run')
     applied = [row for row in rows if row['event'] == 'native_ui_dispatch']
     if len(applied) != (0 if args.missing_ui else 8) or any(row['result'] or row['frames'] != 1 for row in applied):
         raise RuntimeError('Real candidate did not execute the validated native UI path')
@@ -165,6 +173,7 @@ def main():
     (out / 'native-ui-probe-trace.jsonl').write_text('\n'.join(json.dumps(row) for row in rows) + '\n')
     receipt = {'passed': True, 'kind': 'synthetic real D3DMetal GPU / official FFX 3.1.6 / full candidate provider and real DXGI queue',
                'missing_ui': args.missing_ui, 'store_renderer': bool(args.store_test_prefix),
+               'latency_guard': args.latency_guard,
                'game_visual_verified': False,
                'manifest_sha256': sha(out / 'build-manifest.json'), 'artifacts': manifest['artifacts'],
                'original_provider_sha256': sha(original), 'log_sha256': sha(log),

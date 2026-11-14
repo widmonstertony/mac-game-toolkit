@@ -60,6 +60,21 @@ int wmain(int argc,wchar_t **argv){
  DXGI_SWAP_CHAIN_DESC1 sc{};sc.Width=W;sc.Height=H;sc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;sc.SampleDesc.Count=1;sc.BufferCount=3;sc.BufferUsage=DXGI_USAGE_RENDER_TARGET_OUTPUT;sc.SwapEffect=DXGI_SWAP_EFFECT_FLIP_DISCARD;
  ffxCreateContextDescFrameGenerationSwapChainForHwndDX12 sw{};sw.header.type=FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATIONSWAPCHAIN_FOR_HWND_DX12;sw.swapchain=&swapchain;sw.hwnd=window;sw.desc=&sc;sw.dxgiFactory=factory;sw.gameQueue=g.q;
  CHECK(candidateCreate(&swapContext,&sw.header,nullptr)==0);CHECK(swapchain);
+ if(GetEnvironmentVariableW(L"FH6_D3DMETAL_NO_ANTILAG2",nullptr,0)) {
+  const GUID latencyKey{0x5083ae5b,0x8070,0x4fca,{0x8e,0xe5,0x35,0x82,0xdd,0x36,0x7d,0x13}};
+  const GUID otherKey{0x98666f27,0x74d2,0x4576,{0x95,0xe1,0x75,0x86,0xbe,0x6a,0x35,0x1f}};
+  uint64_t partial=0x100a00000003ull,data[2]{0,1};UINT size=sizeof(data);
+  CHECK(SUCCEEDED(swapchain->SetPrivateData(latencyKey,sizeof(partial),&partial)));
+  CHECK(swapchain->GetPrivateData(latencyKey,&size,data)==DXGI_ERROR_NOT_FOUND&&size==0&&data[0]==0&&data[1]==1);
+  CHECK(SUCCEEDED(swapchain->SetPrivateData(latencyKey,0,nullptr)));
+  size=sizeof(data);CHECK(swapchain->GetPrivateData(latencyKey,&size,data)==DXGI_ERROR_NOT_FOUND&&size==0);
+  size=sizeof(data);CHECK(SUCCEEDED(swapchain->SetPrivateData(otherKey,sizeof(partial),&partial)));
+  CHECK(SUCCEEDED(swapchain->GetPrivateData(otherKey,&size,data))&&size==sizeof(partial)&&data[0]==partial);
+  ShowWindow(window,SW_SHOWNOACTIVATE);
+  for(int i=0;i<4;i++) CHECK(SUCCEEDED(swapchain->Present(0,0)));
+  puts("PASS D3DMetal presents after rejecting truncated and empty Anti-Lag 2 metadata; other DXGI data preserved");
+ }
+
  uint64_t count=8,ids[8]{};const char *names[8]{};ffxQueryDescGetVersions versions{{FFX_API_QUERY_DESC_TYPE_GET_VERSIONS},FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATION,g.d,&count,ids,names};CHECK(query(nullptr,&versions.header)==0&&count==1);printf("REAL provider=%s\n",names[0]);
  Texture depth,motion,scene,ui,present,outputs[3];
  CHECK(depth.init(g.d,missingUi?DXGI_FORMAT_R32G8X24_TYPELESS:DXGI_FORMAT_R32_FLOAT,

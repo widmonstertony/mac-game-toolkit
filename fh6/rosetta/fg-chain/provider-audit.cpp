@@ -25,6 +25,9 @@ static volatile LONG recordCount;
 static INIT_ONCE observerOnce=INIT_ONCE_STATIC_INIT;
 #ifdef NATIVE_UI_FIX
 #include "native-ui-provider.h"
+#ifdef HISTORY_VISIBILITY_FIX
+#include "d3dmetal-latency.h"
+#endif
 #endif
 
 static BOOL CALLBACK initialize(PINIT_ONCE,PVOID,PVOID*)
@@ -121,8 +124,11 @@ template<typename Prepare> static void logPrepare(ffxContext context,const Prepa
 extern "C" __declspec(dllexport) ffxReturnCode_t ffxCreateContext(ffxContext *ctx,ffxCreateContextDescHeader *desc,const ffxAllocationCallbacks *mem)
 {
     InitOnceExecuteOnce(&initOnce,initialize,nullptr,nullptr);
-    auto result=createContext?createContext(ctx,desc,mem):FFX_API_RETURN_NO_PROVIDER;
     connectObserver();
+#if defined(NATIVE_UI_FIX) && defined(HISTORY_VISIBILITY_FIX)
+    protectD3DMetalLatency(desc);
+#endif
+    auto result=createContext?createContext(ctx,desc,mem):FFX_API_RETURN_NO_PROVIDER;
 #ifdef NATIVE_UI_FIX
     nativeCreated(ctx?*ctx:nullptr,desc,result);
 #endif
