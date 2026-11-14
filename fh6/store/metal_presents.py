@@ -42,7 +42,6 @@ def row_nodes(path, fields):
         yield resolved, references
 
 
-
 def thread_states(path, threads, earliest, latest):
     fields = ("start", "thread", "state", "duration", "made-runnable-by-thread")
     states = defaultdict(list)
@@ -59,7 +58,8 @@ def thread_states(path, threads, earliest, latest):
             continue
         # A definition can occur on a row belonging to a different thread.
         for field in node.iter():
-            if field.tag in {"thread", "start-time", "thread-state", "duration"} and (key := field.get("id")) is not None:
+            if (field.tag in {"thread", "start-time", "thread-state", "duration"}
+                    and (key := field.get("id")) is not None):
                 references[key] = field.text or field.get("fmt")
         stamp, thread, state, duration, waker = (
             references[field.get("ref")] if "ref" in field.attrib else field.text or field.get("fmt")
@@ -265,10 +265,8 @@ def record(directory, pid, seconds):
     directory.mkdir(mode=0o700)
     trace = directory / "roam.trace"
     command = ["/usr/bin/xcrun", "xctrace"]
-    options = directory / "recording-options.json"
-    options.write_text(json.dumps({"Time Profiler": {"recordWaitingThreads": True}}))
     subprocess.run([*command, "record", "--template", "Metal System Trace", "--instrument", "Thread Activity",
-                    "--recording-options", options, "--attach", str(pid),
+                    "--attach", str(pid),
                     "--time-limit", f"{seconds}s", "--no-prompt", "--output", trace],
                    check=True, env=env, timeout=seconds + 30, stdout=sys.stderr)
     toc = directory / "toc.xml"
