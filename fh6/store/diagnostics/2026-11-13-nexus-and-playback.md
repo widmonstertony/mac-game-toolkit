@@ -188,6 +188,12 @@ confirmed that an unlisted loopback host leaves no record. `check_session.py`
 extracts status counts and graphics summaries without printing identifiers,
 URLs, headers, payloads, or resource addresses. This does not decode any
 matchmaking response body or prove remote acceptance or displayed pixels.
+The timeline joins the two files by their relative Windows uptime and shows
+whether XSTS used title authorization when it was requested. This separates
+a successful HTTP upgrade from a successful title-auth path. Use the last
+timed events around the player's join attempt and the in-game result together.
+The summary also distinguishes completed GPU capture records from prepare
+and interpolation requests, including failed capture records.
 The launcher also records the graphics log's byte offset before starting the
 account service. The summary counts only subsequent records and explicitly
 reports when there has been no launch with this diagnostic, preventing a
