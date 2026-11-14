@@ -179,3 +179,37 @@ generated images. The next in-game check needs a macOS presentation trace
 alongside the existing FidelityFX dispatch log and visual check. Build the
 probe with x64 MinGW and link `-ld3d12 -ldxgi -ldxguid`; the default invocation
 remains the headless GPU copy. [DXGI frame-statistics contract](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/ns-dxgi-dxgi_frame_statistics)
+
+An eight-second Metal System Trace attached to an isolated Wine PID recorded
+182 present requests and six controlled gaps of 235–244 ms. A second
+calibration used an owned Metal window with a programmed 200 ms pause every
+30 frames. It correlated all 223 requests with command submissions and GPU
+completions. The seven long gaps were 234–236 ms. In each case the next
+submission arrived 233–236 ms after the previous completion and completed
+within 1.1 ms. This establishes that the analysis detects producer-side
+pauses from the trace. The machine was locked, and the Metal window's
+presented callbacks reported zero timestamps. Global WindowServer surface
+swaps did not identify the Wine swap chain. The measured sample has no
+drawable presentation rate. [Apple Metal performance analysis](https://developer.apple.com/documentation/xcode/analyzing-the-performance-of-your-metal-app/)
+
+With the display unlocked, attach to the running title after entering
+free roam. Use its macOS PID and run these commands in a private directory.
+Keep the same process running for the straight and turn check, Horizon
+Play join, and a known owned Car Pass vehicle.
+
+```sh
+xcrun xctrace record --template 'Metal System Trace' --attach "$pid" --time-limit 15s --no-prompt --output roam.trace
+for schema in ca-client-present-request metal-application-command-buffer-submissions metal-command-buffer-completed ca-client-presented-handler
+do
+    xcrun xctrace export --input roam.trace --xpath "/trace-toc/run[@number='1']/data/table[@schema='$schema']" --output "$schema.xml"
+done
+python3 /absolute/path/to/fh6/store/metal_presents.py . --pid "$pid"
+python3 /absolute/path/to/fh6/store/check_session.py
+```
+
+Compare the time from the previous completion to the next submission with
+the next command's submission-to-completion duration. Inspect other queues
+and producer waits over the same gap before assigning a cause. Actual
+drawable pacing requires nonzero drawable presentation times. Identifying
+intermediate images still requires the frame-generation records and visual
+evidence. Keep the raw Metal trace private.
