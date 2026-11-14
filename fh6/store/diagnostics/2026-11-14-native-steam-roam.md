@@ -40,7 +40,12 @@ the long gap had recorded active GPU work. The trace had no drawable wait
 intervals for the title and no usable drawable presentation timestamps.
 One sampled stack from the submitter lacked resolved symbols. These
 measurements implicate the interval before presentation submission. The
-specific thread dependency and cause of the repeated hitch are still open.
+three gaps had the same Metal queue worker as submitter. In a separate
+six-second System Trace on that PID, this worker showed 4.1 ms runnable,
+120.3 ms running, and multiple blocked spans including 43.8–48.0 ms.
+Most identified wakeups came from one in-process Wine thread. The
+independent recordings cannot match the 457.9 ms present gap to a
+precise wakeup or stack, so the original blocking dependency remains open.
 The player reports that the Store run hitches more frequently than their
 last Steam run. The two observations were not measured over a matched route.
 
