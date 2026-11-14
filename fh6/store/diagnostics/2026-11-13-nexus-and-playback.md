@@ -220,23 +220,22 @@ swaps did not identify the Wine swap chain. The measured sample has no
 drawable presentation rate. [Apple Metal performance analysis](https://developer.apple.com/documentation/xcode/analyzing-the-performance-of-your-metal-app/)
 
 With the display unlocked, attach to the running title after entering
-free roam. Use its macOS PID and run these commands in a private directory.
+free roam. Use its macOS PID and a new private output directory.
 Keep the same process running for the straight and turn check, Horizon
 Play join, and a known owned Car Pass vehicle.
 
 ```sh
-xcrun xctrace record --template 'Metal System Trace' --attach "$pid" --time-limit 15s --no-prompt --output roam.trace
-for schema in ca-client-present-request metal-application-command-buffer-submissions metal-command-buffer-completed ca-client-presented-handler
-do
-    xcrun xctrace export --input roam.trace --xpath "/trace-toc/run[@number='1']/data/table[@schema='$schema']" --output "$schema.xml"
-done
-python3 /absolute/path/to/fh6/store/metal_presents.py . --pid "$pid"
-python3 /absolute/path/to/fh6/store/check_session.py
+python3 fh6/store/metal_presents.py /private/tmp/fh6-roam-trace --pid "$pid" --record
+python3 fh6/store/check_session.py
 ```
 
-Compare the time from the previous completion to the next submission with
-the next command's submission-to-completion duration. Inspect other queues
-and producer waits over the same gap before assigning a cause. Actual
+The summary includes all title submissions and the union of the title's
+recorded active GPU intervals across channels in each long gap. Where the
+trace supplies data, the same interval includes drawable waits and CPU
+samples for the next submitter thread. Compare the time from the previous
+completion to the next submission with the next command's submission-to-
+completion duration. A missing table or empty thread sample cannot identify
+a wait owner. Address-only/private stacks remain in the local trace. Actual
 drawable pacing requires nonzero drawable presentation times. Identifying
 intermediate images still requires the frame-generation records and visual
 evidence. Keep the raw Metal trace private.
@@ -262,6 +261,14 @@ provider byte for byte over 12 synthetic frames. The tagged-UI run captured
 two seven-image sets and the original native UI comparison had zero out-of-
 tolerance pixels. These synthetic observations do not locate the live
 ghosting or establish that the generated frame reached the screen.
+
+A separate end-to-end run of the Metal recording command attached to the
+owned calibration window. It correlated all 150 present requests to a
+submission and completion. Five injected pauses had at least 233 ms between
+the prior completion and the next submission, and at most 0.887 ms of
+recorded GPU activity from that PID over each gap. The locked display still
+yielded no drawable presentation timestamps. This calibrates collection and
+producer-side gap detection; the Xbox game has not yet run with this capture.
 
 Reproduce on a disposable Wine prefix with the Store D3D12, D3D12Core and
 DXGI DLLs. Use the build directory made by `fh6/rosetta/fg-chain/build.py`.
