@@ -1,0 +1,218 @@
+--- a/dlls/xgameruntime/xstore.c
++++ b/dlls/xgameruntime/xstore.c
+@@ -444,7 +444,107 @@
+ }
+ 
+ static const char store_addon_licenses_identity[] = "XStoreQueryAddOnLicenses";
++
++struct store_addon_query
++{
++    LONG refs, canceled, started;
++    char *request;
++    IXThreadingImpl *threading;
++    XAsyncBlock *async;
++    UINT32 count;
++    XStoreAddonLicense licenses[ARRAY_SIZE(fh6_car_pass_products) * ENTITLED_MAX_SKUS];
++};
++
++static void store_addon_query_release( struct store_addon_query *query )
++{
++    if (InterlockedDecrement(&query->refs)) return;
++    IXThreadingImpl_Release(query->threading);
++    free(query->request);
++    free(query);
++}
++
++static DWORD WINAPI store_addon_query_worker( void *arg )
++{
++    struct store_addon_query *query = arg;
++    struct entitled_snapshot *snapshot = NULL;
++    XStoreProduct *product;
++    XStoreSku *sku;
++    XStoreAddonLicense *license;
++    UINT64 now, expiry;
++    UINT32 i, j;
++    HRESULT hr = E_ABORT;
++
++    if (!InterlockedCompareExchange(&query->canceled, 0, 0))
++        hr = entitled_fetch(query->request, &query->canceled, &snapshot);
++    now = time(NULL);
++    if (SUCCEEDED(hr) && (!snapshot || snapshot->proof_until <= now)) hr = E_ACCESSDENIED;
++    if (SUCCEEDED(hr))
++    {
++        for (i = 0; i < snapshot->count; ++i)
++        {
++            product = &snapshot->products[i];
++            if (product->productKind != XStoreProductKind_Durable || product->hasDigitalDownload ||
++                !product->isInUserCollection || !is_fh6_car_pass_product(product->storeId) ||
++                !product->inAppOfferToken ||
++                strlen(product->inAppOfferToken) >= sizeof(license->inAppOfferToken)) continue;
++            for (j = 0; j < product->skusCount; ++j)
++            {
++                sku = &product->skus[j];
++                if (!sku->isInUserCollection || sku->isTrial || sku->collectionData.endDate <= (time_t)now) continue;
++                expiry = min(snapshot->proof_until, (UINT64)sku->collectionData.endDate);
++                if (query->count == ARRAY_SIZE(query->licenses)) { hr = E_UNEXPECTED; break; }
++                license = &query->licenses[query->count++];
++                snprintf(license->skuStoreId, sizeof(license->skuStoreId), "%s/%s", product->storeId, sku->skuId);
++                memcpy(license->inAppOfferToken, product->inAppOfferToken, strlen(product->inAppOfferToken) + 1);
++                license->isActive = TRUE;
++                license->expirationDate = expiry;
++            }
++            if (FAILED(hr)) break;
++        }
++    }
++    if (snapshot) entitled_snapshot_release(snapshot);
++    if (InterlockedCompareExchange(&query->canceled, 0, 0)) hr = E_ABORT;
++    xodus_store_license_note("fh6-addon-licenses-result", hr);
++    IXThreadingImpl_XAsyncComplete(query->threading, query->async, hr,
++                                  SUCCEEDED(hr) ? query->count * sizeof(*license) : 0);
++    store_addon_query_release(query);
++    return 0;
++}
+ 
++static HRESULT WINAPI store_addon_query_provider( XAsyncOp op, const XAsyncProviderData *data )
++{
++    struct store_addon_query *query = data->context;
++    SIZE_T size;
++    HANDLE worker;
++    HRESULT hr;
++
++    switch (op)
++    {
++    case XAsyncOp_Begin: return IXThreadingImpl_XAsyncSchedule(query->threading, data->async, 0);
++    case XAsyncOp_DoWork:
++        if (InterlockedCompareExchange(&query->started, 1, 0)) return E_PENDING;
++        if (InterlockedCompareExchange(&query->canceled, 0, 0)) return E_ABORT;
++        query->async = data->async;
++        InterlockedIncrement(&query->refs);
++        if (!(worker = CreateThread(NULL, 0, store_addon_query_worker, query, 0, NULL)))
++        {
++            hr = HRESULT_FROM_WIN32(GetLastError());
++            store_addon_query_release(query);
++            return hr;
++        }
++        CloseHandle(worker);
++        return E_PENDING;
++    case XAsyncOp_GetResult:
++        size = query->count * sizeof(query->licenses[0]);
++        if (size && (!data->buffer || data->bufferSize < size)) return E_INVALIDARG;
++        if (size) memcpy(data->buffer, query->licenses, size);
++        return S_OK;
++    case XAsyncOp_Cancel: InterlockedExchange(&query->canceled, TRUE); return S_OK;
++    case XAsyncOp_Cleanup: store_addon_query_release(query); return S_OK;
++    default: return E_NOTIMPL;
++    }
++}
++
+ /* No add-on licenses are known locally: complete successfully with an empty
+  * result so titles waiting on this query (e.g. at "Start game") can proceed. */
+ static HRESULT WINAPI XStoreQueryAddOnLicensesProvider( XAsyncOp op, const XAsyncProviderData *data )
+@@ -483,12 +583,28 @@
+ 
+ static HRESULT WINAPI x_store_XStoreQueryAddOnLicensesAsync( IXStoreImpl6 *iface, const XStoreContextHandle storeContextHandle, XAsyncBlock *async )
+ {
++    struct store_addon_query *query;
+     IXThreadingImpl *xthreading;
++    UINT64 xuid;
+     HRESULT hr;
+ 
+-    TRACE( "iface %p, storeContextHandle %p, async %p, returning no add-on licenses.\n", iface, storeContextHandle, async );
++    TRACE( "iface %p, storeContextHandle %p, async %p.\n", iface, storeContextHandle, async );
+ 
+     if (!storeContextHandle || !async) return E_INVALIDARG;
++    if (is_fh6_store())
++    {
++        if (FAILED(hr = entitled_store_user(storeContextHandle, &xuid))) return hr;
++        if (!(query = calloc(1, sizeof(*query)))) return E_OUTOFMEMORY;
++        if (FAILED(hr = entitled_request(XStoreProductKind_Durable, TRUE, &query->request)))
++        { free(query); return hr; }
++        if (FAILED(hr = QueryApiImpl(&CLSID_XThreadingImpl, &IID_IXThreadingImpl, (void **)&query->threading)))
++        { free(query->request); free(query); return hr; }
++        query->refs = 1;
++        hr = IXThreadingImpl_XAsyncBegin(query->threading, async, query, store_addon_licenses_identity,
++                                        "XStoreQueryAddOnLicensesAsync", store_addon_query_provider);
++        if (FAILED(hr)) store_addon_query_release(query);
++        return hr;
++    }
+     if (FAILED(hr = QueryApiImpl( &CLSID_XThreadingImpl, &IID_IXThreadingImpl, (void **)&xthreading ))) return hr;
+     hr = IXThreadingImpl_XAsyncBegin( xthreading, async, NULL, store_addon_licenses_identity, "XStoreQueryAddOnLicensesAsync", XStoreQueryAddOnLicensesProvider );
+     IXThreadingImpl_Release( xthreading );
+@@ -523,7 +639,7 @@
+     if (FAILED(hr = QueryApiImpl( &CLSID_XThreadingImpl, &IID_IXThreadingImpl, (void **)&xthreading ))) return hr;
+     if (SUCCEEDED(hr = IXThreadingImpl_XAsyncGetResultSize( xthreading, async, &size )))
+     {
+-        /* The result never holds licenses; count must match ResultCount. */
++        /* Count must match ResultCount. */
+         if (count != size / sizeof(XStoreAddonLicense)) hr = E_INVALIDARG;
+         else hr = IXThreadingImpl_XAsyncGetResult( xthreading, async, store_addon_licenses_identity,
+                                                    count * sizeof(XStoreAddonLicense), addOnLicenses, NULL );
+--- a/dlls/xgameruntime/xstore_entitled.h
++++ b/dlls/xgameruntime/xstore_entitled.h
+@@ -444,21 +444,18 @@
+     return hr;
+ }
+ 
+-static HRESULT entitled_begin( XStoreContextHandle store, UINT32 kinds, UINT32 page_size, XAsyncBlock *async )
++/* Return the same candidate list to the product and digital add-on APIs. The
++ * list only scopes a request; the signed reply determines actual ownership. */
++static HRESULT entitled_request( UINT32 kinds, BOOL fh6_addons, char **request )
+ {
+-    struct entitled_async *context;
+     xmlDocPtr doc;
+     xmlNodePtr root;
+     xmlChar *bytes = NULL;
+     char kind[16], language[128] = "en-US", market[16] = "US";
+     WCHAR locale[85], country[16];
+-    UINT64 xuid, serial;
+     UINT32 i;
+     int size;
+-    HRESULT hr;
+-    if (!async || !kinds || (kinds & ~31) || !page_size) return E_INVALIDARG;
+-    page_size = min(page_size, ENTITLED_MAX_PRODUCTS);
+-    if (FAILED(hr = entitled_store_identity(store, &xuid, &serial))) return hr;
++    *request = NULL;
+     if (!entitled_id(storeId)) return E_GAME_MISSING_GAME_CONFIG;
+     if (GetUserDefaultLocaleName(locale, ARRAY_SIZE(locale)))
+         WideCharToMultiByte(CP_UTF8, 0, locale, -1, language, sizeof(language), NULL, NULL);
+@@ -469,9 +466,10 @@
+     xmlDocSetRootElement(doc, root);
+     snprintf(kind, sizeof(kind), "%u", kinds);
+     xmlNewTextChild(root, NULL, BAD_CAST "ParentProductId", BAD_CAST storeId);
+-    for (i = 0; i < entitled_related_count; i++)
+-        if (strcmp(storeId, entitled_related[i])) xmlNewTextChild(root, NULL, BAD_CAST "ProductId", BAD_CAST entitled_related[i]);
+-    if (!entitled_related_count && (kinds & 2) && is_fh6_store())
++    if (!fh6_addons)
++        for (i = 0; i < entitled_related_count; i++)
++            if (strcmp(storeId, entitled_related[i])) xmlNewTextChild(root, NULL, BAD_CAST "ProductId", BAD_CAST entitled_related[i]);
++    if (fh6_addons || (!entitled_related_count && (kinds & XStoreProductKind_Durable) && is_fh6_store()))
+     {
+         for (i = 0; i < ARRAY_SIZE(fh6_car_pass_products); i++)
+             xmlNewTextChild(root, NULL, BAD_CAST "ProductId", BAD_CAST fh6_car_pass_products[i]);
+@@ -483,11 +481,23 @@
+     xmlDocDumpMemory(doc, &bytes, &size); xmlFreeDoc(doc);
+     if (!bytes) return E_OUTOFMEMORY;
+     if (size <= 0 || size > 60000) { xmlFree(bytes); return E_INVALIDARG; }
+-    context = calloc(1, sizeof(*context));
+-    if (context) { context->request = strdup((char *)bytes); context->page_size = page_size; }
++    *request = strdup((char *)bytes);
+     xmlFree(bytes);
++    return *request ? S_OK : E_OUTOFMEMORY;
++}
++
++static HRESULT entitled_begin( XStoreContextHandle store, UINT32 kinds, UINT32 page_size, XAsyncBlock *async )
++{
++    struct entitled_async *context;
++    UINT64 xuid, serial;
++    HRESULT hr;
++
++    if (!async || !kinds || (kinds & ~31) || !page_size) return E_INVALIDARG;
++    if (FAILED(hr = entitled_store_identity(store, &xuid, &serial))) return hr;
++    context = calloc(1, sizeof(*context));
+     if (!context) return E_OUTOFMEMORY;
+-    if (!context->request) { free(context); return E_OUTOFMEMORY; }
++    if (FAILED(hr = entitled_request(kinds, FALSE, &context->request))) { free(context); return hr; }
++    context->page_size = min(page_size, ENTITLED_MAX_PRODUCTS);
+     context->store_serial = serial;
+     context->refresh = InterlockedIncrement64(&entitled_next_refresh);
+     return entitled_start(context, async, FALSE);

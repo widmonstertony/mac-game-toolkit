@@ -24,8 +24,13 @@ acceptable playback is the comparison.
   Store receipt validator. Candidates do not grant ownership. The offline
   target-title probe got `0x800700cb` with no license handle; an unrelated
   title still got `E_NOTIMPL`. Signed-in positive discovery, the game's
-  exact XStore call, and vehicle redemption need a real launch. The separate
-  `XStoreQueryAddOnLicensesAsync` stub still returns an empty set.
+  exact XStore call, and vehicle redemption need a real launch. The follow-up
+  also implements `XStoreQueryAddOnLicensesAsync` for this exact Store title.
+  It reports only owned, unexpired, non-trial digital durables without a
+  package, caps expiration at the signed receipt's end time, and retains the
+  previous behavior for other titles. The isolated native DLL returned
+  `0x800700cb` and zero results without the authenticated service; the same
+  empty count remained available successfully for an unrelated title.
 - The first migration set preferences under a generic Wine title path while
   the Xbox edition used `XodusPersistentLocalStorage`. The actual Xbox XML
   had reset `DLSSGMode` to 0. The new setup locates that file, sets 2×,
@@ -67,6 +72,7 @@ not evidence that the periodic hitch has been eliminated here.
 - [Nexus Runtime public release notes](https://github.com/domsvoboda/nexus-runtime/releases)
 - [Microsoft Store Car Pass](https://www.xbox.com/en-US/games/store/forza-horizon-6-car-pass/9NTBFBZMB84T)
 - [Microsoft's durable content contract](https://learn.microsoft.com/en-us/xbox/gdk/docs/store/commerce/fundamentals/xstore-dwobs?view=gdk-2604)
+- [Microsoft's digital add-on enumeration contract](https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/system/xstore/functions/xstorequeryaddonlicensesasync?view=gdk-2604)
 
 ## Build and deploy
 
@@ -83,8 +89,9 @@ order. Apply the MACxus GDK option, HTTP/2, response and private-diagnostics
 patches, including `wine-macos-gs-last-error.patch` from its runtime assets.
 Then apply [the WebSocket patch](../../rosetta/wine11-websocket.patch) and
 [the FH6 status patch](../wine-winhttp-fh6-status.patch) to WinHTTP, and
-[the FH6 durable patch](../xgameruntime-fh6-car-pass.patch) to XGameRuntime,
-with `patch -p1`.
+[the FH6 durable patch](../xgameruntime-fh6-car-pass.patch) and
+[the add-on enumeration patch](../xgameruntime-fh6-addon-enumeration.patch)
+to XGameRuntime, with `patch -p1` in that order.
 From a source export, regenerate Wine's configure inputs, spec files and
 winevulkan stubs before configuring. Use an x86_64 MinGW compiler, archiver and
 headers, including nghttp2's public headers. Build Wine's x86_64 Windows
@@ -95,7 +102,8 @@ prefix. The test load trace must show `native` for each candidate.
 Run the [network regression](../../arm64/network/README.md) and compile
 [`nexus-probe.c`](../nexus-probe.c) with Wine's source and generated
 XGameRuntime headers and `-lwinhttp`. Its `http2`, `durable`, and
-`unrelated` modes need no account. Once those checks pass, use the tested
+`unrelated` modes and the `addons` and `unrelated-addons` checks need no
+account. Once those checks pass, use the tested
 isolated prefix's `system32` directory:
 
 ```sh
