@@ -250,3 +250,55 @@ presented-handler timestamp domain was incompatible with the trace clock
 rejects that display FPS instead of publishing it. The recording timeout was
 also raised because Instruments took over a minute to save this live trace.
 No game or graphics settings were changed. No restart was required.
+
+## Moving car-tail replay and FFX fence correlation
+
+The player also uses OptiScaler with FSR 3 frame generation on Windows and
+reports clean output there. The two runs have not been matched by DLL hash,
+FG input route, scene and texture contents. The Mac evidence locates where
+this trail first appears. It does not isolate a Windows/macOS difference
+or establish that D3DMetal executes a shader incorrectly.
+
+In the previously captured wet-road pair, projected depth and previous
+visible depth both described the road in the extra bumper contour. At one
+sample they were about 0.0284 in reverse Z and the camera and motion
+reprojections agreed within 0.2 render pixels. Previous motion still
+varied by roughly 26 output pixels, and the two source lumas were roughly
+10.1 and 2.0. The generated luma was about 5.0. The older correction
+required a nearer previous surface, so it could not reject the stale
+color in this example. Stage readbacks from the real FFX replay reproduced
+the contour before UI composition. The disocclusion-mask arithmetic check
+matched 13,536 sampled interior pixels on these inputs.
+
+The history shader now also handles a narrow same-depth case. It waits for
+consecutive history, camera and game-motion agreement on the current
+surface, previous motion disagreement and a sufficiently darker previous
+color that actually contributes to the generated pixel. Within those
+constraints, it reduces the old color's weight in the already interpolated
+output. The original geometry-occlusion correction is retained. In
+13,268 qualifying samples in the wet-road region, average absolute luma
+difference from the motion-reprojected current color was 6.508 for the
+unmodified replay, 6.198 for the installed revision and 1.251 for the new
+build. This is a diagnostic of a specific history error, not a whole-frame
+score or a substitute for an intermediate-frame reference. Replay
+reconstructs a short history, so final validation is still in free roam.
+
+The 1,106 ms sample has about 3.6 ms of recorded GPU activity. Its wakeup
+and sampled Rosetta address do not identify a named fence. The optional
+FH6-only observer records persistent polling of named FFX fences and the
+value that advances them, using the same QPC domain as the provider log.
+It diagnoses sampled `GetCompletedValue` calls; event-only or unrelated
+waits are outside its coverage. In the isolated D3DMetal probe it logged
+an interpolation fence stuck at zero at 80 ms and advancing to one around
+137 ms when a deliberately queued dependency was released. Real FFX 3.1.6
+and pixel validation passed with both tagged and absent UI. That controlled
+stall validates the observer, not the identity of the live dependency.
+
+Run both `run_native_ui_probe.py` Store checks with `--latency-guard` and
+`--fence-diagnostics` on a separate prefix. The title-only installer can
+set `--fence-diagnostics` when both fresh GPU receipts verify the build; an
+ordinary install leaves the observer disabled. No audio, networking, Steam
+shortcut, resolution, scaling quality or cache changes are required for
+this candidate. Keep the captured image buffers and raw scheduler data
+local. The existing game was kept running and the candidate has not been
+deployed in this session.

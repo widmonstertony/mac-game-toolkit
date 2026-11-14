@@ -73,6 +73,21 @@ int wmain(int argc,wchar_t **argv){
   ShowWindow(window,SW_SHOWNOACTIVATE);
   for(int i=0;i<4;i++) CHECK(SUCCEEDED(swapchain->Present(0,0)));
   puts("PASS D3DMetal presents after rejecting truncated and empty Anti-Lag 2 metadata; other DXGI data preserved");
+  if(GetEnvironmentVariableW(L"FH6_D3DMETAL_FENCE_DIAGNOSTICS",nullptr,0)) {
+   ID3D12Fence *gate=nullptr,*observed=nullptr;
+   CHECK(SUCCEEDED(g.d->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&gate))));
+   CHECK(SUCCEEDED(g.d->CreateFence(0,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&observed))));
+   // Insert a known two-fence dependency and let real Metal submission retire it.
+   CHECK(SUCCEEDED(observed->SetName(L"AMD FSR InterpolationFence")));
+   CHECK(SUCCEEDED(g.q->Wait(gate,1)));CHECK(SUCCEEDED(g.q->Signal(observed,1)));
+   const auto until=GetTickCount64()+150;
+   while(GetTickCount64()<until) {CHECK(observed->GetCompletedValue()==0);SwitchToThread();}
+   CHECK(SUCCEEDED(gate->Signal(1)));
+   const auto deadline=GetTickCount64()+2000;
+   while(observed->GetCompletedValue()!=1) {CHECK(GetTickCount64()<deadline);SwitchToThread();}
+   observed->Release();gate->Release();
+   puts("PASS named interpolation fence stalls and advances after the Metal queue dependency resolves");
+  }
  }
 
  uint64_t count=8,ids[8]{};const char *names[8]{};ffxQueryDescGetVersions versions{{FFX_API_QUERY_DESC_TYPE_GET_VERSIONS},FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATION,g.d,&count,ids,names};CHECK(query(nullptr,&versions.header)==0&&count==1);printf("REAL provider=%s\n",names[0]);

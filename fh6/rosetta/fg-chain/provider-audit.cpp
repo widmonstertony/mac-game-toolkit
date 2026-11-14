@@ -27,6 +27,7 @@ static INIT_ONCE observerOnce=INIT_ONCE_STATIC_INIT;
 #include "native-ui-provider.h"
 #ifdef HISTORY_VISIBILITY_FIX
 #include "d3dmetal-latency.h"
+#include "d3dmetal-fence-observer.h"
 #endif
 #endif
 
@@ -127,6 +128,7 @@ extern "C" __declspec(dllexport) ffxReturnCode_t ffxCreateContext(ffxContext *ct
     connectObserver();
 #if defined(NATIVE_UI_FIX) && defined(HISTORY_VISIBILITY_FIX)
     protectD3DMetalLatency(desc);
+    Fh6FenceObserver::attach(desc);
 #endif
     auto result=createContext?createContext(ctx,desc,mem):FFX_API_RETURN_NO_PROVIDER;
 #ifdef NATIVE_UI_FIX

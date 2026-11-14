@@ -111,7 +111,7 @@ bool borderColor(float2 uv,out float3 value) {
  float2 previous=current+mv;
  if(any(previous*renderSize<=1)||any(previous*renderSize>=renderSize-2))return;
  float2 oldMotion=velocity(previous,true);
- if(length((oldMotion-mv)*displaySize)<max(8.0,speed*.25))return;
+ float motionMismatch=length((oldMotion-mv)*displaySize);
  float depth=currentDepth.Load(int3(int2(current*renderSize),0));
  float4 clip=float4(current.x*2-1,1-current.y*2,depth,1);
  float4 oldClip=mul(clip,clipToPrevious);
@@ -120,6 +120,25 @@ bool borderColor(float2 uv,out float3 value) {
  float2 cameraPrevious=float2(projected.x*.5+.5,.5-projected.y*.5);
  if(length((cameraPrevious-current-mv)*renderSize)>1.0)return;
  float visible=previousDepth.Load(int3(int2(previous*renderSize),0));
- if(!(projected.z>0&&visible>projected.z*1.01))return;
- float4 value=generated[id.xy];value.rgb=color(current,false);generated[id.xy]=value;
+ if(!(projected.z>0)||!(visible>0)||visible>1)return;
+ float4 value=generated[id.xy];
+ float3 currentColor=color(current,false);
+ if(visible>projected.z*1.01) {
+  if(motionMismatch<max(8.0,speed*.25))return;
+  value.rgb=currentColor;
+ } else {
+  // Wet-road reflections and shadows can carry stale foreground color even
+  // when both depths describe the road. Only deweight a dark previous sample
+  // when reprojection, neighboring motion and the actual blend agree.
+  if(!previousColorKnown||abs(visible-projected.z)>projected.z*.01||motionMismatch<max(12.0,speed*.12))return;
+  float3 priorColor=color(previous,true);
+  const float3 luma=float3(.2126,.7152,.0722);
+  float now=dot(currentColor,luma), prior=dot(priorColor,luma), output=dot(value.rgb,luma);
+  if(now<.025||prior>now*.55||output<prior||output>now*.82)return;
+  float3 mixRange=currentColor-priorColor;
+  float weight=dot(value.rgb-priorColor,mixRange)/max(dot(mixRange,mixRange),.000001);
+  if(weight<0||weight>1||length(value.rgb-lerp(priorColor,currentColor,weight))>.018)return;
+  value.rgb=lerp(value.rgb,currentColor,saturate((.55-prior/now)*4));
+ }
+ generated[id.xy]=value;
 }
