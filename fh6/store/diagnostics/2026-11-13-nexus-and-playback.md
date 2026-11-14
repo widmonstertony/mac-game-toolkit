@@ -48,6 +48,18 @@ acceptable playback is the comparison.
   In the Xbox log the same long gap is already visible at upscaler entry,
   before the affected frame's FG dispatch. This does not rule out
   backpressure from a previous frame or identify the thread responsible.
+- A finer comparison used the raw log timestamp immediately after the
+  original Present returned success and before the next upscaler-settings
+  callback. The final 30 seconds of the Xbox log contain 23 such gaps
+  above 120 ms (131–433 ms, median 223 ms, median spacing 1.296 s).
+  The retained Steam log contains three. The period is consistent with
+  the [Highball Rosetta report](https://gethighball.com/docs/rosetta-feedback/),
+  but this trace cannot distinguish a stalled producer thread from GPU
+  backpressure carried into the next frame. Successful return from Present
+  alone does not mean the GPU has completed or displayed the frame.
+  Reproduce this comparison locally with `python3 fh6/store/present_gaps.py
+  /absolute/path/to/OptiScaler.log`. The tool reads a bounded log tail and
+  reports timing statistics without exporting log lines.
 - The old Xbox trace logged 1,242 successful sampled upscales and 1,123
   successful requests for one intermediate frame. Actual presentation and
   even pacing cannot be derived from a successful dispatch. In every one of
