@@ -118,3 +118,48 @@ next launch. To revert the frame provider,
 rebuild the previous Git revision and restore its matching provider and
 profile digest while the game is closed. Keep the native Steam shortcut,
 resolution, scaling, generation, audio device, cloud data and caches.
+
+## Deployment after closing the captured process
+
+Stopped only the captured FH6 process. The native Steam client stayed open.
+The combined GPU-tested frame provider and shading-rate shim are installed
+for the Store profile. Also verified the existing FH6 audio-buffer handoff
+and installed the updated, title-only WinHTTP and Nexus game-runtime modules.
+The launcher configuration check passed with 3472×2266, FSR 3.1.6 Quality,
+2× generation and official Nexus/PlayFab cloud sync. No game was relaunched.
+
+The WinHTTP candidate initially failed its transport regression with the
+LLVM-built PE. Rebuilding with the same GCC-based toolchain as the deployed
+module passed all six concurrent WebSocket workers against a local server
+and a public HTTPS request with HTTP/2 actually negotiated. The updated
+status logger identifies Xbox session-directory, matchmaking and RTA hosts,
+reserves space for late failures, and omits successful catalog responses.
+It records service classes, response status and WinHTTP error numbers.
+The game-runtime probe covered expected catalog/add-on requests and unrelated
+requests, including the no-credential case. The new marker records whether
+an authenticated add-on result is empty. Both changes preserve the game's
+normal network and genuine entitlement checks. Joining an online session
+and retrieving a specific owned car remain unverified in game.
+
+The live Metal trace has no submissions on either observed worker for
+451.6 ms inside its longest 457.9 ms gap. A different gap has 321.1 ms of
+submission silence before its first batch. The most frequent present-worker
+waker in the separate scheduler trace also appears in normal frame-pacing
+stacks, but has no CPU samples during the three long gaps in the original
+Metal trace. The longest associated CPU sample sequence in the 351.0 ms
+interval is on another Wine thread whose frames are unresolved. Driver
+per-thread events in the earlier Metal trace are empty. Consequently the
+existing captures cannot identify the dependency responsible; changing FFX
+pacing based on the clock-polling samples would be speculative.
+
+`metal_presents.py --record` now records Thread Activity on the same clock
+as Metal submission and completion. It reports the submitter's scheduler
+states, recorded wakers, and a nearby stack from the profiler when one is
+available. A nearby sample documents proximity in time, not ownership of
+any fence. The combined capture matched 194 of 194 Metal requests to
+submissions and completions on an isolated D3D12 GPU probe with correct
+64-word readback. It found six intentionally induced 236–240 ms gaps and
+showed the corresponding submitter blocked for almost the entire gap.
+Arm this capture against the existing FH6 PID during the next user-started
+free-roam test, alongside the provider, Nexus and audio checks. Keep the raw
+trace and any per-thread identifiers local.

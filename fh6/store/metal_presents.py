@@ -22,6 +22,7 @@ OPTIONAL_TABLES = (
     "metal-gpu-intervals",
     "ca-client-buffer-wait-interval",
     "time-profile",
+    "thread-state",
 )
 
 
@@ -39,6 +40,67 @@ def row_nodes(path, fields):
         nodes = [row[index] for index in indices]
         resolved = [references[node.attrib["ref"]] if "ref" in node.attrib else node for node in nodes]
         yield resolved, references
+
+
+
+def thread_states(path, threads, earliest, latest):
+    fields = ("start", "thread", "state", "duration", "made-runnable-by-thread")
+    states = defaultdict(list)
+    references = {}
+    for event, node in ET.iterparse(path, events=("start", "end")):
+        if event == "start" and node.tag == "node":
+            parent = node
+        if event != "end":
+            continue
+        if node.tag == "schema":
+            columns = [column.findtext("mnemonic") for column in node.findall("col")]
+            indices = [columns.index(field) for field in fields]
+        if node.tag != "row":
+            continue
+        # A definition can occur on a row belonging to a different thread.
+        for field in node.iter():
+            if field.tag in {"thread", "start-time", "thread-state", "duration"} and (key := field.get("id")) is not None:
+                references[key] = field.text or field.get("fmt")
+        stamp, thread, state, duration, waker = (
+            references[field.get("ref")] if "ref" in field.attrib else field.text or field.get("fmt")
+            for field in (node[index] for index in indices)
+        )
+        if thread in threads and stamp and duration and state:
+            first, last = int(stamp), int(stamp) + int(duration)
+            if first < latest and last >= earliest:
+                states[thread].append((first, last, state, waker))
+        parent.remove(node)
+    return states
+
+
+def gap_scheduler(states, start, end, profile):
+    residency = Counter()
+    wakes = Counter()
+    last_wake = None
+    for first, last, state, waker in states:
+        overlap = min(last, end) - max(first, start)
+        if overlap > 0:
+            residency[state] += overlap
+        if waker and start <= first < end:
+            wakes[waker] += 1
+            if last_wake is None or first > last_wake[0]:
+                last_wake = first, waker
+    resume = None
+    if last_wake:
+        stamp, waker = last_wake
+        resume = {"trace_seconds": round(stamp / 1e9, 6), "waker": waker}
+        if profile is not None:
+            nearby = [(time, stack) for time, _, stack in profile.get(waker, ())
+                      if abs(time - stamp) <= 2_000_000 and stack]
+            if nearby:
+                time, stack = min(nearby, key=lambda sample: abs(sample[0] - stamp))
+                resume["nearest_stack_sample"] = {"offset_ms": ms(time - stamp), "frames": stack}
+    return {
+        "state_ms": {state: ms(elapsed) for state, elapsed in residency.items()},
+        "sampled_ms": ms(sum(residency.values())),
+        "recorded_wakers": dict(wakes.most_common(6)),
+        "last_recorded_wake": resume,
+    }
 
 
 def covered_ns(intervals, start, end):
@@ -116,11 +178,22 @@ def summarize(directory, pid, threshold_ms):
             stamp, thread, process, thread_state, stack = nodes
             if not owned(process.get("fmt")) or not stamp.text or not thread.get("fmt"):
                 continue
-            top = stack.find("frame")
-            if top is not None and "ref" in top.attrib:
-                top = refs[top.attrib["ref"]]
-            symbol = top.get("name") if top is not None else None
-            profile[thread.get("fmt")].append((int(stamp.text), thread_state.text, symbol))
+            frames = tuple(
+                resolved.get("name") for frame in stack.findall("frame")[:10]
+                if (resolved := refs[frame.attrib["ref"]] if "ref" in frame.attrib else frame).get("name")
+            )
+            profile[thread.get("fmt")].append((int(stamp.text), thread_state.text, frames))
+
+    scheduler_file = directory / "thread-state.xml"
+    gap_windows = [
+        (previous, current, matched[next_id][2])
+        for (previous, _), (current, next_id) in zip(requests, requests[1:])
+        if current - previous >= threshold_ms * 1_000_000 and next_id in matched
+    ]
+    scheduler = None
+    if scheduler_file.is_file() and gap_windows:
+        scheduler = thread_states(scheduler_file, {thread for _, _, thread in gap_windows},
+                                  gap_windows[0][0], gap_windows[-1][1])
 
     intervals = []
     gaps = []
@@ -134,7 +207,8 @@ def summarize(directory, pid, threshold_ms):
         thread = later[2] if later else None
         submitter_samples = None
         if profile is not None and thread:
-            samples = [(state, symbol) for stamp, state, symbol in profile[thread] if previous <= stamp < current]
+            samples = [(state, frames[0] if frames else None)
+                       for stamp, state, frames in profile[thread] if previous <= stamp < current]
             submitter_samples = {
                 "count": len(samples),
                 "states": dict(Counter(state for state, _ in samples if state)),
@@ -151,6 +225,9 @@ def summarize(directory, pid, threshold_ms):
             "submitter_drawable_wait_ms": ms(covered_ns(drawable_waits[thread], previous, current))
             if drawable_waits is not None and thread else None,
             "submitter_time_profiler": submitter_samples,
+            "submitter_thread": thread,
+            "submitter_scheduler": gap_scheduler(scheduler[thread], previous, current, profile)
+            if scheduler is not None and thread else None,
         })
 
     callbacks_file = directory / "ca-client-presented-handler.xml"
@@ -188,14 +265,17 @@ def record(directory, pid, seconds):
     directory.mkdir(mode=0o700)
     trace = directory / "roam.trace"
     command = ["/usr/bin/xcrun", "xctrace"]
-    subprocess.run([*command, "record", "--template", "Metal System Trace", "--attach", str(pid),
+    options = directory / "recording-options.json"
+    options.write_text(json.dumps({"Time Profiler": {"recordWaitingThreads": True}}))
+    subprocess.run([*command, "record", "--template", "Metal System Trace", "--instrument", "Thread Activity",
+                    "--recording-options", options, "--attach", str(pid),
                     "--time-limit", f"{seconds}s", "--no-prompt", "--output", trace],
                    check=True, env=env, timeout=seconds + 30, stdout=sys.stderr)
     toc = directory / "toc.xml"
     subprocess.run([*command, "export", "--input", trace, "--toc", "--output", toc],
                    check=True, env=env, timeout=30, stdout=sys.stderr)
     present = {table.get("schema") for table in ET.parse(toc).findall(".//run[@number='1']/data/table")}
-    missing = set(REQUIRED_TABLES) - present
+    missing = set(REQUIRED_TABLES + ("thread-state",)) - present
     if missing:
         raise ValueError("Trace lacks required tables: " + ", ".join(sorted(missing)))
     for schema in (*REQUIRED_TABLES, *OPTIONAL_TABLES):

@@ -1,6 +1,6 @@
 --- a/dlls/winhttp/request.c
 +++ b/dlls/winhttp/request.c
-@@ -46,6 +46,62 @@
+@@ -46,6 +46,67 @@
  
  #define ACTUAL_DEFAULT_RECEIVE_RESPONSE_TIMEOUT 21000
  
@@ -10,6 +10,9 @@
 +{
 +    static const struct { const WCHAR *suffix; const char *label; } services[] =
 +    {
++        {L"sessiondirectory.xboxlive.com", "xbox-session"},
++        {L"matchmaking.xboxlive.com", "xbox-matchmaking"},
++        {L"rta.xboxlive.com", "xbox-rta"},
 +        {L"xboxlive.com", "xbox-live"},
 +        {L"playfabapi.com", "playfab"},
 +        {L"playfab.com", "playfab"},
@@ -34,12 +37,14 @@
 +{
 +    static SRWLOCK lock = SRWLOCK_INIT;
 +    static const LARGE_INTEGER zero;
-+    DWORD last_error, count, written;
++    DWORD last_error, count, written, limit;
 +    LARGE_INTEGER size;
 +    char path[MAX_PATH], line[128];
 +    HANDLE file;
 +
-+    if (!service) return;
++    if (!service || (!strcmp(service, "store-catalog") && status == 200 && !error)) return;
++    /* Leave space for failures and WebSocket events after the initial HTTP burst. */
++    limit = !strcmp(phase, "http-response") && status < 400 && status != 101 ? 16384 : 32768;
 +    last_error = GetLastError();
 +    count = GetEnvironmentVariableA("XODUS_FH6_NET_STATUS", path, sizeof(path));
 +    if (!count || count >= sizeof(path)) goto done;
@@ -51,7 +56,7 @@
 +                       NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 +    if (file != INVALID_HANDLE_VALUE)
 +    {
-+        if (GetFileSizeEx(file, &size) && size.QuadPart + count <= 32768 &&
++        if (GetFileSizeEx(file, &size) && size.QuadPart + count <= limit &&
 +            SetFilePointerEx(file, zero, NULL, FILE_END)) WriteFile(file, line, count, &written, NULL);
 +        CloseHandle(file);
 +    }
@@ -63,7 +68,7 @@
  /* return the size of data available to be read immediately */
  static DWORD query_data_stream( struct request *request )
  {
-@@ -3404,7 +3460,7 @@
+@@ -3404,7 +3465,7 @@
  static DWORD receive_response( struct request *request )
  {
      BOOL async_mode = request->connect->hdr.flags & WINHTTP_FLAG_ASYNC;
@@ -72,7 +77,7 @@
  
      TRACE( "request state %d.\n", request->state );
  
-@@ -3461,6 +3517,7 @@
+@@ -3461,6 +3522,7 @@
      size = sizeof(DWORD);
      query = WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER;
      if ((ret = query_headers( request, query, NULL, &status, &size, NULL ))) goto done;
@@ -80,7 +85,7 @@
  
      if ((ret = set_content_length( request, status ))) goto done;
  
-@@ -3502,6 +3559,7 @@
+@@ -3502,6 +3564,7 @@
          request->state = REQUEST_RESPONSE_STATE_RESPONSE_RECEIVED;
          if (request->netconn) netconn_set_timeout( request->netconn, FALSE, request->receive_timeout );
      }
@@ -88,7 +93,7 @@
      if (async_mode)
      {
          if (!ret) send_callback( &request->hdr, WINHTTP_CALLBACK_STATUS_HEADERS_AVAILABLE, NULL, 0 );
-@@ -4002,6 +4060,7 @@
+@@ -4002,6 +4065,7 @@
      socket->hdr.notify_mask = request->hdr.notify_mask;
      socket->hdr.context = context;
      socket->hdr.flags = request->connect->hdr.flags & WINHTTP_FLAG_ASYNC;
@@ -96,7 +101,7 @@
      socket->keepalive_interval = 30000;
      socket->close_timeout = 10000;
      socket->send_buffer_size = request->websocket_send_buffer_size;
-@@ -4036,6 +4095,7 @@
+@@ -4036,6 +4100,7 @@
      }
  
      release_object( &socket->hdr );
@@ -104,7 +109,7 @@
      release_object( &request->hdr );
      TRACE("returning %p\n", hsocket);
      if (hsocket) SetLastError( ERROR_SUCCESS );
-@@ -4720,6 +4780,8 @@
+@@ -4720,6 +4785,8 @@
  
  static void socket_receive_complete( struct socket *socket, DWORD ret, WINHTTP_WEB_SOCKET_BUFFER_TYPE type, DWORD len )
  {
@@ -113,7 +118,7 @@
      if (!ret)
      {
          WINHTTP_WEB_SOCKET_STATUS status;
-@@ -4806,7 +4868,12 @@
+@@ -4806,7 +4873,12 @@
              free( r );
          }
      }
