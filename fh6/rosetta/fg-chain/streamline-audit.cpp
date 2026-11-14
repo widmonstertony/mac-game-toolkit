@@ -20,6 +20,16 @@ static SRWLOCK frameLock = SRWLOCK_INIT, logLock = SRWLOCK_INIT;
 static ChainFrame frames[128]{};
 static volatile LONG64 sequence;
 static volatile LONG started, reports;
+static HANDLE logReady, logProgress;
+struct LogEntry {
+    LONG64 sequence;
+    LARGE_INTEGER timestamp;
+    char message[4912];
+};
+static LogEntry pending[128];
+static unsigned readHead, writeHead;
+static volatile LONG64 persisted;
+static volatile LONG logLoss;
 static DWORD evaluateTls = TLS_OUT_OF_INDEXES;
 static FARPROC (WINAPI *originalGetProcAddress)(HMODULE,LPCSTR) = GetProcAddress;
 static PFun_slSetConstants *setConstants;
@@ -27,20 +37,74 @@ static PFun_slSetTag *setTag;
 static PFun_slSetTagForFrame *setTagForFrame;
 static PFun_slEvaluateFeature *evaluateFeature;
 
+static bool writeLog(const char *line, LONG64 number, LARGE_INTEGER stamp)
+{
+    char output[5100];
+    const int length = line[0]=='{'
+        ? snprintf(output,sizeof(output),"{\"traceSequence\":%llu,\"qpc\":%llu,%s\n",
+                   (unsigned long long)number,(unsigned long long)stamp.QuadPart,line+1)
+        : snprintf(output,sizeof(output),"%s\n",line);
+    DWORD done;
+    return length>0 && length<(int)sizeof(output)
+        && WriteFile(logfile,output,(DWORD)length,&done,nullptr) && done==(DWORD)length;
+}
+static DWORD WINAPI writeLogWorker(void *)
+{
+    while(WaitForSingleObject(logReady,INFINITE)==WAIT_OBJECT_0) {
+        for(;;) {
+            AcquireSRWLockExclusive(&logLock);
+            if(readHead==writeHead) {
+                ReleaseSRWLockExclusive(&logLock);
+                break;
+            }
+            const LogEntry entry=pending[readHead++%ARRAYSIZE(pending)];
+            ReleaseSRWLockExclusive(&logLock);
+            if(!writeLog(entry.message,entry.sequence,entry.timestamp)) InterlockedIncrement(&logLoss);
+            InterlockedExchange64(&persisted,entry.sequence);
+            SetEvent(logProgress);
+        }
+    }
+    return 0;
+}
 extern "C" __declspec(dllexport) void __cdecl FH6ChainReport(const char *line)
 {
     if (!line || logfile == INVALID_HANDLE_VALUE || InterlockedIncrement(&reports) > 10000) return;
+    LARGE_INTEGER stamp;
+    QueryPerformanceCounter(&stamp);
+    if(logReady) {
+        const auto length=strlen(line)+1;
+        if(length>sizeof(pending[0].message)) {
+            InterlockedIncrement(&logLoss);
+            return;
+        }
+        AcquireSRWLockExclusive(&logLock);
+        const bool accepted=writeHead-readHead<ARRAYSIZE(pending);
+        if(accepted) {
+            auto &entry=pending[writeHead++%ARRAYSIZE(pending)];
+            entry.sequence=InterlockedIncrement64(&sequence);
+            entry.timestamp=stamp;
+            memcpy(entry.message,line,length);
+        }
+        ReleaseSRWLockExclusive(&logLock);
+        if(accepted) SetEvent(logReady);
+        else InterlockedIncrement(&logLoss);
+        return;
+    }
     AcquireSRWLockExclusive(&logLock);
-    DWORD done;
-    if(line[0]=='{') {
-        char prefix[130];LARGE_INTEGER qpc;QueryPerformanceCounter(&qpc);
-        const int length=snprintf(prefix,sizeof(prefix),"{\"traceSequence\":%llu,\"qpc\":%llu,",
-            (unsigned long long)InterlockedIncrement64(&sequence),(unsigned long long)qpc.QuadPart);
-        WriteFile(logfile,prefix,(DWORD)length,&done,nullptr);
-        WriteFile(logfile,line+1,(DWORD)strlen(line+1),&done,nullptr);
-    } else WriteFile(logfile,line,(DWORD)strlen(line),&done,nullptr);
-    WriteFile(logfile,"\n",1,&done,nullptr);
+    writeLog(line,InterlockedIncrement64(&sequence),stamp);
     ReleaseSRWLockExclusive(&logLock);
+}
+// Called by the isolated verifier, outside presentation and loader paths.
+extern "C" __declspec(dllexport) BOOL __cdecl FH6ChainFlush()
+{
+    if(!logReady) return FALSE;
+    const auto target=InterlockedCompareExchange64(&sequence,0,0);
+    const auto deadline=GetTickCount64()+5000;
+    while(InterlockedCompareExchange64(&persisted,0,0)<target) {
+        const auto now=GetTickCount64();
+        if(now>=deadline || WaitForSingleObject(logProgress,(DWORD)(deadline-now))!=WAIT_OBJECT_0) return FALSE;
+    }
+    return !InterlockedCompareExchange(&logLoss,0,0);
 }
 static ChainFrame &slot(uint64_t id, uint32_t viewport)
 {
@@ -242,6 +306,18 @@ extern "C" __declspec(dllexport) void InitializeASI()
     const bool faultObserver=FirstFault::initialize(path);
     wcscpy(end+1,L"fh6-fg-chain.jsonl");
     logfile=CreateFileW(path,FILE_APPEND_DATA,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
+    wchar_t asyncMode[2]{};
+    if(logfile!=INVALID_HANDLE_VALUE && GetEnvironmentVariableW(L"FH6_ASYNC_FG_LOG",asyncMode,2)==1 && asyncMode[0]==L'1') {
+        logReady=CreateEventW(nullptr,FALSE,FALSE,nullptr);
+        logProgress=CreateEventW(nullptr,FALSE,FALSE,nullptr);
+        HANDLE worker=logReady&&logProgress?CreateThread(nullptr,0,writeLogWorker,nullptr,0,nullptr):nullptr;
+        if(worker) CloseHandle(worker);
+        else {
+            if(logReady) CloseHandle(logReady);
+            if(logProgress) CloseHandle(logProgress);
+            logReady=logProgress=nullptr;
+        }
+    }
     evaluateTls=TlsAlloc();
     if(evaluateTls==TLS_OUT_OF_INDEXES) { FH6ChainReport("{\"event\":\"tls_allocation_failed\"}");return; }
     const bool ok=installImport(GetModuleHandleW(nullptr));

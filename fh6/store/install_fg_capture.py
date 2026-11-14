@@ -18,10 +18,11 @@ D3DMETAL_LATENCY_GUARD = '40225ecd6e814ea003097085d87afab9c931957c9d1b59562f87ea
 FENCE_QUEUE_DIAGNOSTIC = 'dd54291dd991c723dbfcd878200d5d39310ff3ed1abfca80a95ddbbfd1d6ca0d'
 BORDER_REFLECTION = 'df3f0366362ba025b8063476720ac9e220dc6d6cb2ab383ccd0315446854fdd9'
 COMPOSITION_FENCE_DIAGNOSTIC = 'b53b9b0f3d3d3ccf4122838bb1d3b07816d95bf16375482644436681b5f86aba'
+BACKGROUND_FENCE_DIAGNOSTIC = '3a1d84e3b26fd8b63acbecea57baf533a595769c1181c032f5864b36189539fa'
 PROVIDER = 'framegeneration-history-ui.dll'
 
 
-def install(artifacts, renderer=None, dialog=None, fence_diagnostics=False):
+def install(artifacts, renderer=None, dialog=None, fence_diagnostics=False, async_trace=False):
     root = Path.home() / 'Library/Application Support/MACxus'
     runtime = root / 'external-highball'
     profile = runtime / 'fh6-profile.json'
@@ -31,12 +32,18 @@ def install(artifacts, renderer=None, dialog=None, fence_diagnostics=False):
     fence_key = 'FH6_D3DMETAL_FENCE_DIAGNOSTICS'
     fence_enabled = environment.get(fence_key) == '1'
     provider_dir = root/'bottles/xbox-highball/drive_c/highball/fg-native-ui'
+    trace_name = 'fh6-fg-chain.asi'
+    trace_target = provider_dir.parent/'store-plugins'/trace_name
+    trace_candidate = artifacts/trace_name
+    trace_digest = sha(trace_candidate) if async_trace else None
+    trace_enabled = environment.get('FH6_ASYNC_FG_LOG') == '1'
     target = provider_dir/'amd_fidelityfx_framegeneration_dx12.dll'
     original = provider_dir/'framegeneration-original.dll'
     if not target.is_file() or target.is_symlink() or verified.get(str(target)) != sha(target):
         raise RuntimeError('Installed FH6 provider differs from the Store profile')
     expected = verified[str(target)]
-    guarded_versions = (D3DMETAL_LATENCY_GUARD, FENCE_QUEUE_DIAGNOSTIC, BORDER_REFLECTION, COMPOSITION_FENCE_DIAGNOSTIC)
+    guarded_versions = (D3DMETAL_LATENCY_GUARD, FENCE_QUEUE_DIAGNOSTIC, BORDER_REFLECTION,
+                        COMPOSITION_FENCE_DIAGNOSTIC, BACKGROUND_FENCE_DIAGNOSTIC)
     require_latency_guard = dialog is not None or fence_diagnostics or expected in guarded_versions
     candidate = artifacts/PROVIDER
     digest = sha(candidate)
@@ -54,6 +61,8 @@ def install(artifacts, renderer=None, dialog=None, fence_diagnostics=False):
                 or receipt.get('missing_ui') is not missing_ui
                 or (require_latency_guard and receipt.get('latency_guard') is not True)
                 or (fence_diagnostics and receipt.get('fence_diagnostics') is not True)
+                or (async_trace and (receipt.get('async_trace') is not True
+                                    or receipt['artifacts'].get(trace_name) != trace_digest))
                 or receipt['manifest_sha256'] != manifest_digest
                 or receipt['artifacts'][PROVIDER] != digest
                 or receipt['original_provider_sha256'] != original_digest
@@ -61,7 +70,16 @@ def install(artifacts, renderer=None, dialog=None, fence_diagnostics=False):
                 or any(sample['images'] != image_count or sample['gpu_fence_completed'] is not True
                        for sample in captures)):
             raise RuntimeError('Store GPU proof does not match the candidate: ' + file)
-    if expected == digest and renderer is None and dialog is None and fence_enabled == fence_diagnostics:
+    trace_files = {}
+    if async_trace:
+        if trace_target.is_symlink() or sha(trace_target) != verified.get(str(trace_target)):
+            raise RuntimeError('Installed FH6 trace observer differs from the Store profile')
+        if verified[str(trace_target)] != trace_digest:
+            verified[str(trace_target)] = trace_digest
+            trace_files[trace_target] = trace_candidate
+        environment['FH6_ASYNC_FG_LOG'] = '1'
+    if (expected == digest and not trace_files and (trace_enabled or not async_trace)
+            and renderer is None and dialog is None and fence_enabled == fence_diagnostics):
         print('The verified FH6 Store capture provider is already installed.')
         return
     if expected not in (digest, BASELINE, COLOR_CAPTURE, MATCHED_PREPARE_CAPTURE, RECYCLED_HISTORY, *guarded_versions):
@@ -112,7 +130,7 @@ def install(artifacts, renderer=None, dialog=None, fence_diagnostics=False):
         tmp = Path(directory)
         staged_profile = tmp/'profile.json'
         staged_profile.write_text(json.dumps(record, indent=2) + '\n')
-        staged = {target: candidate, profile: staged_profile, **renderer_files, **dialog_files}
+        staged = {**trace_files, target: candidate, profile: staged_profile, **renderer_files, **dialog_files}
         if renderer is not None:
             staged_receipt = tmp/'prior-fixes.json'
             staged_receipt.write_text(json.dumps(prior_record, indent=2) + '\n')
@@ -139,5 +157,6 @@ if __name__ == '__main__':
     parser.add_argument('--renderer', type=Path, help='Also install the validated private MetalHorizon D3D12 shim')
     parser.add_argument('--dialog', type=Path, help='Install the validated TaskDialog UTF-8 plugin and presenter policy')
     parser.add_argument('--fence-diagnostics', action='store_true', help='Enable bounded FSR fence logging for FH6')
+    parser.add_argument('--async-trace', action='store_true', help='Install and enable the verified background frame trace')
     args = parser.parse_args()
-    install(args.artifacts, args.renderer, args.dialog, args.fence_diagnostics)
+    install(args.artifacts, args.renderer, args.dialog, args.fence_diagnostics, args.async_trace)

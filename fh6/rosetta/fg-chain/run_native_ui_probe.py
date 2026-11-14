@@ -71,6 +71,7 @@ def main():
     p.add_argument('--missing-ui', action='store_true', help='Validate passthrough when the game does not supply UI or HUDless color')
     p.add_argument('--latency-guard', action='store_true', help='Exercise the FH6 Store-only D3DMetal presenter guard')
     p.add_argument('--fence-diagnostics', action='store_true', help='Verify reporting on a controlled GPU fence stall')
+    p.add_argument('--async-trace', action='store_true', help='Verify the frame trace drains off the presentation threads')
     p.add_argument('--store-test-prefix', type=Path, help='Use a separate test prefix with the Store renderer DLLs')
     args = p.parse_args()
     if args.fence_diagnostics and not args.latency_guard:
@@ -107,6 +108,8 @@ def main():
         env['FH6_D3DMETAL_NO_ANTILAG2'] = '1'
     if args.fence_diagnostics:
         env['FH6_D3DMETAL_FENCE_DIAGNOSTICS'] = '1'
+    if args.async_trace:
+        env['FH6_ASYNC_FG_LOG'] = '1'
     candidate = out / ('missing-ui-real' if args.missing_ui else
                        ('history-ui-real' if args.history else 'native-ui-real'))
     candidate.mkdir(exist_ok=True)
@@ -137,6 +140,8 @@ def main():
                 if args.missing_ui else 'PASS official FFX generated output')
     if result.returncode or expected not in contents or 'ui_errors=0' not in contents:
         raise RuntimeError('Native UI GPU contrast failed: ' + str(result.returncode))
+    if args.async_trace and 'PASS nonblocking frame trace drained without loss' not in contents:
+        raise RuntimeError('Nonblocking GPU trace did not drain')
     rows = [json.loads(line) for line in trace.read_bytes()[offset:].decode().splitlines()]
     if args.latency_guard and ('PASS D3DMetal presents after rejecting' not in contents or
             not any(row['event'] == 'd3dmetal_antilag_unavailable' for row in rows)):
@@ -154,7 +159,7 @@ def main():
         if ([(e['kind'], e['fence'], e['value']) for e in edges]
                 != [('wait', 'composition-gpu', 3), ('signal', 'interpolation', 1)]
                 or edges[0]['queue'] != edges[1]['queue'] or edges[0]['queue'] == '0'
-                or not edges[0]['operationQpc'] <= edges[1]['operationQpc'] <= stalled['qpc']):
+                or not edges[0]['operationQpc'] <= edges[1]['operationQpc'] <= stalled['observedQpc'] <= stalled['qpc']):
             raise RuntimeError('The pending signal and preceding queue wait were not correlated')
         dependency = [row for row in rows if row['event'] == 'fg_fence_dependency'
                       and row['observedInstance'] == stalled['instance']]
@@ -203,6 +208,7 @@ def main():
     receipt = {'passed': True, 'kind': 'synthetic real D3DMetal GPU / official FFX 3.1.6 / full candidate provider and real DXGI queue',
                'missing_ui': args.missing_ui, 'store_renderer': bool(args.store_test_prefix),
                'latency_guard': args.latency_guard, 'fence_diagnostics': args.fence_diagnostics,
+               'async_trace': args.async_trace,
                'fence_queue_edges': args.fence_diagnostics,
                'fence_dependency_progress': args.fence_diagnostics,
                'game_visual_verified': False,

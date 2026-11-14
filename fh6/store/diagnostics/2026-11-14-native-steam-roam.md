@@ -452,3 +452,42 @@ Store installation and profile verification passed for provider SHA-256
 `b53b9b0f3d3d3ccf4122838bb1d3b07816d95bf16375482644436681b5f86aba`.
 The player will launch the next native Steam run. Live frame pacing and
 residual car-edge appearance still require that run.
+
+## Computer-controlled native Steam run and background trace writes
+
+The native Steam shortcut launched the Store version. The run entered online
+free roam on the existing save. FSR Quality accepted a 2314 × 1510 input and
+3472 × 2266 output. Two consecutive generated frames had complete pixel
+readbacks at 3472 × 2266 after their readback fence signaled. The controlled
+keyboard operated the menus but did not move the player's car, so these
+captures are insufficient for the moving car-tail check.
+
+The longest drawable gap in the short Metal export was 1954.557 ms. The
+associated 1918.781 ms request gap had 38.257 ms of game GPU activity and
+11 game submissions. Its preceding present completed in 0.771 ms and the
+next present completed in 2.109 ms after submission. There was no recorded
+drawable wait on the submitting queue worker in that gap. In separate
+sampled fence events, the game thread waited 1249.519 ms for an FFX
+replacement-buffer value. The preceding queued interpolation dependency
+was already reached at the dependency check. The old observer can write
+related events after a stall sample, so a dependency value belongs to the
+time of its check. The GPU export and these fence events are separate
+measurements. They do not identify the CPU stall's complete cause.
+
+The trace reporter previously wrote every enabled diagnostic record while
+holding a log lock on the calling thread. The Store profile now enables a
+bounded background writer. It writes complete JSON lines, keeps sample
+timestamps independent of the writer and drops records if the bounded
+queue fills. The named-fence reporter now includes the actual poll sample
+QPC and excludes queue operations newer than that sample. Tagged and
+untagged loading inputs passed official FFX 3.1.6 D3DMetal checks with no
+trace loss in the verification runs. Both candidate binaries were checked
+against the Store profile after installation. This change removes
+synchronous diagnostic disk writes from the graphics threads. A live
+after-installation comparison is still required to quantify its effect.
+
+The in-game benchmark restarted a separate game process. It logged
+waitqueue.cs timeouts during startup and computer control could no longer
+bind the benchmark or Steam window. Both test processes were closed before
+installing the verified background reporter. No graphics shader or game
+profile quality setting was changed by this installation.

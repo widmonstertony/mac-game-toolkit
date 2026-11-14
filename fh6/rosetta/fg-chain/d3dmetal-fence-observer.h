@@ -61,14 +61,15 @@ static void noteOperation(const char *kind, ID3D12Fence *fence, UINT64 value, ID
     ReleaseSRWLockExclusive(&operationLock);
 }
 
-static Operation reportOperations(unsigned instance, UINT64 completedValue)
+static Operation reportOperations(unsigned instance, UINT64 completedValue, int64_t observedAt)
 {
     // All normal operations stay in memory. On a long wait, emit the first
     // pending value's producer and the latest queued dependency before it.
     Operation producer{}, dependency{};
     AcquireSRWLockShared(&operationLock);
     for (const auto &op : operations) {
-        if (op.instance != instance || !op.kind || op.value <= completedValue || strcmp(op.kind, "signal")) continue;
+        if (op.instance != instance || !op.kind || op.value <= completedValue ||
+            op.qpc > observedAt || strcmp(op.kind, "signal")) continue;
         if (!producer.kind || op.value < producer.value || (op.value == producer.value && op.qpc < producer.qpc))
             producer = op;
     }
@@ -89,14 +90,14 @@ static Operation reportOperations(unsigned instance, UINT64 completedValue)
     return dependency;
 }
 
-static void reportDependency(const Operation &dependency, unsigned observedInstance, const char *phase)
+static void reportDependency(const Operation &dependency, unsigned observedInstance, const char *phase, int64_t observedAt)
 {
     if (!dependency.kind) return;
     Operation signal{};
     AcquireSRWLockShared(&operationLock);
     for (const auto &op : operations) {
         if (op.instance != dependency.instance || !op.kind || strcmp(op.kind, "signal") ||
-            op.value < dependency.value) continue;
+            op.value < dependency.value || op.qpc > observedAt) continue;
         if (!signal.kind || op.value < signal.value || (op.value == signal.value && op.qpc < signal.qpc))
             signal = op;
     }
@@ -161,15 +162,16 @@ static ULONG STDMETHODCALLTYPE releaseFence(ID3D12Fence *fence)
     return count;
 }
 
-static bool emit(const char *phase, unsigned id, unsigned instance, UINT64 value, int64_t duration)
+static bool emit(const char *phase, unsigned id, unsigned instance, UINT64 value, int64_t duration, int64_t stamp)
 {
     if (!report || InterlockedIncrement(&reports) > 96) return false;
     LARGE_INTEGER frequency;
     if (!QueryPerformanceFrequency(&frequency)) return false;
-    char line[260];
+    char line[300];
     snprintf(line, sizeof(line), "{\"event\":\"fg_fence_poll\",\"phase\":\"%s\",\"fence\":\"%s\","
-        "\"instance\":%u,\"thread\":%lu,\"completed\":%llu,\"durationQpc\":%lld,\"qpcHz\":%lld}", phase, labels[id], instance,
-        (unsigned long)GetCurrentThreadId(), (unsigned long long)value, (long long)duration, (long long)frequency.QuadPart);
+        "\"instance\":%u,\"thread\":%lu,\"completed\":%llu,\"durationQpc\":%lld,\"qpcHz\":%lld,\"observedQpc\":%lld}",
+        phase, labels[id], instance, (unsigned long)GetCurrentThreadId(), (unsigned long long)value, (long long)duration,
+        (long long)frequency.QuadPart, (long long)stamp);
     report(line);
     return true;
 }
@@ -192,14 +194,14 @@ static UINT64 STDMETHODCALLTYPE pollFence(ID3D12Fence *fence)
         const auto id = f.id.load(std::memory_order_relaxed);
         const auto instance = f.instance.load(std::memory_order_relaxed);
         if (state.instance == instance && state.reported && state.value != value &&
-            emit("advanced", id, instance, value, stamp - state.first))
-            reportDependency(state.dependency, instance, "advanced");
+            emit("advanced", id, instance, value, stamp - state.first, stamp))
+            reportDependency(state.dependency, instance, "advanced", stamp);
         if (state.instance != instance || state.value != value || stamp - state.last > threshold / 4)
             state = {fence, instance, value, stamp, stamp, false, {}};
         if (!state.reported && stamp - state.first >= threshold) {
-            if (emit("stalled", id, instance, value, stamp - state.first)) {
-                state.dependency = reportOperations(instance, value);
-                reportDependency(state.dependency, instance, "stalled");
+            if (emit("stalled", id, instance, value, stamp - state.first, stamp)) {
+                state.dependency = reportOperations(instance, value, stamp);
+                reportDependency(state.dependency, instance, "stalled", stamp);
             }
             state.reported = true;
         }

@@ -186,5 +186,9 @@ int wmain(int argc,wchar_t **argv){
  const auto deadline=GetTickCount64()+10000;while(activeCaptures() && GetTickCount64()<deadline)Sleep(10);CHECK(activeCaptures()==0);
  if(missingUi) puts("PASS missing HUDless/UI passthrough matches the original provider byte for byte");
  else puts("PASS official FFX generated output + native UI; postprocess difference outside native UI triggers old extraction; candidate matches scene-only reference. This is synthetic GPU evidence, not proof FH6 car ghosting is fixed.");
+ if(GetEnvironmentVariableW(L"FH6_ASYNC_FG_LOG",nullptr,0)) {
+  auto flush=(BOOL (*)())resolve(observer,"FH6ChainFlush");CHECK(flush&&flush());
+  puts("PASS nonblocking frame trace drained without loss");
+ }
  return 0;
 }
