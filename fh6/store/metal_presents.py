@@ -3,6 +3,8 @@
 import argparse
 from bisect import bisect_left
 from collections import Counter, defaultdict
+import ctypes
+from fractions import Fraction
 import json
 import os
 from pathlib import Path
@@ -120,7 +122,50 @@ def ms(value):
     return round(value / 1_000_000, 3)
 
 
-def summarize(directory, pid, threshold_ms):
+def local_mach_timebase():
+    class Timebase(ctypes.Structure):
+        _fields_ = [("numer", ctypes.c_uint32), ("denom", ctypes.c_uint32)]
+
+    timebase = Timebase()
+    if ctypes.CDLL(None).mach_timebase_info(ctypes.byref(timebase)) != 0 or not timebase.denom:
+        raise ValueError("Cannot read the local Mach timebase")
+    return Fraction(timebase.numer, timebase.denom)
+
+
+def display_timeline(callbacks, timebase):
+    if len(callbacks) < 3:
+        return [], None
+    # A superseded drawable can share an at-time with its replacement.
+    # Keep the earliest callback for each displayed time when checking clocks.
+    first_callback = {}
+    for stamp, at in sorted(callbacks):
+        first_callback.setdefault(at, stamp)
+    samples = sorted(first_callback.items())
+    if len(samples) < 3:
+        return [], None
+    origin, start = samples[0]
+    callback_span = max(first_callback.values()) - min(first_callback.values())
+    scales = [(Fraction(1), "nanoseconds")]
+    if timebase:
+        # Some xctrace builds apply the host Mach tick conversion to a value
+        # already expressed in nanoseconds. Verify the inverse against the
+        # independently timestamped callback stream before using it.
+        scales.extend(((1 / timebase, "inverse-mach-timebase"), (timebase, "mach-ticks")))
+    for scale, clock in scales:
+        if not scale:
+            continue
+        elapsed = [round((at - origin) * scale) for at, _ in samples]
+        residuals = [abs(stamp - start - ns) for (_, stamp), ns in zip(samples, elapsed)]
+        # Validate multiple pairs too, to distinguish a unit mismatch from
+        # dropped or delayed notifications that happen to have matching spans.
+        if (callback_span and 0.98 <= elapsed[-1] / callback_span <= 1.02
+                and median(residuals) <= 2_000_000
+                and sum(r <= 20_000_000 for r in residuals) >= len(residuals) * .95):
+            return elapsed, clock
+    return [], None
+
+
+def summarize(directory, pid, threshold_ms, timebase=None):
     def owned(process):
         return process is not None and process.endswith(f" ({pid})")
 
@@ -231,18 +276,12 @@ def summarize(directory, pid, threshold_ms):
         })
 
     callbacks_file = directory / "ca-client-presented-handler.xml"
-    # Callback time is separate from the drawable's recorded presentation time.
-    # Exclude missing or zero at-time records and never count a duplicate time.
+    # Callback timestamps are relative nanoseconds. The exported at-time field
+    # can use a different Mach timebase even though xctrace labels it a start-time.
     callbacks = [(int(stamp), int(at)) for stamp, at, process in rows(callbacks_file, "timestamp", "at-time", "process")
                  if owned(process) and stamp and at and int(at) > 0] if callbacks_file.is_file() else []
-    displayed = sorted({at for _, at in callbacks})
-    callback_span = max(stamp for stamp, _ in callbacks) - min(stamp for stamp, _ in callbacks) if callbacks else 0
-    # A different origin is fine, but mismatched units produce impossible FPS.
-    # Allow callback scheduling skew without silently guessing a clock scale.
-    at_time_span = displayed[-1] - displayed[0] if displayed else 0
-    valid_display_clock = bool(callback_span and at_time_span and
-                               0.5 <= at_time_span / callback_span <= 2.0)
-    usable_displayed = displayed if valid_display_clock else []
+    usable_displayed, display_clock = display_timeline(callbacks, timebase)
+    at_time_span = usable_displayed[-1] if usable_displayed else 0
     display_intervals = [current - previous for previous, current in zip(usable_displayed, usable_displayed[1:])]
     display_gaps = [value for value in display_intervals if value >= threshold_ms * 1_000_000]
     return {
@@ -254,13 +293,15 @@ def summarize(directory, pid, threshold_ms):
         "long_request_gaps": len(gaps),
         "longest_request_gaps": sorted(gaps, key=lambda gap: gap["request_gap_ms"], reverse=True)[:20],
         "drawable_callback_records": len(callbacks),
-        "drawable_presentation_clock_valid": valid_display_clock,
+        "drawable_presentation_clock_valid": display_clock is not None,
+        "drawable_presentation_clock": display_clock,
         "drawable_presentation_times": len(usable_displayed),
         "drawable_capture_seconds": round(at_time_span / 1e9, 3)
         if display_intervals else None,
         "drawable_presentation_rate_hz": round(len(display_intervals) * 1e9 / at_time_span, 2)
         if display_intervals else None,
         "drawable_presentation_long_gaps": len(display_gaps) if display_intervals else None,
+        "drawable_presentation_longest_intervals_ms": [ms(x) for x in sorted(display_gaps, reverse=True)[:20]],
         "drawable_presentation_max_interval_ms": ms(max(display_intervals)) if display_intervals else None,
     }
 
@@ -298,6 +339,8 @@ def main():
     parser.add_argument("--pid", type=int, required=True)
     parser.add_argument("--threshold-ms", type=float, default=120)
     parser.add_argument("--record", action="store_true", help="attach to the existing process and export the trace")
+    parser.add_argument("--local-mach-clock", action="store_true",
+                        help="the existing export came from this Mac; try its Mach timebase")
     parser.add_argument("--seconds", type=int, default=15, help="recording duration with --record")
     args = parser.parse_args()
     if args.pid <= 0 or not 0 < args.threshold_ms <= 60000:
@@ -305,9 +348,10 @@ def main():
     if not 5 <= args.seconds <= 30:
         parser.error("seconds must be in [5, 30]")
     try:
+        timebase = local_mach_timebase() if args.record or args.local_mach_clock else None
         if args.record:
             record(args.directory, args.pid, args.seconds)
-        summary = summarize(args.directory, args.pid, args.threshold_ms)
+        summary = summarize(args.directory, args.pid, args.threshold_ms, timebase)
     except (ET.ParseError, OSError, ValueError, KeyError, IndexError, subprocess.SubprocessError) as exc:
         parser.exit(2, f"Unable to read xctrace tables: {exc}\n")
     print(json.dumps(summary, indent=2))

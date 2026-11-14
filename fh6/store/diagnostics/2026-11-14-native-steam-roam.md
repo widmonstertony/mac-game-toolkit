@@ -302,3 +302,23 @@ shortcut, resolution, scaling quality or cache changes are required for
 this candidate. Keep the captured image buffers and raw scheduler data
 local. The existing game was kept running and the candidate has not been
 deployed in this session.
+
+## Display timing from the same live recording
+
+The captured drawable callback field advanced 125/3 times as fast as the
+independently recorded callback timestamp, matching this host's documented
+Mach timebase. Applying its inverse aligned the 228 unique recorded times
+with their callback timestamps. The median residual from the first callback
+was 0.062 ms and the maximum was 17.113 ms across the capture. The export
+analyzer now tries host conversion only for local captures and requires both
+span and per-event agreement. It still rejects an unidentified timebase.
+
+The corrected capture shows 1,841.667, 1,108.333 and 200.000 ms between
+drawable presentations, corresponding to the three long submission gaps.
+The 6.07-second excerpt averaged 37.39 presentations per second with those
+stalls included. This measures presented output with interpolation and
+capture overhead, so it cannot be used as a base-render FPS benchmark.
+Thread metadata from this recording labels the blocked D3DMetal queue
+worker. It contains no names for either of the two active Wine threads
+around the 1.108-second gap. The final wake identifies a thread but still
+does not name the waited object. No new in-game run was required.
