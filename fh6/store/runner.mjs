@@ -124,6 +124,13 @@ if (mode === 'setup') {
     // Microsoft/Xodus; do not start or sign into a second Windows Steam.
     for(const key of Object.keys(environment))
       if(/^(SteamAppId|SteamGameId|STEAM_COMPAT_|FEX_|HB_FEX_|HB_KK_|VKD3D_|MESA_|WINE_SOFTWARE_|WINE_EXCEPTION_BURST_|WINE_FIRST_FAULT_)/.test(key))delete environment[key];
+    // macOS removes DYLD_* variables when the launch crosses a system shell.
+    // Carry the already verified title-specific path to the final Wine wrapper.
+    const audioBuffer = profile.environment.DYLD_INSERT_LIBRARIES;
+    if (!path.isAbsolute(audioBuffer ?? '') || !profile.verifiedFiles[audioBuffer])
+      throw Error('Expected the verified FH6 audio buffer module');
+    delete environment.DYLD_INSERT_LIBRARIES;
+    environment.FH6_STORE_AUDIO_BUFFER = audioBuffer;
     const proxy=path.resolve(path.dirname(pointer.winePath),'../share/xodus-nexus/compat/PlayFabGameSave.dll');
     if (!existsSync(proxy))throw Error('The PlayFab cloud-save proxy is missing');
     environment.NEXUS_PGS_PROXY=proxy;

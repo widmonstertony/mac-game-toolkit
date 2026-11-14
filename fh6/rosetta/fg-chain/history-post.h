@@ -6,10 +6,10 @@
 // disabled. Snapshot copies are recorded during Prepare, inside input lifetime.
 // No readback, waits, logger locks, or per-frame PSO creation in this path.
 struct HistoryPost {
- enum{SlotCount=8,BindingCount=32};
+ enum{SlotCount=8};
  struct Slot{ID3D12Resource *depth{},*motion{};uint64_t frame{};unsigned refs{};bool recorded{},usable{};} slots[SlotCount];
  struct Flight{ID3D12Resource *output{};uint64_t frame{},fenceValue{};Slot *current{},*previous{};bool active{};} flights[SlotCount];
- struct Binding{ID3D12DescriptorHeap *heap{};Slot *current{},*previous{};ID3D12Resource *scene{},*output{};} bindings[BindingCount];
+ struct Binding{ID3D12DescriptorHeap *heap{};Slot *current{},*previous{};ID3D12Resource *scene{},*output{};} bindings[SlotCount];
  ID3D12Device *device{};ID3D12Fence *fence{};ID3D12RootSignature *root{};ID3D12PipelineState *pipeline{};ID3D12Resource *halfSources{},*lastScene{};uint64_t lastSceneFrame{UINT64_MAX};
  uint64_t serial{},applied{},declined{};UINT rw{},rh{};UINT64 allocated{};bool recorded{},disabled{};
  HRESULT status{E_PENDING};const char *reason{"not-initialized"};
@@ -27,7 +27,13 @@ struct HistoryPost {
  }
  void poll(){
   if(!fence)return;auto done=fence->GetCompletedValue();if(done==UINT64_MAX){disabled=true;reason="device-removed";return;}
-  for(auto &f:flights)if(f.active&&f.fenceValue&&done>=f.fenceValue){if(f.current&&f.current->refs)f.current->refs--;if(f.previous&&f.previous->refs)f.previous->refs--;if(f.output)f.output->Release();f={};}
+  for(auto &f:flights)if(f.active&&f.fenceValue&&done>=f.fenceValue){
+   if(f.current&&f.current->refs)f.current->refs--;
+   if(f.previous&&f.previous->refs)f.previous->refs--;
+   clearBinding(bindings[f.frame%SlotCount]);
+   if(f.output)f.output->Release();
+   f={};
+  }
  }
  void retire(ID3D12Resource *output,uint64_t frame,ID3D12CommandQueue *queue){
   // The pinned SDK queued this exact output's composition-availability wait
@@ -95,14 +101,28 @@ struct HistoryPost {
   list->ResourceBarrier(lastSceneFrame==UINT64_MAX?1:2,b);list->CopyResource(lastScene,scene);
   b[0].Transition.StateBefore=D3D12_RESOURCE_STATE_COPY_SOURCE;b[0].Transition.StateAfter=read;b[1].Transition.StateBefore=D3D12_RESOURCE_STATE_COPY_DEST;b[1].Transition.StateAfter=D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;list->ResourceBarrier(2,b);lastSceneFrame=frame;
  }
+ static void clearBinding(Binding &binding){
+  if(binding.scene)binding.scene->Release();
+  if(binding.output)binding.output->Release();
+  binding.current=binding.previous=nullptr;
+  binding.scene=binding.output=nullptr;
+ }
  Binding *binding(Slot *current,Slot *previous,ID3D12Resource *scene,ID3D12Resource *output){
-  Binding *free=nullptr;for(auto &b:bindings){if(b.heap&&b.current==current&&b.previous==previous&&b.scene==scene&&b.output==output)return &b;if(!b.heap&&!free)free=&b;}if(!free){reason="binding-budget";return nullptr;}
-  D3D12_DESCRIPTOR_HEAP_DESC desc{};desc.Type=D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;desc.NumDescriptors=8;desc.Flags=D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;if(FAILED(device->CreateDescriptorHeap(&desc,IID_ID3D12DescriptorHeap,(void**)&free->heap)))return nullptr;
-  auto handle=free->heap->GetCPUDescriptorHandleForHeapStart();UINT increment=device->GetDescriptorHandleIncrementSize(desc.Type);ID3D12Resource *inputs[]={current->depth,current->motion,previous->depth,previous->motion,scene,lastScene};
+  const auto index=current->frame%SlotCount;
+  auto &slot=bindings[index];
+  // Descriptors may be rewritten only after the previous flight fence for this
+  // slot completed. Used heap contents stay immutable through GPU execution.
+  if(flights[index].active||slot.scene){reason="binding-still-in-flight";return nullptr;}
+  if(!slot.heap){
+   D3D12_DESCRIPTOR_HEAP_DESC desc{};desc.Type=D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;desc.NumDescriptors=8;desc.Flags=D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+   if(FAILED(device->CreateDescriptorHeap(&desc,IID_ID3D12DescriptorHeap,(void**)&slot.heap))){reason="binding-allocation";return nullptr;}
+  }
+  auto handle=slot.heap->GetCPUDescriptorHandleForHeapStart();UINT increment=device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);ID3D12Resource *inputs[]={current->depth,current->motion,previous->depth,previous->motion,scene,lastScene};
   for(auto r:inputs){D3D12_SHADER_RESOURCE_VIEW_DESC srv{};srv.Format=r->GetDesc().Format==DXGI_FORMAT_R32G8X24_TYPELESS?DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS:r->GetDesc().Format;srv.ViewDimension=D3D12_SRV_DIMENSION_TEXTURE2D;srv.Shader4ComponentMapping=D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;srv.Texture2D.MipLevels=1;device->CreateShaderResourceView(r,&srv,handle);handle.ptr+=increment;}
   D3D12_UNORDERED_ACCESS_VIEW_DESC uav{};uav.Format=DXGI_FORMAT_R8G8B8A8_UNORM;uav.ViewDimension=D3D12_UAV_DIMENSION_TEXTURE2D;device->CreateUnorderedAccessView(output,nullptr,&uav,handle);
   handle.ptr+=increment;uav.Format=DXGI_FORMAT_R32_UINT;device->CreateUnorderedAccessView(halfSources,nullptr,&uav,handle);
-  free->current=current;free->previous=previous;free->scene=scene;free->output=output;scene->AddRef();output->AddRef();return free;
+  slot.current=current;slot.previous=previous;slot.scene=scene;slot.output=output;
+  scene->AddRef();output->AddRef();return &slot;
  }
  bool record(const ChainFrame &f,const CapturePrepare &p,const ffxDispatchDescFrameGeneration &fg,ID3D12Resource *scene){
   auto current=find(fg.frameID),previous=fg.frameID?find(fg.frameID-1):nullptr;
@@ -128,5 +148,5 @@ struct HistoryPost {
  void submitted(uint64_t frame,ID3D12Resource *output,bool usedPrevious){
   auto s=&slots[frame%SlotCount];if(!s->recorded||s->frame!=frame||!s->refs)return;auto &f=flights[frame%SlotCount];if(f.active)return;f.active=true;f.frame=frame;f.current=s;f.previous=usedPrevious?find(frame-1):nullptr;f.output=output;output->AddRef();
  }
- void release(){for(auto &b:bindings){if(b.scene)b.scene->Release();if(b.output)b.output->Release();if(b.heap)b.heap->Release();b={};}for(auto &f:flights){if(f.output)f.output->Release();f={};}for(auto &s:slots){if(s.depth)s.depth->Release();if(s.motion)s.motion->Release();s={};}if(halfSources)halfSources->Release();if(lastScene)lastScene->Release();if(fence)fence->Release();if(pipeline)pipeline->Release();if(root)root->Release();if(device)device->Release();device=nullptr;halfSources=lastScene=nullptr;lastSceneFrame=UINT64_MAX;fence=nullptr;pipeline=nullptr;root=nullptr;serial=applied=declined=0;rw=rh=0;allocated=0;recorded=disabled=false;status=E_PENDING;reason="not-initialized";}
+ void release(){for(auto &b:bindings){clearBinding(b);if(b.heap)b.heap->Release();b={};}for(auto &f:flights){if(f.output)f.output->Release();f={};}for(auto &s:slots){if(s.depth)s.depth->Release();if(s.motion)s.motion->Release();s={};}if(halfSources)halfSources->Release();if(lastScene)lastScene->Release();if(fence)fence->Release();if(pipeline)pipeline->Release();if(root)root->Release();if(device)device->Release();device=nullptr;halfSources=lastScene=nullptr;lastSceneFrame=UINT64_MAX;fence=nullptr;pipeline=nullptr;root=nullptr;serial=applied=declined=0;rw=rh=0;allocated=0;recorded=disabled=false;status=E_PENDING;reason="not-initialized";}
 };

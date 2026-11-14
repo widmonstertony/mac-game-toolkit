@@ -1,0 +1,11 @@
+--- a/dlls/xgameruntime/xstore.c
++++ b/dlls/xgameruntime/xstore.c
+@@ -549,6 +549,8 @@
+     if (snapshot) entitled_snapshot_release(snapshot);
+     if (InterlockedCompareExchange(&query->canceled, 0, 0)) hr = E_ABORT;
+     xodus_store_license_note("fh6-addon-licenses-result", hr);
++    if (SUCCEEDED(hr))
++        xodus_store_license_note(query->count ? "fh6-addon-licenses-nonempty" : "fh6-addon-licenses-empty", S_OK);
+     IXThreadingImpl_XAsyncComplete(query->threading, query->async, hr,
+                                   SUCCEEDED(hr) ? query->count * sizeof(*license) : 0);
+     store_addon_query_release(query);
