@@ -2,6 +2,7 @@
 
 from collections import Counter
 import json
+import os
 from pathlib import Path
 import re
 
@@ -41,6 +42,22 @@ def latest_graphics(trace):
     return dict(counts)
 
 
+def session_graphics(trace, run):
+    if not trace.is_file():
+        return {}
+    receipt = run / 'launch.json'
+    with trace.open('rb') as stream:
+        stat = os.fstat(stream.fileno())
+        if receipt.is_file():
+            data = json.loads(receipt.read_text())
+            offset = data['traceBytes']
+            if (stat.st_dev, stat.st_ino) == (data['traceDevice'], data['traceInode']) and 0 <= offset <= stat.st_size:
+                stream.seek(offset)
+        elif stat.st_mtime < run.stat().st_birthtime:
+            return {}
+        return latest_graphics(stream)
+
+
 def count_metadata(file, pattern):
     counts = Counter()
     if file.is_file() and file.stat().st_size <= 32768:
@@ -63,11 +80,9 @@ def main():
                 for (phase, hr, http), count in count_metadata(latest / 'status.log', AUTH_METADATA).items()]
         net = [{'phase': phase, 'service': service, 'status': int(status), 'error': int(error), 'count': count}
                for (phase, service, status, error), count in count_metadata(latest / 'net.log', NETWORK_METADATA).items()]
-    graphics = {}
-    if trace.is_file() and (latest is None or trace.stat().st_mtime >= latest.stat().st_birthtime):
-        with trace.open() as stream:
-            graphics = latest_graphics(stream)
-    print(json.dumps({'launch_status': auth, 'network': net, 'graphics': graphics}, indent=2))
+    graphics = session_graphics(trace, latest) if latest else {}
+    print(json.dumps({'launch_recorded': latest is not None, 'launch_status': auth,
+                      'network': net, 'graphics': graphics}, indent=2))
 
 
 if __name__ == '__main__':

@@ -161,3 +161,7 @@ confirmed that an unlisted loopback host leaves no record. `check_session.py`
 extracts status counts and graphics summaries without printing identifiers,
 URLs, headers, payloads, or resource addresses. This does not decode any
 matchmaking response body or prove remote acceptance or displayed pixels.
+The launcher also records the graphics log's byte offset before starting the
+account service. The summary counts only subsequent records and explicitly
+reports when there has been no launch with this diagnostic, preventing a
+previous run's generation requests from being attributed to the current build.

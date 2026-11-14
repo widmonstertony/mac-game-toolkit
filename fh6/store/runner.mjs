@@ -2,7 +2,7 @@
 import path from 'node:path';
 import os from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {readFileSync, existsSync, closeSync, openSync, mkdtempSync} from 'node:fs';
+import {readFileSync, existsSync, closeSync, openSync, mkdtempSync, statSync, writeFileSync} from 'node:fs';
 import {spawn, spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {readLocalHighball, localBootEnvironment, prepareLocalHighball} from './local-highball.js';
@@ -98,6 +98,19 @@ if (mode === 'setup') {
   const {cli}=await readBundledBackend('/Applications/MACxus.app/Contents/Resources/backend');
   const {startXodusService, cloudSaveRuntime}=await import(path.join(modulesRoot,'xodus-service.js'));
   if (!await cloudSaveRuntime(pointer.winePath)) throw Error('Expected the pinned cloud-save runtime');
+  const drive = path.join(runner.compatibilityDataPath, 'drive_c');
+  const trace = path.join(drive, 'highball/store-plugins/fh6-fg-chain.jsonl');
+  const traceStat = statSync(trace, {throwIfNoEntry:false});
+  const directory = nexusRepair ? mkdtempSync(path.join(drive, 'fh6-xbox-status-')) : null;
+  if (directory) {
+    for (const name of ['status.log', 'net.log'])
+      closeSync(openSync(path.join(directory, name), 'wx', 0o600));
+    writeFileSync(path.join(directory, 'launch.json'), JSON.stringify({
+      traceDevice: traceStat?.dev ?? null,
+      traceInode: traceStat?.ino ?? null,
+      traceBytes: traceStat?.size ?? 0,
+    }), {flag:'wx', mode:0o600});
+  }
   const service=await startXodusService(cli,os.tmpdir(),s=>console.error(s));
   let exitCode=1;
   try {
@@ -110,10 +123,7 @@ if (mode === 'setup') {
     const proxy=path.resolve(path.dirname(pointer.winePath),'../share/xodus-nexus/compat/PlayFabGameSave.dll');
     if (!existsSync(proxy))throw Error('The PlayFab cloud-save proxy is missing');
     environment.NEXUS_PGS_PROXY=proxy;
-    if (nexusRepair) {
-      const directory = mkdtempSync(path.join(runner.compatibilityDataPath, 'drive_c', 'fh6-xbox-status-'));
-      closeSync(openSync(path.join(directory, 'status.log'), 'wx', 0o600));
-      closeSync(openSync(path.join(directory, 'net.log'), 'wx', 0o600));
+    if (directory) {
       environment.XUSER_AUTH_METADATA_LOG = path.win32.join('C:\\', path.basename(directory), 'status.log');
       environment.XODUS_FH6_NET_STATUS = path.win32.join('C:\\', path.basename(directory), 'net.log');
     }
