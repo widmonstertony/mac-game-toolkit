@@ -90,6 +90,19 @@ stayed distinct, and negative or fractional indexes were rejected. This
 repairs a potential invalid signature policy read. Successful title
 authentication and joining still require the signed-in game.
 
+The pinned backend supplies sign-in tickets. The runtime itself uses SISU
+and requests the authenticated current-title endpoint table, so MetalHorizon's
+backend-specific title-auth implementation is unnecessary for this architecture.
+The current public default table does not list the Forza service host. The
+runtime's fallback used borrowed WinRT string headers after their C block
+ended, including on the fallback path for an Xbox Live WebSocket. The fix
+keeps both headers in the enclosing work block throughout authorization
+and signature calculation. The rebuilt native x64 DLL retains the same nine
+exports. In isolated Wine, the endpoint-policy parser and all four offline
+Car Pass and unrelated-title checks passed. These checks do not reproduce a
+signed-in fallback authorization or establish the cause of the join error.
+[WinRT string reference lifetime](https://learn.microsoft.com/en-us/windows/win32/api/winstring/nf-winstring-windowscreatestringreference)
+
 - [MetalHorizon maintainer notes and real online test](https://github.com/alexandreunitypro/MetalHorizon-FH6-Mac-Launcher/blob/main/docs/PASSATION-IA.md)
 - [MacGameFix 1.6.2 notes](https://macgamefix.app/blog/macgamefix-1-6-2)
 - [Nexus Runtime public release notes](https://github.com/domsvoboda/nexus-runtime/releases)
@@ -118,15 +131,18 @@ XGameRuntime source is
 and the nghttp2 headers are
 [85e300c7](https://github.com/nghttp2/nghttp2/tree/85e300c79fb6dbcfa9c1013215c8710c1c2cd3d2).
 
-Prepare Wine with the GDK overlay and manifest-listed patches in upstream
-order. Apply the MACxus GDK option, HTTP/2, response and private-diagnostics
-patches, including `wine-macos-gs-last-error.patch` from its runtime assets.
+Prepare Wine with the GDK overlay and patches in the installed runtime
+manifest's order. The [pinned Nexus launcher release](https://github.com/domsvoboda/nexus-launcher/releases/tag/runtime-11.0-20261022-gf4adc821)
+contains the listed patches under `assets/`. Apply MACxus's
+`xgameruntime-xstore-queries.patch` and `wine-macos-gs-last-error.patch`
+from the matching MACxus runtime assets before applying the local patches.
 Then apply [the WebSocket patch](../../rosetta/wine11-websocket.patch) and
 [the FH6 status patch](../wine-winhttp-fh6-status.patch) to WinHTTP, and
 [the FH6 durable patch](../xgameruntime-fh6-car-pass.patch) and
 [the add-on enumeration patch](../xgameruntime-fh6-addon-enumeration.patch)
-to XGameRuntime, with `patch -p1` in that order. Apply
+to XGameRuntime, one `git apply` per patch in that order. Apply
 [the XUser policy lifetime patch](../xgameruntime-endpoint-policy-lifetime.patch)
+and then [the fallback string lifetime patch](../xgameruntime-fh6-auth-string-lifetime.patch)
 to the same XGameRuntime tree.
 From a source export, regenerate Wine's configure inputs, spec files and
 winevulkan stubs before configuring. Use an x86_64 MinGW compiler, archiver and
@@ -137,7 +153,7 @@ prefix. The test load trace must show `native` for each candidate.
 
 Run the [network regression](../../arm64/network/README.md) and compile
 [`nexus-probe.c`](../nexus-probe.c) with Wine's source and generated
-XGameRuntime headers and `-lwinhttp`. Its `http2`, `durable`, and
+XGameRuntime headers, `-D__WINESRC__`, and `-lwinhttp -lole32`. Its `http2`, `durable`, and
 `unrelated` modes and the `addons` and `unrelated-addons` checks need no
 account. Once those checks pass, use the tested
 isolated prefix's `system32` directory:

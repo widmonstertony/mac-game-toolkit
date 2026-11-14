@@ -1,0 +1,27 @@
+--- a/dlls/xgameruntime/xuser.c
++++ b/dlls/xgameruntime/xuser.c
+@@ -1777,6 +1777,7 @@
+         case XAsyncOp_DoWork:
+         {
+             WCHAR *partyBuf = NULL;
++            HSTRING_HEADER partyHeader, typeHeader;
+             /* Fallback relying party for URLs missing from the endpoint table;
+              * heap-owned only for the web-origin case, freed at complete. */
+             if (FAILED(hr = IUser_GetEndpointInfo( &context->user->IUser_iface, context->url, &info )))
+@@ -1793,7 +1794,6 @@
+                 static const WCHAR typeW[] = L"JWT";
+                 const char *host, *hostEnd;
+                 size_t hostLen, partyLen;
+-                HSTRING_HEADER partyHeader, typeHeader;
+
+                 host = strstr( context->url, "://" );
+                 host = host ? host + 3 : context->url;
+@@ -1896,6 +1896,8 @@
+         error:
+             hr = HRESULT_FROM_WIN32( GetLastError() );
+         complete:
++            /* Reference strings borrow these headers and partyBuf until the
++             * authorization and signature steps finish. */
+             free( partyBuf );
+             auth_metadata( "get-token-complete", context->user, hr, 0, TRUE, !!context->user->titleToken );
+             if (FAILED(hr)) { free( context->data ); context->data = NULL; }
