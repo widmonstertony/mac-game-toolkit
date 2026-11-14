@@ -65,6 +65,7 @@ if (mode === 'setup') {
   if (mode === 'check') {
     console.log(JSON.stringify({ready:true,packageVersion:profile.packageVersion,
       resolution:profile.resolution,upscaler:profile.upscaler,frameGeneration:profile.frameGeneration,
+      priorFixes:runner.priorFixes,
       cloudSave:'official Nexus/PlayFab auto sync; no save copied or conflict fabricated',
       gameplayVerified:false},null,2));
     process.exit(0);
@@ -83,7 +84,7 @@ if (mode === 'setup') {
     // Steam is only the native shortcut host. Store ownership/saves come from
     // Microsoft/Xodus; do not start or sign into a second Windows Steam.
     for(const key of Object.keys(environment))
-      if(/^(SteamAppId|SteamGameId|STEAM_COMPAT_|FEX_|HB_FEX_|HB_KK_|VKD3D_|MESA_|WINE_SOFTWARE_)/.test(key))delete environment[key];
+      if(/^(SteamAppId|SteamGameId|STEAM_COMPAT_|FEX_|HB_FEX_|HB_KK_|VKD3D_|MESA_|WINE_SOFTWARE_|WINE_EXCEPTION_BURST_|WINE_FIRST_FAULT_)/.test(key))delete environment[key];
     const proxy=path.resolve(path.dirname(pointer.winePath),'../share/xodus-nexus/compat/PlayFabGameSave.dll');
     if (!existsSync(proxy))throw Error('The PlayFab cloud-save proxy is missing');
     environment.NEXUS_PGS_PROXY=proxy;

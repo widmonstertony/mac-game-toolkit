@@ -1,7 +1,12 @@
 # Microsoft Store FH6 / 微软商店版地平线 6
 
-Status: **environment prepared; Store gameplay is not verified on this Mac**.
-This does not replace or fix the Steam game's rendering/loading by itself.
+Status: **Store edition reached free roam; performance, UI ghosting, DLC
+recognition, and online matchmaking still need verification.** The Steam
+shortcut is a front end for the licensed Store game. It is not the Steam edition.
+
+See [the Store migration record](diagnostics/2026-11-13-store-migration.md) for
+the earlier fixes now installed for the next launch and the ones that do not
+carry over.
 
 ## Downloaded-package profile (2026-11-13)
 
@@ -35,8 +40,9 @@ not selected.
 The public-interface observer, UTF-8 dialog helper and original providers live
 in the Store prefix's `C:\\highball` directories, with no dependency on the
 removed Steam installation. The existing universal Highball audio-buffer shim
-is enabled only for this Store launch. The already-patched Steam-private Wine
-exception engine is **not** transplanted to a different Store executable.
+is enabled only for this Store launch. The earlier Wine exception repair is
+now ported to the distinct Store build, gated on the executable hash and PE
+headers after normal Xodus materialization.
 Existing graphics detail and audio selections are reused; no save, cache, host
 audio setting or other game's prefix is rewritten.
 

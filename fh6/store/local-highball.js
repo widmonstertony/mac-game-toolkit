@@ -6,6 +6,61 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 let cached;
+const relativeModules = [
+  'engine/bin/wine', 'engine/bin/wineserver',
+  'engine/lib/wine/x86_64-windows/ntdll.dll',
+  'engine/lib/wine/x86_64-unix/ntdll.so',
+  'engine/lib/wine/x86_64-windows/kernelbase.dll',
+  ...['d3d12','d3d12core','dxgi','nvapi64','ws2_32'].map(name => `system32/${name}.dll`),
+];
+const digest = file => createHash('sha256').update(readFileSync(file)).digest('hex');
+
+function checkedLayer(dataRoot, prefix) {
+  const layer = path.join(dataRoot, 'external-highball', 'fh6-prior-fixes');
+  let record;
+  try { record = JSON.parse(readFileSync(path.join(layer,'prior-fixes.json'), 'utf8')); }
+  catch (e) { if (e.code === 'ENOENT') return undefined; throw e; }
+  if (record.schema !== 1 || record.passed !== true || !/^[a-f0-9]{64}$/.test(record.storeViewSha256))
+    throw Error('Invalid FH6 Store-only repair receipt');
+  for (const relative of relativeModules) {
+    const expected = record.files?.[relative];
+    if (!expected || digest(path.join(layer, relative)) !== expected)
+      throw Error('Changed FH6 Store repair module: '+relative);
+    if (relative.startsWith('system32/') && digest(path.join(prefix, 'drive_c/windows', relative)) !== expected)
+      throw Error('FH6 Store prefix module no longer matches tested repair: '+relative);
+  }
+  return {layer, hash: record.storeViewSha256};
+}
+
+function applyStoreLauncherPolicy(script, layer, config, shellQuote) {
+  const marker = '\nlaunch_status=0\n';
+  if (script.split(marker).length !== 2) throw Error('Upstream Wine runner changed; review its game launch');
+  const paths = [path.join(config.shimRoot,'wine'), path.join(config.rendererRoot,'wine'),
+    path.join(layer.layer,'engine/lib/wine')].join(':');
+  const policy = [
+    `export WINEDLLPATH=${shellQuote(paths)}`,
+    'export WINEDLLPATH_PREPEND="$WINEDLLPATH"',
+    'export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES;}d3d12,d3d12core,dxgi=n,b;winhttp=n,b"',
+    'export WINE_UTF8_DIALOGS=1',
+    'export WINE_SOFTWARE_EXCEPTION_CHAIN=0',
+    'case "${1:-}" in',
+    '  Z:\\\\*)',
+    '    image=$(printf \'%s\' "${1#Z:}" | tr \'\\\\\' /)',
+    '    case "$image" in */forzahorizon6.exe)',
+    '      if [ -f "$image" ]; then',
+    '        signature=$(/usr/bin/shasum -a 256 < "$image")',
+    `        if [ "\${signature%% *}" = ${shellQuote(layer.hash)} ]; then`,
+    '          export WINE_SOFTWARE_EXCEPTION_CHAIN=1 WINE_SOFTWARE_BRIDGE_RESUME=1 WINE_SOFTWARE_EXCEPTION_STATS=0',
+    '          printf "FH6 Store exception path: verified executable, enabled\\n" >&2',
+    '        else',
+    '          printf "FH6 Store exception path: unrecognized executable, standard fallback\\n" >&2',
+    '        fi',
+    '      fi ;;',
+    '    esac ;;',
+    'esac',
+  ].join('\n');
+  return script.replace(marker, `\n${policy}${marker}`);
+}
 export function readLocalHighball(dataRoot) {
   const file = path.join(dataRoot, 'local-highball.json');
   let raw;
@@ -56,14 +111,18 @@ export async function prepareLocalHighball(config, request, bottlesRoot, runtime
   // Use the upstream GDK prefix/bootstrap and cloud-save adapter. Only engine
   // location and existing renderer layout differ. No vendor binary is rewritten.
   const {prepareHighballRunner, highballOverrideDirectory, highballWrapperScript} = await import(pathToFileURL(path.join(request.modulesRoot, 'highball-engine.js')));
-  const {writeRunnerScript} = await import(pathToFileURL(path.join(request.modulesRoot, 'crossover.js')));
+  const {shellQuote, writeRunnerScript} = await import(pathToFileURL(path.join(request.modulesRoot, 'crossover.js')));
   request.log(`Existing Highball: ${config.engineRoot}; existing D3DMetal: ${config.rendererRoot}. No CrossOver installation selected.`);
   const runner = await prepareHighballRunner(config.engineRoot, config.rendererRoot, config.libraryRoot,
     bottlesRoot, runtimeDlls, profileEnv, request.log, highballOverrideDirectory(request.dataRoot));
-  await writeRunnerScript(runner.command, highballWrapperScript(config.engineRoot, config.rendererRoot,
+  const layer = checkedLayer(request.dataRoot, runner.compatibilityDataPath);
+  const wrapper = highballWrapperScript(layer?.layer ?? config.engineRoot, config.rendererRoot,
     config.libraryRoot, runner.compatibilityDataPath, profileEnv, {
       dir: config.shimRoot,
       realDll: path.join(config.shimRoot, 'wine/x86_64-windows/apd12.dll'),
-    }));
-  return runner;
+    });
+  const command = layer ? path.join(request.dataRoot,'external-highball','fh6-store-wine') : runner.command;
+  await writeRunnerScript(command, layer ? applyStoreLauncherPolicy(wrapper, layer, config, shellQuote) : wrapper);
+  if (layer) request.log('FH6 Store-only engine, renderer and dual-stack UDP repairs selected.');
+  return {...runner, command, priorFixes: Boolean(layer)};
 }

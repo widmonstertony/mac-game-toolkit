@@ -1,0 +1,18 @@
+--- a/dlls/ntdll/software_exception_chain.h
++++ b/dlls/ntdll/software_exception_chain.h
+@@ -79,9 +79,12 @@
+                  || (chain_set && value.Length == 1 * sizeof(WCHAR) && buffer[0] == '1'))
+                 && RtlEqualUnicodeString(&base, &game, TRUE)
+                 && nt->FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64
+-                && nt->FileHeader.TimeDateStamp == 0x6aea6132
+-                && nt->OptionalHeader.SizeOfImage == 0x0b3fd000
+-                && nt->OptionalHeader.CheckSum == 0x0afc4fc1) mode = 2;
++                && ((nt->FileHeader.TimeDateStamp == 0x6aea6132
++                 && nt->OptionalHeader.SizeOfImage == 0x0b3fd000
++                 && nt->OptionalHeader.CheckSum == 0x0afc4fc1)
++                || (chain_set && nt->FileHeader.TimeDateStamp == 0x6aea60eb
++                 && nt->OptionalHeader.SizeOfImage == 0x0b3e7000
++                 && nt->OptionalHeader.CheckSum == 0))) mode = 2;
+         }
+         {
+             UNICODE_STRING stats_name = RTL_CONSTANT_STRING(L"WINE_SOFTWARE_EXCEPTION_STATS");

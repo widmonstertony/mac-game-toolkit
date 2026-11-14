@@ -153,6 +153,11 @@ int main(int argc, char **argv)
     http_port = (INTERNET_PORT)atoi(argv[1]);
     CHECK(!WSAStartup(MAKEWORD(2, 2), &data), "WSAStartup");
     udp_test();
+    if (!strcmp(argv[1], "--udp-only")) {
+        WSACleanup();
+        printf("RESULT failures=%ld\n", failures);
+        return failures ? 1 : 0;
+    }
     timeout_test();
     for (int i = 0; i < 6; ++i) workers[i] = CreateThread(NULL, 0, websocket_test, (void *)(UINT_PTR)i, 0, NULL);
     DWORD wait = WaitForMultipleObjects(6, workers, TRUE, 15000);
