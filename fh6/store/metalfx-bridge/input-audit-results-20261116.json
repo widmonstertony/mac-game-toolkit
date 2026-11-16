@@ -1,0 +1,336 @@
+{
+  "scope": "Saved game pixels and isolated GPU fixtures; no deployment or live-game acceptance",
+  "cameraFlow": {
+    "frame": 58245,
+    "color": [
+      3472,
+      2266
+    ],
+    "input": [
+      2314,
+      1510
+    ],
+    "points": [
+      {
+        "point": [
+          1230,
+          1190
+        ],
+        "inputTexel": [
+          819,
+          792
+        ],
+        "depth": 0.007442396599799395,
+        "motionPixels": [
+          76.39501953125,
+          -43.08221435546875
+        ],
+        "cameraPixels": [
+          76.40375702998637,
+          -43.09040442744799
+        ],
+        "residualPixels": [
+          -0.008737498736365978,
+          0.00819007197924293
+        ]
+      },
+      {
+        "point": [
+          2250,
+          1190
+        ],
+        "inputTexel": [
+          1499,
+          792
+        ],
+        "depth": 0.007448261138051748,
+        "motionPixels": [
+          -88.580078125,
+          -43.393402099609375
+        ],
+        "cameraPixels": [
+          -88.61723002250665,
+          -43.40999035824334
+        ],
+        "residualPixels": [
+          0.03715189750664649,
+          0.01658825863396629
+        ]
+      },
+      {
+        "point": [
+          1400,
+          1560
+        ],
+        "inputTexel": [
+          933,
+          1039
+        ],
+        "depth": 0.029724176973104477,
+        "motionPixels": [
+          1.5305824279785156,
+          1.1194114685058594
+        ],
+        "cameraPixels": [
+          137.1260663706942,
+          -275.8037102049586
+        ],
+        "residualPixels": [
+          -135.59548394271567,
+          276.92312167346444
+        ]
+      },
+      {
+        "point": [
+          1736,
+          1950
+        ],
+        "inputTexel": [
+          1157,
+          1299
+        ],
+        "depth": 0.02896922267973423,
+        "motionPixels": [
+          -9.132171630859375,
+          -439.535400390625
+        ],
+        "cameraPixels": [
+          -9.167136796612,
+          -439.5575753231257
+        ],
+        "residualPixels": [
+          0.03496516575262554,
+          0.022174932500718114
+        ]
+      },
+      {
+        "point": [
+          1736,
+          1710
+        ],
+        "inputTexel": [
+          1157,
+          1139
+        ],
+        "depth": 0.03117392025887966,
+        "motionPixels": [
+          2.01318359375,
+          1.0383729934692383
+        ],
+        "cameraPixels": [
+          -9.479850519604335,
+          -350.48577388532584
+        ],
+        "residualPixels": [
+          11.493034113354335,
+          351.5241468787951
+        ]
+      },
+      {
+        "point": [
+          1100,
+          1400
+        ],
+        "inputTexel": [
+          733,
+          932
+        ],
+        "depth": 0.013365930877625942,
+        "motionPixels": [
+          156.92236328125,
+          -121.985595703125
+        ],
+        "cameraPixels": [
+          156.91432636174554,
+          -122.00639815410062
+        ],
+        "residualPixels": [
+          0.008036919504462503,
+          0.020802450975622833
+        ]
+      },
+      {
+        "point": [
+          2400,
+          1900
+        ],
+        "inputTexel": [
+          1599,
+          1266
+        ],
+        "depth": 0.027568956837058067,
+        "motionPixels": [
+          -285.8720703125,
+          -406.61865234375
+        ],
+        "cameraPixels": [
+          -286.0513075775185,
+          -406.81067609366977
+        ],
+        "residualPixels": [
+          0.17923726501851434,
+          0.19202374991976967
+        ]
+      },
+      {
+        "point": [
+          800,
+          1100
+        ],
+        "inputTexel": [
+          533,
+          733
+        ],
+        "depth": 0.005149718374013901,
+        "motionPixels": [
+          104.4736328125,
+          -21.1607666015625
+        ],
+        "cameraPixels": [
+          104.50388130076017,
+          -21.165351859482875
+        ],
+        "residualPixels": [
+          -0.030248488260170348,
+          0.004585257920375341
+        ]
+      },
+      {
+        "point": [
+          3300,
+          500
+        ],
+        "inputTexel": [
+          2199,
+          333
+        ],
+        "depth": 0.0062612369656562805,
+        "motionPixels": [
+          -224.62890625,
+          59.021942138671875
+        ],
+        "cameraPixels": [
+          -225.0620291974722,
+          58.891006563455385
+        ],
+        "residualPixels": [
+          0.4331229474722136,
+          0.13093557521649046
+        ]
+      },
+      {
+        "point": [
+          3100,
+          950
+        ],
+        "inputTexel": [
+          2066,
+          633
+        ],
+        "depth": 0.0008435824420303106,
+        "motionPixels": [
+          -33.482421875,
+          -1.882253646850586
+        ],
+        "cameraPixels": [
+          -33.55864933844629,
+          -1.9156429776438488
+        ],
+        "residualPixels": [
+          0.07622746344628695,
+          0.033389330793262895
+        ]
+      }
+    ]
+  },
+  "historySnapshots": {
+    "previousDepthMatchesPriorCurrent": true,
+    "previousMotionMatchesPriorCurrent": true
+  },
+  "cameraFixtures": [
+    {
+      "mode": "perspective-camera",
+      "returncode": 0,
+      "summary": "mode=perspective-camera camera_matrices=1 motion_scale=1.000 total_outside=0 max_outside=0 bad_midpoints=0 (quality observation, not live acceptance)"
+    },
+    {
+      "mode": "perspective-lowres-camera",
+      "returncode": 0,
+      "summary": "mode=perspective-lowres-camera camera_matrices=1 motion_scale=1.000 total_outside=0 max_outside=0 bad_midpoints=0 (quality observation, not live acceptance)"
+    },
+    {
+      "mode": "perspective-lowres-quality-camera",
+      "returncode": 0,
+      "summary": "mode=perspective-lowres-quality-camera camera_matrices=1 motion_scale=1.000 total_outside=0 max_outside=0 bad_midpoints=0 (quality observation, not live acceptance)"
+    }
+  ],
+  "detailedFixtures": [
+    {
+      "mode": "perspective-camera-detailed",
+      "returncode": 0,
+      "summary": "mode=perspective-camera-detailed camera_matrices=1 motion_scale=1.000 total_outside=0 max_outside=0 min_inside=15264 bad_midpoints=0 (quality observation, not live acceptance)"
+    },
+    {
+      "mode": "perspective-lowres-camera-detailed",
+      "returncode": 6,
+      "summary": "mode=perspective-lowres-camera-detailed camera_matrices=1 motion_scale=1.000 total_outside=28 max_outside=2 min_inside=15264 bad_midpoints=0 (quality observation, not live acceptance)"
+    },
+    {
+      "mode": "perspective-lowres-quality-camera-detailed",
+      "returncode": 6,
+      "summary": "mode=perspective-lowres-quality-camera-detailed camera_matrices=1 motion_scale=1.000 total_outside=3 max_outside=1 min_inside=15264 bad_midpoints=0 (quality observation, not live acceptance)"
+    }
+  ],
+  "nativeSizeFixtures": [
+    {
+      "mode": "perspective-camera-detailed",
+      "size": [
+        3472,
+        2266
+      ],
+      "returncode": 0,
+      "summary": "mode=perspective-camera-detailed camera_matrices=1 motion_scale=1.000 total_outside=0 max_outside=0 min_inside=610378 bad_midpoints=0 (quality observation, not live acceptance)"
+    },
+    {
+      "mode": "perspective-lowres-quality-camera-detailed",
+      "size": [
+        3472,
+        2266
+      ],
+      "returncode": 6,
+      "summary": "mode=perspective-lowres-quality-camera-detailed camera_matrices=1 motion_scale=1.000 total_outside=9576 max_outside=684 min_inside=610378 bad_midpoints=0 (quality observation, not live acceptance)"
+    }
+  ],
+  "replayControls": [
+    {
+      "mode": "jitter-zero-control",
+      "sha256": "d11cb7ba8ba2d5904327d954f1acca99c90cf38aed756e2c40b90949c9a0d2f3",
+      "byteIdenticalToRecorded": true,
+      "visualResult": "Same remaining mirror and edge fragments"
+    },
+    {
+      "mode": "jitter-negate-control",
+      "sha256": "d11cb7ba8ba2d5904327d954f1acca99c90cf38aed756e2c40b90949c9a0d2f3",
+      "byteIdenticalToRecorded": true,
+      "visualResult": "Same remaining mirror and edge fragments"
+    },
+    {
+      "mode": "jitter-output-grid-control",
+      "sha256": "d11cb7ba8ba2d5904327d954f1acca99c90cf38aed756e2c40b90949c9a0d2f3",
+      "byteIdenticalToRecorded": true,
+      "visualResult": "Same remaining mirror and edge fragments"
+    },
+    {
+      "mode": "opaque-alpha-control",
+      "sha256": "d11cb7ba8ba2d5904327d954f1acca99c90cf38aed756e2c40b90949c9a0d2f3",
+      "byteIdenticalToRecorded": true,
+      "visualResult": "Same remaining mirror and edge fragments"
+    },
+    {
+      "mode": "fullres-nearest-control",
+      "sha256": "9a7d1c4852b6eb854af0b96fae1c84600d644b3be53bf8994942da00127a4356",
+      "byteIdenticalToRecorded": false,
+      "visualResult": "Introduced a large repeated rear body; rejected"
+    }
+  ]
+}

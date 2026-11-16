@@ -165,3 +165,54 @@ python3 run-d3d12.py --build /tmp/fh6-metalfx-camera-build \
 The runner refuses MACxus game bottles and does not install into a game. Its
 90-second process timeout bounds the standalone probe; the native GPU dispatch
 has its own five-second timeout and retains pending resources on timeout.
+
+## Input and occlusion audit (remaining defect is not fixed)
+
+`check-camera-flow.py` checks the saved frame's GPU-completion/provenance fields
+and compares raw backward motion with depth reprojection through the recorded
+clip-to-previous matrix. At selected road points, both axes usually agree
+within 0.2 output pixels (the largest selected residual was 0.43 pixels).
+Car-body points have a large camera-only residual, as expected for a car moving
+with the camera; an independent color-patch comparison agrees with their actual
+roughly two-pixel motion. The newer frame's previous-depth and previous-motion
+snapshots also byte-match the older frame's current snapshots. These checks
+argue against a global sign inversion or completely unrelated camera data;
+they do not establish every pixel's color/resource epoch or visibility.
+
+The saved-pair replay now has explicitly named diagnostic controls:
+
+- `jitter-zero-control`, `jitter-negate-control` and
+  `jitter-output-grid-control` all produce byte-identical RGBA to recorded jitter.
+- All 7,867,552 input scene alpha values are zero. `opaque-alpha-control`
+  changes those to 255, but also produces byte-identical output.
+- `fullres-nearest-control` resamples depth and motion at pixel centers into
+  the full output grid, with correspondingly adjusted native motion scaling.
+  It introduces a large repeated rear body and is **rejected**.
+
+These controls therefore do not justify changing any production settings.
+All still use frozen initialization followed by one real adjacent pair.
+
+The occlusion fixture adds moving camera matrices (`-camera`) and textured
+foreground geometry with mirrors, a thin spoiler and exhaust-like protrusions
+(`-detailed`). Full-input-size detailed fixtures have zero extra foreground
+pixels at both 512×384 and 3472×2266. Reduced-input fixtures fail the strict
+zero-extra-pixel check: at 512×384, max extras are 2 (half) / 1 (Quality); at
+3472×2266 with 2314×1510 inputs, max extras are 684. Every generated sample
+still passes the separate background-midpoint check. Thus neither an API
+success nor a passing midpoint metric is sufficient for image-quality approval.
+The small reduced-resolution counts must not be confused with the large
+duplicate body in real-pixel replay.
+
+Native-size build parameters for `test-occlusion.mm`:
+
+```sh
+-DFX_TEST_WIDTH=3472 -DFX_TEST_HEIGHT=2266 \
+-DFX_QUALITY_WIDTH=2314 -DFX_QUALITY_HEIGHT=1510
+```
+
+Run `perspective-camera-detailed` and
+`perspective-lowres-quality-camera-detailed`. A return value of 6 is an observed
+quality failure, not a broken test to waive. Measured point data, image hashes
+and fixture outcomes are in `input-audit-results-20261116.json`; raw captures
+remain local. Continuous driving history and precise per-resource GPU epochs
+remain unresolved. This revision is not a production ghosting fix.
