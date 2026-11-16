@@ -69,7 +69,11 @@ failed with `0xBAD00000`; D3DMetal logged:
 
 Both Metal 3 and Metal 4 paths returned the same result on this machine. This
 does not mean that native arm64 MetalFX interpolation is unsupported: the earlier
-native replay succeeded. It identifies a limitation of this Windows NGX bridge.
+native replay succeeded. This was not sufficient to identify a bridge limitation. Later correction:
+the isolated probe lacked the `nvngx_dlssg.dll` application file marker. Running
+it from the existing game directory resolved the gate; feature-11 creation
+and real intermediate pixels then passed. See the
+[follow-up evidence](2026-11-16-metalfx-upstream.md).
 The [WineForge maintainer's corrected test](https://github.com/Alien4042x/WineForge/issues/15#issuecomment-6639934342)
 reports the same GPTK 4 beta 3 limitation. A library containing DLSSG symbols or
 an upstream feature list does not establish that the installed bridge can run it.

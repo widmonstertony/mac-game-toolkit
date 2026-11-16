@@ -1,13 +1,16 @@
 # Microsoft Store FH6 / 微软商店版地平线 6
 
-Current status, 2026-11-16: **XeSS Quality SR + XeSS-FG 2× candidate is installed;
-independent GPU replay passed, live driving quality and stability remain pending.**
-See [current selection and evidence](xefg-validation/README.md). Earlier Store
+Current status, 2026-11-16 12:30 session: **FSR Quality SR + FSR 2× is active;
+residual mirror/body artifacts and stutter remain unresolved. MetalFX is not
+installed as the game renderer.** The XeSS selection below is an earlier
+candidate, not the current live selection. See
+[current session evidence](diagnostics/2026-11-16-live-residual-artifacts.md) and
+[earlier XeSS evidence](xefg-validation/README.md). Earlier Store
 sessions reached free roam and the user reported working audio and online play.
 The native Steam shortcut starts the licensed Store game, not the Steam edition.
 
 The historical setup notes below describe the earlier FSR configuration. Do not
-rerun that old graphics configurator over the current XeSS selection.
+rerun that old graphics configurator over a newer selection.
 
 ## Steam relaunch fix, 2026-11-16
 
