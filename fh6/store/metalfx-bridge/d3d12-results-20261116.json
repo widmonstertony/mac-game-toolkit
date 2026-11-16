@@ -1,0 +1,113 @@
+{
+  "status": "passed isolated GPU staging; not game acceptance",
+  "device": "Apple M5 Max",
+  "os": "macOS 27.3 (26C5035r)",
+  "backend": "Highball D3DMetal apd12.dll (device vtable module asserted)",
+  "color": [
+    192,
+    128
+  ],
+  "depthMotion": [
+    96,
+    64
+  ],
+  "cameraOperation": 5,
+  "generatedSamples": 10,
+  "rows": [
+    {
+      "frame": 0,
+      "foreground": 1024,
+      "centroid": 45.5,
+      "expected": 45.5,
+      "completedFence": 2
+    },
+    {
+      "frame": 1,
+      "foreground": 1024,
+      "centroid": 49.5,
+      "expected": 49.5,
+      "completedFence": 4
+    },
+    {
+      "frame": 2,
+      "foreground": 1024,
+      "centroid": 51.5,
+      "expected": 51.5,
+      "completedFence": 6
+    },
+    {
+      "frame": 3,
+      "foreground": 1024,
+      "centroid": 55.5,
+      "expected": 55.5,
+      "completedFence": 8
+    },
+    {
+      "frame": 4,
+      "foreground": 1024,
+      "centroid": 59.5,
+      "expected": 59.5,
+      "completedFence": 10
+    },
+    {
+      "frame": 5,
+      "foreground": 1024,
+      "centroid": 63.5,
+      "expected": 63.5,
+      "completedFence": 12
+    },
+    {
+      "frame": 6,
+      "foreground": 1024,
+      "centroid": 67.5,
+      "expected": 67.5,
+      "completedFence": 14
+    },
+    {
+      "frame": 7,
+      "foreground": 1024,
+      "centroid": 71.5,
+      "expected": 71.5,
+      "completedFence": 16
+    },
+    {
+      "frame": 8,
+      "foreground": 1024,
+      "centroid": 75.5,
+      "expected": 75.5,
+      "completedFence": 18
+    },
+    {
+      "frame": 9,
+      "foreground": 1024,
+      "centroid": 79.5,
+      "expected": 79.5,
+      "completedFence": 20
+    },
+    {
+      "frame": 10,
+      "foreground": 1024,
+      "centroid": 83.5,
+      "expected": 83.5,
+      "completedFence": 22
+    },
+    {
+      "frame": 11,
+      "foreground": 1024,
+      "centroid": 87.5,
+      "expected": 87.5,
+      "completedFence": 24
+    }
+  ],
+  "limitations": [
+    "No swapchain presentation",
+    "No game deployment",
+    "No full-resolution performance claim",
+    "Saved road replay retains mirror and vehicle-edge fragments"
+  ],
+  "binaries": {
+    "x86_64-windows/fh6metalfx.dll": "5a0ac1e6c88bbc9bfabd76235515eadde9989d1b7a7e50c4550bf3d38bed0410",
+    "x86_64-unix/fh6metalfx.so": "eb43112551991d004957f57b90fca668e88cc8c3bcd7020e7f1b4a0d5401056c",
+    "test-d3d12.exe": "394089753e8eaefa58ff6cf95c8a596c1d526f80b7425d15968c6ae30806df97"
+  }
+}

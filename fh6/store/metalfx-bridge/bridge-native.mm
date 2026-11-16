@@ -1,7 +1,9 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #import <MetalFX/MetalFX.h>
+#import <simd/simd.h>
 #include <cmath>
+#include <cstring>
 #include <algorithm>
 #include <mutex>
 #include <map>
@@ -16,7 +18,7 @@
 @property id<MTLTexture> previous,current,depth,motion,output;
 @property uint64_t lastFrame;
 @property uint32_t historySamples;
-@property BOOL history,poisoned;
+@property BOOL history,poisoned,cameraKnown;
 @property uint32_t rw,rh,w,h;
 // On timeout these references intentionally remain alive until process exit.
 @property NSArray *pending;
@@ -59,7 +61,7 @@ static void convert(FH6MetalContext *c,id<MTLCommandBuffer> cb,id<MTLTexture> sr
     [e setTexture:src atIndex:0];[e setTexture:dst atIndex:1];
     [e dispatchThreads:MTLSizeMake(dst.width,dst.height,1) threadsPerThreadgroup:MTLSizeMake(16,16,1)];[e endEncoding];
 }
-static int32_t caps(void *p){@autoreleasepool{auto d=MTLCreateSystemDefaultDevice();if(!p||!d)return -1;*(uint64_t*)p=([MTLFXTemporalScalerDescriptor supportsDevice:d]?1:0)|([MTLFXFrameInterpolatorDescriptor supportsDevice:d]?2:0);return 0;}}
+static int32_t caps(void *p){@autoreleasepool{auto d=MTLCreateSystemDefaultDevice();if(!p||!d)return -1;*(uint64_t*)p=([MTLFXTemporalScalerDescriptor supportsDevice:d]?1:0)|([MTLFXFrameInterpolatorDescriptor supportsDevice:d]?2:0);if(@available(macOS 27.0,*))*(uint64_t*)p|=4;return 0;}}
 static int32_t create(void *raw) {@autoreleasepool{
     auto *p=(FxCreate*)raw;if(!p||p->abiVersion!=1||p->reserved||!p->renderWidth||!p->renderHeight||p->renderWidth>p->displayWidth||p->renderHeight>p->displayHeight||p->displayWidth>8192||p->displayHeight>8192)return -2;
     std::lock_guard<std::mutex> lock(guard);if(contexts.size()>=4)return -3;
@@ -79,8 +81,18 @@ static int32_t create(void *raw) {@autoreleasepool{
     if(!c.previous||!c.current||!c.depth||!c.motion||!c.output||!c.conversion){NSLog(@"MetalFX create failure %@",error);return -6;}
     p->context=nextContext++;contexts.emplace(p->context,c);return 0;
 }}
-static int32_t dispatch(void *raw) {@autoreleasepool{
-    auto *p=(FxDispatch*)raw;if(!p)return -2;p->generated=0;p->gpuMilliseconds=p->wallMilliseconds=0;
+static int32_t dispatchNative(FxDispatch *p,const FxCamera *camera) {@autoreleasepool{
+    if(!p)return -2;p->generated=0;p->gpuMilliseconds=p->wallMilliseconds=0;
+    const bool hasCamera=camera&&(camera->flags&1);
+    if(camera&&(camera->reserved||(camera->flags&~1u)))return -13;
+    simd_float4x4 view=matrix_identity_float4x4,projection=matrix_identity_float4x4;
+    if(hasCamera){
+        if(@available(macOS 27.0,*)){}else return -13;
+        for(float x:camera->worldToView)if(!std::isfinite(x))return -13;
+        for(float x:camera->viewToClip)if(!std::isfinite(x))return -13;
+        memcpy(&view,camera->worldToView,sizeof(view));memcpy(&projection,camera->viewToClip,sizeof(projection));
+        if(std::abs(simd_determinant(view))<1e-10f||std::abs(simd_determinant(projection))<1e-10f)return -13;
+    }
     std::lock_guard<std::mutex> lock(guard);auto found=contexts.find(p->context);if(found==contexts.end())return -7;auto c=found->second;if(c.poisoned)return -8;
     if((c.history&&p->frameId<=c.lastFrame)||!std::isfinite(p->deltaSeconds)||p->deltaSeconds<=0||p->deltaSeconds>1||!std::isfinite(p->fovDegrees)||p->fovDegrees<=0||p->fovDegrees>=180||!std::isfinite(p->aspectRatio)||p->aspectRatio<=0||!std::isfinite(p->nearPlane)||!std::isfinite(p->farPlane)||p->nearPlane<=0||p->farPlane<=p->nearPlane||!std::isfinite(p->motionScaleX)||!std::isfinite(p->motionScaleY)||!std::isfinite(p->jitterX)||!std::isfinite(p->jitterY))return -9;
     if(p->color.width!=c.w||p->color.height!=c.h||p->output.width!=c.w||p->output.height!=c.h||p->depth.width!=c.rw||p->depth.height!=c.rh||p->motion.width!=c.rw||p->motion.height!=c.rh||p->depth.format!=FX_R32F||p->motion.format!=FX_RG16F||(p->color.format!=FX_RGBA8&&p->color.format!=FX_RGBA16F)||(p->output.format!=FX_RGBA8&&p->output.format!=FX_RGBA16F))return -10;
@@ -88,7 +100,7 @@ static int32_t dispatch(void *raw) {@autoreleasepool{
     auto color=mappedTexture(c.device,p->color),depth=mappedTexture(c.device,p->depth),motion=mappedTexture(c.device,p->motion),out=mappedTexture(c.device,p->output);if(!color||!depth||!motion||!out)return -11;
     auto cb=[c.queue commandBuffer];cb.label=@"FH6 MetalFX staged interpolation";
     convert(c,cb,color,c.current);convert(c,cb,depth,c.depth);convert(c,cb,motion,c.motion);
-    const bool reset=!c.history||p->reset||p->frameId!=c.lastFrame+1;
+    const bool reset=!c.history||p->reset||p->frameId!=c.lastFrame+1||c.cameraKnown!=hasCamera;
     if(reset){auto e=[cb blitCommandEncoder];[e copyFromTexture:c.current toTexture:c.previous];[e endEncoding];}
     c.fg.colorTexture=c.current;c.fg.prevColorTexture=c.previous;c.fg.depthTexture=c.depth;c.fg.motionTexture=c.motion;c.fg.outputTexture=c.output;
     c.fg.jitterOffsetX=p->jitterX;c.fg.jitterOffsetY=p->jitterY;
@@ -100,10 +112,11 @@ static int32_t dispatch(void *raw) {@autoreleasepool{
     c.fg.motionVectorScaleX=p->motionScaleX*float(c.rw)/c.w;
     c.fg.motionVectorScaleY=p->motionScaleY*float(c.rh)/c.h;
     c.fg.nearPlane=p->nearPlane;c.fg.farPlane=p->farPlane;c.fg.fieldOfView=p->fovDegrees;c.fg.aspectRatio=p->aspectRatio;c.fg.deltaTime=p->deltaSeconds;c.fg.depthReversed=p->depthReversed;c.fg.shouldResetHistory=reset;
+    if(@available(macOS 27.0,*)){c.fg.worldToViewMatrix=view;c.fg.viewToClipMatrix=projection;}
     [c.fg encodeToCommandBuffer:cb];convert(c,cb,c.output,out);
     if(!finish(c,cb,@[color,depth,motion,out]))return -12;
     p->gpuMilliseconds=1000*(cb.GPUEndTime-cb.GPUStartTime);p->wallMilliseconds=1000*(NSProcessInfo.processInfo.systemUptime-start);
-    auto temp=c.previous;c.previous=c.current;c.current=temp;c.lastFrame=p->frameId;c.history=YES;
+    auto temp=c.previous;c.previous=c.current;c.current=temp;c.lastFrame=p->frameId;c.history=YES;c.cameraKnown=hasCamera;
     // On this MetalFX implementation the reset submission AND the following
     // submission produce the current frame. Only the third sample has an
     // interpolated output (verified with moving-square GPU readback). Never
@@ -111,9 +124,11 @@ static int32_t dispatch(void *raw) {@autoreleasepool{
     c.historySamples=reset?1:std::min(c.historySamples+1,3u);
     p->generated=c.historySamples>=3?1:0;return 0;
 }}
+static int32_t dispatch(void *raw){return dispatchNative((FxDispatch*)raw,nullptr);}
+static int32_t dispatchCamera(void *raw){auto p=(FxDispatchCamera*)raw;return p?dispatchNative(&p->frame,&p->camera):-2;}
 static int32_t destroy(void *raw){auto *p=(FxDestroy*)raw;if(!p)return -2;std::lock_guard<std::mutex> lock(guard);auto found=contexts.find(p->context);if(found==contexts.end())return -7;if(found->second.poisoned)return -8;contexts.erase(found);p->context=0;return 0;}
 static int32_t bufferControl(void *raw){@autoreleasepool{
     auto p=(FxBuffer*)raw;if(!p)return -2;auto d=MTLCreateSystemDefaultDevice();auto t=mappedTexture(d,*p);if(!t)return -11;
     auto c=[FH6MetalContext new];c.queue=[d newCommandQueue];auto cb=[c.queue commandBuffer];auto e=[cb blitCommandEncoder];[e fillBuffer:t.buffer range:NSMakeRange(0,p->bytes) value:0x5a];[e endEncoding];return finish(c,cb,@[t])?0:-12;
 }}
-extern "C" __attribute__((visibility("default"))) int32_t (*__wine_unix_call_funcs[])(void*)={caps,create,dispatch,destroy,bufferControl};
+extern "C" __attribute__((visibility("default"))) int32_t (*__wine_unix_call_funcs[])(void*)={caps,create,dispatch,destroy,bufferControl,dispatchCamera};

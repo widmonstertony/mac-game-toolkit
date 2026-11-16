@@ -41,6 +41,27 @@ int main(){@autoreleasepool{
     ++p.frameId;p.reset=0;p.depth.width=w-1;REQUIRE(dispatch(&p)==-10 && !p.generated);
     p.depth.width=w;REQUIRE(dispatch(&p)==0 && !p.generated); // Rejected input didn't advance.
     ++p.frameId;REQUIRE(dispatch(&p)==0 && p.generated);
+    if(supported&4) {
+        FxDispatchCamera cp{};cp.frame=p;++cp.frame.frameId;cp.camera.flags=1;
+        for(unsigned i=0;i<4;++i)cp.camera.worldToView[i*5]=1;
+        const float f=1/std::tan(float(M_PI)/6);
+        cp.camera.viewToClip[0]=f/p.aspectRatio;cp.camera.viewToClip[5]=f;
+        cp.camera.viewToClip[10]=p.nearPlane/(p.nearPlane-p.farPlane);
+        cp.camera.viewToClip[11]=1;
+        cp.camera.viewToClip[14]=p.nearPlane*p.farPlane/(p.farPlane-p.nearPlane);
+        const float saved=cp.camera.viewToClip[0];cp.camera.viewToClip[0]=NAN;
+        REQUIRE(dispatchCamera(&cp)==-13&&!cp.frame.generated);
+        cp.camera.viewToClip[0]=saved;cp.camera.reserved=1;
+        REQUIRE(dispatchCamera(&cp)==-13&&!cp.frame.generated);
+        cp.camera.reserved=0;
+        // Camera-presence changes reset history. Rejected metadata did not
+        // consume the frame ID; the same ID must still be accepted here.
+        REQUIRE(dispatchCamera(&cp)==0&&!cp.frame.generated);
+        ++cp.frame.frameId;REQUIRE(dispatchCamera(&cp)==0&&!cp.frame.generated);
+        ++cp.frame.frameId;REQUIRE(dispatchCamera(&cp)==0&&cp.frame.generated);
+        p=cp.frame;++p.frameId;REQUIRE(dispatch(&p)==0&&!p.generated);
+        puts("PASS camera ABI validation, rejected metadata, presence reset and legacy dispatch");
+    }
     FxDestroy d{c.context};REQUIRE(destroy(&d)==0 && !d.context);
     REQUIRE(dispatch(&p)==-7 && !p.generated);
     puts("PASS real GPU midpoint, mapped buffers, frame gaps, explicit reset, rejected input and destroy");
