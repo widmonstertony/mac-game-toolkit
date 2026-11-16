@@ -1,11 +1,37 @@
 # Forza Horizon 4: owned Microsoft Store package
 
+## Extraction completed, November 16
+
+The owned Store payload has now been unpacked into
+`~/Games/Windows/Xbox/Forza-Horizon-4/Content`: 4,341 files, about 79.32 GiB.
+Ciphertext block hashes and all available plaintext file hashes passed.
+`ForzaHorizon4.exe` and DLL signatures were checked after decryption. The
+original verified download is retained. **Runtime installation and playability
+remain unverified**; this is UWP `Forza.App`, not the FH6 GDK/MSIXVC route.
+
+`extract_owned.py` reads the nested payload directly at its bundle offset,
+avoiding an additional 79 GiB intermediate copy. The local CIK remains in the
+private MACxus directory. Output paths are checked, existing files require hash
+verification before resuming, and extraction stops before free space falls
+below 25 GiB. The format and XTS tweak reference is
+[eappx-rs](https://github.com/tuxuser/eappx-rs); the owned sector helper uses
+OpenSSL AES-128-XTS. No content key or game payload is included in this repo.
+
+An in-memory encrypted DLL probe and the upstream tweak test vector passed
+before extraction. During extraction, the reader was corrected to include the
+final encrypted sector padding outside the footer's logical length. Files
+without an optional plaintext FileHash still require every ciphertext block
+hash, and their resulting plaintext SHA-256 is recorded locally for resuming.
+
+## Download and earlier inspection history
+
 The PC EAppx bundle has downloaded completely (85,219,173,025 bytes, 79.37 GiB).
 Its full SHA-256 matches Microsoft's FE3 package metadata. See
 `download-receipt.json`. The local destination is
 `~/Games/Windows/Xbox/Forza-Horizon-4/package-download/`.
 
-This is **downloaded package data, not an installed or verified-playable game**.
+At the initial download checkpoint this was package data, not installed content.
+The extraction above does not yet establish a verified-playable game.
 MACxus 0.3.11's install-plan only accepts supported Windows.Desktop MSIXVC
 packages. FH4's selected PC package is EAppx/UWP. Its built-in streaming installer
 therefore did not perform this download and no fake ready-to-play library entry

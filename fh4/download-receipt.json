@@ -11,5 +11,13 @@
   "location": "~/Games/Windows/Xbox/Forza-Horizon-4/package-download",
   "source": "Microsoft DisplayCatalog and FE3; public Microsoft delivery CDN; final hash matched TLS-authenticated Microsoft metadata",
   "macxusVersion": "0.3.11",
-  "limitation": "Current MACxus install-plan accepts Windows.Desktop MSIXVC; this EAppx/UWP package requires separate authorized extraction and runtime work."
+  "limitation": "Owned UWP payload extracted and integrity verified; runtime installation and gameplay are not verified.",
+  "extracted": true,
+  "extractedFiles": 4341,
+  "extractedBytes": 85172902028,
+  "contentLocation": "~/Games/Windows/Xbox/Forza-Horizon-4/Content",
+  "integrity": {
+    "allBlockHashesVerified": true,
+    "allAvailablePlaintextHashesVerified": true
+  }
 }
