@@ -57,10 +57,41 @@ returned `noWindowsAvailable` / `windowNotFoundAtPosition`. Rebinding did
 not restore reliable control. Two attempts to bind System Settings timed
 out and reset the tool runtime. No alternative UI automation was used.
 The game was not restarted to work around this, and no global window,
-audio or graphics setting was changed. The test fullscreen toggle was
-returned to window mode.
+audio or graphics setting was changed. An earlier test fullscreen toggle
+was returned to window mode. A later fullscreen attempt restored full-size
+screenshots, but menu clicks and keys still did not reliably reach the game.
+Do not equate a full-size screenshot with recovered input control.
 
 Next acceptance remains actual moving adjacent-frame comparison, then
 replacement only after the candidate meets image and stability checks.
 The native MetalFX saved-road replay still has artifacts and is not a
 production fix, despite passing synthetic midpoint tests.
+
+## Installed visibility ABI audit
+
+The locally built `framegeneration-source.dll` has SHA-256
+`e01596aa0ac754568b94296fd96996526eee3ca4c78bd0adcf1fa1ad8ab1829c`.
+Its retained symbols and read-only disassembly establish that `flags=13`
+and `appliedFlags=1` are not evidence of a disabled correction:
+
+- `Configure` at VA `0x180010290` accepts extension type
+  `0x4648365649530001`, version 1, size 184, and stores it by frame parity.
+- `Dispatch` checks matching Configure/Prepare/current frame numbers,
+  previous frame + 1, `(flags & 0x7c) == 0x0c`, matching dimensions,
+  finite compatible depth ranges/matrix and a valid previous depth
+  resource. It then checks bit 0 and writes the actual applied flag as 1
+  at VA `0x180011489`, forwarding depth and matrix to interpolation.
+- After successful interpolation, VA `0x1800115a9` selects decision 3
+  when the applied flag is nonzero. Thus decision 3 is the accepted path,
+  not an error return. This does not prove per-pixel correctness.
+
+No binary was modified. Forcing all input flags into the applied field
+would be an unjustified change; the input contract and applied feature
+bits are different fields.
+
+A later composition/interpolation fence event group contained waits near
+1 second. Its recorded preceding dependencies were already completed at
+the sample: interpolation 23538 and composition 58773 (completed 58775).
+These are only the recorded latest waits, not a complete queue dependency
+graph. A bounded trigger-based CPU sampler then observed no new stall in
+its 180-second window, so it produced no causal thread stack.
