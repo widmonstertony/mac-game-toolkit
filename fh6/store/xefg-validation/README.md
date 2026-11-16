@@ -88,6 +88,41 @@ Source references:
 [NVAPI hooks](https://github.com/optiscaler/OptiScaler/blob/2fff542e/OptiScaler/nvapi/NvApiHooks.cpp),
 and [shared latency routing](https://github.com/optiscaler/OptiScaler/blob/2fff542e/OptiScaler/low_latency/input/input_common.cpp).
 
+## Prepared actual-present observer (not installed in FH6)
+
+The selected OptiScaler calls `xefgSwapChainGetLastPresentStatus` after its
+presentation path, but its normal log does not expose the returned frame count.
+`xefg-status-observer.cpp` is a diagnostic forwarding DLL for that API. It returns
+the original SDK's status unchanged and logs bounded samples of `framesPresented`,
+`frameGenResult` and `isFrameGenEnabled`. It does not tag, copy, modify or submit
+textures, change latency settings, disable interpolation, or wait on GPU fences.
+Logging adds a small amount of CPU/file I/O work and is capped at 100 short
+records per process. Aggregate counters count **status queries**, not unique
+presents or FPS.
+
+`build-status-observer.py --sdk PATH/xess-fg-sdk --compiler PATH/x86_64-w64-mingw32-g++
+--output STAGING_DIRECTORY` requires the exact Intel 1.3.1 DLL hash. It copies
+the unchanged SDK binary as `xefg_intel_real.dll` and creates a diagnostic
+`libxess_fg.dll` in staging. All 57 exports, including 26 ordinal-only exports,
+are retained; only the status getter is wrapped. The normal PE loader imports
+the real library before callers resolve forwarded functions. No SDK function,
+graphics work or dependency loading runs inside the diagnostic DLL's `DllMain`.
+The build refuses existing output DLLs. SDK binaries and headers are not included
+in this repository.
+
+The isolated portable `xefg-present-probe.cpp` fixture was run through this final
+observer on the real GPU. The first present reported the expected warmup; all
+15 subsequent presents reported two frames and successful interpolation. Its
+first eight sampled status records matched the fixture's direct results. See
+`status-observer-verification.json`. An earlier fixture binary contained an
+absolute SDK path and did not load the observer, so that result was excluded.
+An initial forwarding build also failed DLL dependency resolution; it was fixed
+and retested in staging. Neither failed candidate was deployed in a game.
+
+The current FH6 process remains untouched. This prepares a way to verify live
+2× output if normal logs remain insufficient; it is not a ghosting repair or
+proof that the game itself has presented interpolated frames successfully.
+
 ## Install and rollback
 
 First run `install_xess_quality.py --apply` for the SR selection, then

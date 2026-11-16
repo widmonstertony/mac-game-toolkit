@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-16",
+  "scope": "Isolated D3DMetal GPU fixture, not live FH6",
+  "originalIntelSha256": "ec5e0c65e075570c6ede72618bb666d0be0c2e10b2ea9762c0fe8cb8e375ab27",
+  "observerSha256": "7125376043934d4385860425ede5b3db2786081324e441c5464d0150df1982b3",
+  "exports": {
+    "total": 57,
+    "named": 31,
+    "ordinalOnly": 26,
+    "namesAndOrdinalsMatchOriginal": true
+  },
+  "fixturePresents": 16,
+  "warmupPresents": 1,
+  "presentsReportingTwoFramesAndSuccess": 15,
+  "observerRecords": 8,
+  "observerFirstRecord": {
+    "framesPresented": 1,
+    "frameGenResult": 3
+  },
+  "observerRemainingSevenRecords": {
+    "framesPresented": 2,
+    "frameGenResult": 0,
+    "enabled": 1
+  },
+  "observerStatusMatchesFixture": true,
+  "gameDeployment": false,
+  "liveDrivingVerified": false,
+  "limitations": [
+    "Status query counts are not unique present counts or measured FPS.",
+    "This test does not establish live-game stability, pacing or ghosting resolution.",
+    "The observer is diagnostic, not a rendering repair."
+  ]
+}
