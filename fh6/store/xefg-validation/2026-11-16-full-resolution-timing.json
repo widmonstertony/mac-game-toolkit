@@ -1,0 +1,263 @@
+{
+  "date": "2026-11-16",
+  "output": [
+    3472,
+    2266
+  ],
+  "render": [
+    2314,
+    1510
+  ],
+  "route": "Rosetta / existing Highball Wine / D3DMetal 4 beta 3",
+  "gameStoppedDuringIsolatedTests": true,
+  "notGameplayFPS": true,
+  "measurements": {
+    "xess": {
+      "samples": [
+        {
+          "iteration": 0,
+          "encodeCPUms": 2.329,
+          "submitAndFenceWallMs": 308.804
+        },
+        {
+          "iteration": 1,
+          "encodeCPUms": 0.209,
+          "submitAndFenceWallMs": 299.893
+        },
+        {
+          "iteration": 2,
+          "encodeCPUms": 0.178,
+          "submitAndFenceWallMs": 293.688
+        },
+        {
+          "iteration": 3,
+          "encodeCPUms": 0.246,
+          "submitAndFenceWallMs": 289.268
+        },
+        {
+          "iteration": 4,
+          "encodeCPUms": 0.157,
+          "submitAndFenceWallMs": 291.675
+        },
+        {
+          "iteration": 5,
+          "encodeCPUms": 0.172,
+          "submitAndFenceWallMs": 288.124
+        }
+      ],
+      "timestampCaveat": "D3D12 query intervals tracked CPU Execute duration, not the 288-300 ms completion wait; not accepted as GPU execution time."
+    },
+    "xefg": {
+      "samples": [
+        {
+          "frame": 1,
+          "xeLLSleepWallMs": 0.381,
+          "uploadTagAndFenceWallMs": 33.939,
+          "presentCallWallMs": 2.62
+        },
+        {
+          "frame": 2,
+          "xeLLSleepWallMs": 0.014,
+          "uploadTagAndFenceWallMs": 27.794,
+          "presentCallWallMs": 7.273
+        },
+        {
+          "frame": 3,
+          "xeLLSleepWallMs": 0.034,
+          "uploadTagAndFenceWallMs": 455.89,
+          "presentCallWallMs": 0.498
+        },
+        {
+          "frame": 4,
+          "xeLLSleepWallMs": 0.023,
+          "uploadTagAndFenceWallMs": 437.46,
+          "presentCallWallMs": 0.478
+        },
+        {
+          "frame": 5,
+          "xeLLSleepWallMs": 0.024,
+          "uploadTagAndFenceWallMs": 441.512,
+          "presentCallWallMs": 0.754
+        },
+        {
+          "frame": 6,
+          "xeLLSleepWallMs": 0.019,
+          "uploadTagAndFenceWallMs": 450.17,
+          "presentCallWallMs": 0.434
+        },
+        {
+          "frame": 7,
+          "xeLLSleepWallMs": 0.013,
+          "uploadTagAndFenceWallMs": 441.142,
+          "presentCallWallMs": 0.433
+        },
+        {
+          "frame": 8,
+          "xeLLSleepWallMs": 0.017,
+          "uploadTagAndFenceWallMs": 442.436,
+          "presentCallWallMs": 0.437
+        },
+        {
+          "frame": 9,
+          "xeLLSleepWallMs": 0.026,
+          "uploadTagAndFenceWallMs": 434.317,
+          "presentCallWallMs": 0.443
+        },
+        {
+          "frame": 10,
+          "xeLLSleepWallMs": 0.038,
+          "uploadTagAndFenceWallMs": 434.66,
+          "presentCallWallMs": 0.436
+        },
+        {
+          "frame": 11,
+          "xeLLSleepWallMs": 0.017,
+          "uploadTagAndFenceWallMs": 441.32,
+          "presentCallWallMs": 1.231
+        },
+        {
+          "frame": 12,
+          "xeLLSleepWallMs": 0.032,
+          "uploadTagAndFenceWallMs": 423.745,
+          "presentCallWallMs": 0.427
+        },
+        {
+          "frame": 13,
+          "xeLLSleepWallMs": 0.028,
+          "uploadTagAndFenceWallMs": 425.883,
+          "presentCallWallMs": 1.803
+        }
+      ],
+      "twoFrameSuccesses": 12,
+      "captureReadbackEnabled": false,
+      "timingCaveat": "Prepare includes upload/tag work and fence waits for queued prior interpolation; not a direct timestamp of one inference kernel."
+    },
+    "xess-mtl4": {
+      "samples": [
+        {
+          "iteration": 0,
+          "encodeCPUms": 2.167,
+          "submitAndFenceWallMs": 261.292
+        },
+        {
+          "iteration": 1,
+          "encodeCPUms": 0.208,
+          "submitAndFenceWallMs": 250.408
+        },
+        {
+          "iteration": 2,
+          "encodeCPUms": 0.171,
+          "submitAndFenceWallMs": 248.227
+        },
+        {
+          "iteration": 3,
+          "encodeCPUms": 0.177,
+          "submitAndFenceWallMs": 250.448
+        },
+        {
+          "iteration": 4,
+          "encodeCPUms": 0.182,
+          "submitAndFenceWallMs": 250.329
+        },
+        {
+          "iteration": 5,
+          "encodeCPUms": 0.178,
+          "submitAndFenceWallMs": 251.531
+        }
+      ],
+      "timestampCaveat": "D3D12 query intervals tracked CPU Execute duration, not the 288-300 ms completion wait; not accepted as GPU execution time."
+    },
+    "xefg-mtl4": {
+      "samples": [
+        {
+          "frame": 1,
+          "xeLLSleepWallMs": 0.35,
+          "uploadTagAndFenceWallMs": 29.478,
+          "presentCallWallMs": 2.534
+        },
+        {
+          "frame": 2,
+          "xeLLSleepWallMs": 0.01,
+          "uploadTagAndFenceWallMs": 26.458,
+          "presentCallWallMs": 5.915
+        },
+        {
+          "frame": 3,
+          "xeLLSleepWallMs": 0.012,
+          "uploadTagAndFenceWallMs": 399.844,
+          "presentCallWallMs": 0.625
+        },
+        {
+          "frame": 4,
+          "xeLLSleepWallMs": 0.011,
+          "uploadTagAndFenceWallMs": 380.867,
+          "presentCallWallMs": 0.734
+        },
+        {
+          "frame": 5,
+          "xeLLSleepWallMs": 0.011,
+          "uploadTagAndFenceWallMs": 375.34,
+          "presentCallWallMs": 0.469
+        },
+        {
+          "frame": 6,
+          "xeLLSleepWallMs": 0.008,
+          "uploadTagAndFenceWallMs": 377.627,
+          "presentCallWallMs": 0.453
+        },
+        {
+          "frame": 7,
+          "xeLLSleepWallMs": 0.025,
+          "uploadTagAndFenceWallMs": 382.482,
+          "presentCallWallMs": 0.469
+        },
+        {
+          "frame": 8,
+          "xeLLSleepWallMs": 0.03,
+          "uploadTagAndFenceWallMs": 380.329,
+          "presentCallWallMs": 0.578
+        },
+        {
+          "frame": 9,
+          "xeLLSleepWallMs": 0.024,
+          "uploadTagAndFenceWallMs": 378.679,
+          "presentCallWallMs": 0.528
+        },
+        {
+          "frame": 10,
+          "xeLLSleepWallMs": 0.021,
+          "uploadTagAndFenceWallMs": 383.038,
+          "presentCallWallMs": 0.497
+        },
+        {
+          "frame": 11,
+          "xeLLSleepWallMs": 0.014,
+          "uploadTagAndFenceWallMs": 378.341,
+          "presentCallWallMs": 0.485
+        },
+        {
+          "frame": 12,
+          "xeLLSleepWallMs": 0.025,
+          "uploadTagAndFenceWallMs": 380.56,
+          "presentCallWallMs": 0.493
+        },
+        {
+          "frame": 13,
+          "xeLLSleepWallMs": 0.029,
+          "uploadTagAndFenceWallMs": 380.186,
+          "presentCallWallMs": 0.492
+        }
+      ],
+      "twoFrameSuccesses": 12,
+      "captureReadbackEnabled": false,
+      "timingCaveat": "Prepare includes upload/tag work and fence waits for queued prior interpolation; not a direct timestamp of one inference kernel."
+    }
+  },
+  "nativeNGX": {
+    "superResolutionAvailable": true,
+    "frameGenerationCreateResult": "0xBAD00000",
+    "message": "Unsupported: Frame interpolation not present on this OS: 11",
+    "sameResultWithMetal3And4": true,
+    "notInstalledInGame": true
+  }
+}

@@ -127,6 +127,24 @@ network or cloud configuration changes. The normal launcher preflight passed.
 Live validation remains pending. This is not a ghosting repair or proof that
 the game itself has presented interpolated frames successfully.
 
+### November 16 live follow-up
+
+The native-Steam run subsequently reported successful two-frame statuses but was
+unacceptably slow before free roam. Full-resolution isolated tests reproduced
+hundreds of milliseconds of completion delay in SR and FG separately. See the
+[live pacing investigation](../diagnostics/2026-11-16-xefg-live-pacing.md) and
+`2026-11-16-full-resolution-timing.json`. This supersedes any implication that the
+earlier small success fixture validated gameplay performance.
+
+`xess-full-resolution-timing.cpp` reproduces the 3472×2266 SR test. Use the same
+freestanding build flags as above and provide the official `xess-sdk` headers on
+the include path. Put the hash-verified official `libxess.dll` beside its isolated
+executable. It prints CPU encode and submit/fence wall time as well as timestamp
+queries; the latter **must not be interpreted as GPU duration on this route**.
+`xefg-road-timing.cpp` uses the same captured inputs as `xefg-road-replay.cpp`,
+leaves pixel capture unarmed, and separately prints XeLL sleep, upload/tag/fence
+and Present-call wall times. Do not run benchmarks concurrently with a game.
+
 The status log is written beside the **loaded** DLL: during an Xodus launch this
 can be its temporary materialized game view. Collect that specific file while
 the process is alive, before the view is removed; do not scan all temporary files.
