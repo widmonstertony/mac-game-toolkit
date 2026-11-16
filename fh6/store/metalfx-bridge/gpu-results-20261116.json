@@ -1,0 +1,37 @@
+[
+  {
+    "mode": "correct",
+    "returncode": 0,
+    "summary": "mode=correct-layer-motion motion_scale=1.000 total_outside=0 max_outside=0 bad_midpoints=0 (quality observation, not live acceptance)"
+  },
+  {
+    "mode": "perspective",
+    "returncode": 0,
+    "summary": "mode=perspective motion_scale=1.000 total_outside=0 max_outside=0 bad_midpoints=0 (quality observation, not live acceptance)"
+  },
+  {
+    "mode": "perspective-lowres",
+    "returncode": 0,
+    "summary": "mode=perspective-lowres motion_scale=1.000 total_outside=0 max_outside=0 bad_midpoints=0 (quality observation, not live acceptance)"
+  },
+  {
+    "mode": "perspective-lowres-quality",
+    "returncode": 0,
+    "summary": "mode=perspective-lowres motion_scale=1.000 total_outside=0 max_outside=0 bad_midpoints=0 (quality observation, not live acceptance)"
+  },
+  {
+    "mode": "perspective-lowres-uncorrected",
+    "returncode": 6,
+    "summary": "mode=perspective-lowres motion_scale=2.000 total_outside=5227 max_outside=560 bad_midpoints=14 (quality observation, not live acceptance)"
+  },
+  {
+    "mode": "perspective-lowres-quality-uncorrected",
+    "returncode": 6,
+    "summary": "mode=perspective-lowres motion_scale=1.497 total_outside=8397 max_outside=804 bad_midpoints=0 (quality observation, not live acceptance)"
+  },
+  {
+    "mode": "contract",
+    "returncode": 0,
+    "summary": "PASS real GPU midpoint, mapped buffers, frame gaps, explicit reset, rejected input and destroy"
+  }
+]
