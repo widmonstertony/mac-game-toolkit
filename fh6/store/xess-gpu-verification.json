@@ -1,0 +1,25 @@
+{
+  "source": "locally installed FH6 libxess.dll",
+  "version": "2.0.2.0",
+  "dll_sha256": "251659dd84a3e84de67c886a4186e01f3eca49b00641906fe38bb6b807e5d5b7",
+  "fixture": "postreboot-ghost/xess-gpu-probe-freestanding.cpp",
+  "renderer": "same Highball D3DMetal, isolated test prefix",
+  "input": [
+    128,
+    85
+  ],
+  "output": [
+    192,
+    128
+  ],
+  "create": 0,
+  "init": 0,
+  "execute": [
+    0,
+    0,
+    0
+  ],
+  "completed_fence": 4,
+  "nonzero_output_bytes": 172024,
+  "gameplayVerified": false
+}

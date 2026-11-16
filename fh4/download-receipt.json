@@ -1,0 +1,15 @@
+{
+  "productId": "9PNQKHFLD2WQ",
+  "platform": "Windows.Desktop",
+  "format": "EAPPXBUNDLE",
+  "package": "Microsoft.SunriseBaseGame_2023.1122.1704.2_neutral_~_8wekyb3d8bbwe",
+  "bytes": 85219173025,
+  "sha256": "790053d9b825fbdea41dae6a7c1837b2fa57b531dfa900a838ad589a8f589e90",
+  "downloadVerified": true,
+  "installed": false,
+  "playableVerified": false,
+  "location": "~/Games/Windows/Xbox/Forza-Horizon-4/package-download",
+  "source": "Microsoft DisplayCatalog and FE3; public Microsoft delivery CDN; final hash matched TLS-authenticated Microsoft metadata",
+  "macxusVersion": "0.3.11",
+  "limitation": "Current MACxus install-plan accepts Windows.Desktop MSIXVC; this EAppx/UWP package requires separate authorized extraction and runtime work."
+}

@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-15",
+  "gpu": "Apple M5 Max",
+  "renderer": "existing FH6 D3DMetal",
+  "source": "https://github.com/intel/xess",
+  "files": {
+    "libxess_fg.dll": "ec5e0c65e075570c6ede72618bb666d0be0c2e10b2ea9762c0fe8cb8e375ab27",
+    "libxell.dll": "d2030dcd694fda8f2ec7e044b13e6db8f0b56d4ba9113a5efad334e3f3ded8c7"
+  },
+  "versions": {
+    "libxess_fg.dll": "1.3.1",
+    "libxell.dll": "1.3.2"
+  },
+  "synthetic": {
+    "resolution": [
+      192,
+      128
+    ],
+    "create": 0,
+    "init": 0,
+    "enable": 0,
+    "successful_two_frame_presents": 15
+  },
+  "capturedPair": {
+    "frames": [
+      58244,
+      58245
+    ],
+    "output": [
+      3472,
+      2266
+    ],
+    "render": [
+      2314,
+      1510
+    ],
+    "depthMotionSource": "same-frame prepare snapshots",
+    "history": "12 repetitions of older scene with zero velocity, then one chronological pair",
+    "constants": "OptiScaler XeFG view/projection construction and pixel MV scales",
+    "finalPresentStatus": {
+      "framesPresented": 2,
+      "frameGenResult": 0
+    },
+    "generatedSha256": "3b1a0d8de1ccd0c0b85ed9d85e973090efcf4179075e01e5dd081b199e7204ef",
+    "followingOriginalSha256": "dd60f6525c053e351e7b5fa9216aded6d2052403f04c589d5cc14556ee3df0ad",
+    "followingOriginalMatchesInput": true,
+    "visualReview": "Old FSR stretched/duplicated car features were not reproduced by XeFG in this pair. Small interpolation artifacts remain possible. Not a live driving validation."
+  },
+  "liveGameVerified": false,
+  "fullGhostingResolutionVerified": false
+}
