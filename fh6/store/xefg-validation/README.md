@@ -88,7 +88,7 @@ Source references:
 [NVAPI hooks](https://github.com/optiscaler/OptiScaler/blob/2fff542e/OptiScaler/nvapi/NvApiHooks.cpp),
 and [shared latency routing](https://github.com/optiscaler/OptiScaler/blob/2fff542e/OptiScaler/low_latency/input/input_common.cpp).
 
-## Prepared actual-present observer (not installed in FH6)
+## Actual-present observer
 
 The selected OptiScaler calls `xefgSwapChainGetLastPresentStatus` after its
 presentation path, but its normal log does not expose the returned frame count.
@@ -119,9 +119,21 @@ absolute SDK path and did not load the observer, so that result was excluded.
 An initial forwarding build also failed DLL dependency resolution; it was fixed
 and retested in staging. Neither failed candidate was deployed in a game.
 
-The current FH6 process remains untouched. This prepares a way to verify live
-2× output if normal logs remain insufficient; it is not a ghosting repair or
-proof that the game itself has presented interpolated frames successfully.
+After the preceding FH6 process exited, `../install_xefg_status.py --staging
+STAGING_DIRECTORY --apply` installed the final tested observer in this FH6 game
+directory only. The unchanged original SDK is retained beside it and both hashes
+are recorded in the launch profile. No quality, resolution, FG selection, audio,
+network or cloud configuration changes. The normal launcher preflight passed.
+Live validation remains pending. This is not a ghosting repair or proof that
+the game itself has presented interpolated frames successfully.
+
+The status log is written beside the **loaded** DLL: during an Xodus launch this
+can be its temporary materialized game view. Collect that specific file while
+the process is alive, before the view is removed; do not scan all temporary files.
+For rollback with FH6 stopped, replace `libxess_fg.dll` with the hash-verified
+`xefg_intel_real.dll` and restore the launch profile's
+`before-xefg-status-20261116` backup. Keep newer unrelated profile changes if any
+have been made since that backup. Do not remove or change any other SDK libraries.
 
 ## Install and rollback
 
