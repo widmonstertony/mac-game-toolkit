@@ -57,7 +57,7 @@ def configure(app, engine, data):
         target.parent.mkdir(parents=True,exist_ok=True)
         target.write_bytes(value)
         copied[name]=hashlib.sha256(value).hexdigest()
-    for name in ['local-highball.js','runner.mjs']:
+    for name in ['local-highball.js','runner.mjs','wait-prefix.mjs']:
         shutil.copy2(HERE/name,root/name)
     (root/'package.json').write_text('{"private":true,"type":"module"}\n')
     (data/'local-highball.json').write_text(json.dumps(config,indent=2)+'\n')

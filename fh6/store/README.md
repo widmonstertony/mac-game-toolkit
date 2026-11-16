@@ -1,8 +1,36 @@
 # Microsoft Store FH6 / 微软商店版地平线 6
 
-Status: **Store edition reached free roam; performance, UI ghosting, DLC
-recognition, and online matchmaking still need verification.** The Steam
-shortcut is a front end for the licensed Store game. It is not the Steam edition.
+Current status, 2026-11-16: **XeSS Quality SR + XeSS-FG 2× candidate is installed;
+independent GPU replay passed, live driving quality and stability remain pending.**
+See [current selection and evidence](xefg-validation/README.md). Earlier Store
+sessions reached free roam and the user reported working audio and online play.
+The native Steam shortcut starts the licensed Store game, not the Steam edition.
+
+The historical setup notes below describe the earlier FSR configuration. Do not
+rerun that old graphics configurator over the current XeSS selection.
+
+## Steam relaunch fix, 2026-11-16
+
+A prior game process had exited, but its shell was still waiting for
+`wineserver -w` more than seven hours later. The native app/Node launcher therefore
+remained alive, and Steam's next launch only activated that stale instance.
+The process tree identified the wait client; there was no live FH6 game process.
+Stopping only that waiter allowed the old launcher to finish, and a fresh launch
+from native Steam produced the real title screen.
+
+`local-highball.js` now replaces the wait only for `ForzaHorizon6.exe` with
+`wait-prefix.mjs`. After the Wine game command returns, the helper retains the
+wait while any FH6 process exists. Once FH6 has been absent for 15 seconds, it
+stops only the `wineserver -w` client. Wine services stay running. Failed process
+inspection retains the wait; ordinary server completion and original game exit
+codes are preserved. The existing PlayFab cleanup and Xodus/cloud shutdown stay
+in their normal order. Post-fix cloud upload still needs live confirmation.
+
+`node --test fh6/store/test_wait_prefix.mjs` passes real-child-process checks for
+normal exit, delayed game disappearance, and an unavailable process inspector.
+The installed adapter backup is `local-highball.js.before-exit-wait-20261116`.
+Restore that adapter and regenerate its wrapper to undo; saves and caches are
+unaffected.
 
 See [the Store migration record](diagnostics/2026-11-13-store-migration.md) for
 the earlier fixes now installed for the next launch and the ones that do not

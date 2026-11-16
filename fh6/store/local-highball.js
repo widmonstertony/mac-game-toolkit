@@ -3,7 +3,7 @@
 import { accessSync, constants, readFileSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 let cached;
 const relativeModules = [
@@ -32,7 +32,7 @@ function checkedLayer(dataRoot, prefix) {
   return {layer, hash: record.storeViewSha256};
 }
 
-function applyStoreLauncherPolicy(script, layer, config, shellQuote) {
+export function applyStoreLauncherPolicy(script, layer, config, shellQuote) {
   const marker = '\nlaunch_status=0\n';
   if (script.split(marker).length !== 2) throw Error('Upstream Wine runner changed; review its game launch');
   const paths = [path.join(config.shimRoot,'wine'), path.join(config.rendererRoot,'wine'),
@@ -64,7 +64,18 @@ function applyStoreLauncherPolicy(script, layer, config, shellQuote) {
     '    esac ;;',
     'esac',
   ].join('\n');
-  return script.replace(marker, `\n${policy}${marker}`);
+  const server = shellQuote(path.join(layer.layer, 'engine/bin/wineserver'));
+  const wait = `${server} -w || wait_status=$?`;
+  if (script.split(wait).length !== 2) throw Error('Upstream prefix wait changed; review before replacing');
+  const helper = shellQuote(fileURLToPath(new URL('./wait-prefix.mjs', import.meta.url)));
+  const scopedWait = [
+    'case "${1:-}" in',
+    '  *[Ff]orza[Hh]orizon6.exe)',
+    `    DYLD_INSERT_LIBRARIES='' ${shellQuote(process.execPath)} ${helper} ${server} || wait_status=$? ;;`,
+    `  *) ${wait} ;;`,
+    'esac',
+  ].join('\n');
+  return script.replace(marker, `\n${policy}${marker}`).replace(wait, scopedWait);
 }
 export function readLocalHighball(dataRoot) {
   const file = path.join(dataRoot, 'local-highball.json');

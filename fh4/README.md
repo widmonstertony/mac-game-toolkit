@@ -27,9 +27,23 @@ Reports about Steam FH4 do not establish that the older Store package works.
 A bounded, read-only inspection of the bundle header, three footer records and
 two unencrypted XML metadata records confirmed one x64 application payload,
 `SunrisePCPackage.appx`, version `1.478.564.2`. No game payload was extracted.
-The normal account-license request returned a private local CIK file, but the
-initial package-header key-ID comparison did not match it. This is unresolved;
-the existence of a license response is not evidence of successful decryption.
+The normal account-license request returned a private local CIK file. An initial
+comparison checked only the second GUID in the header's two-GUID identifier and
+reported a mismatch. A subsequent read confirmed that the first GUID matches the
+license ID. That corrects the comparison; it does not prove successful payload
+decryption or runtime support. No license material is published.
+
+A streaming read of the inner block map and its unencrypted 10,871-byte manifest
+confirmed `ForzaHorizon4.exe`, UWP entry point `Forza.App`, and dependency
+`Microsoft.VCLibs.140.00` at least `14.0.24123.0`. The manifest also registers
+`Microsoft.Xbox.Services.dll` and three controller WinRT components. This is not
+the GDK/MSIXVC manifest used by the working FH6 launch route. Only the manifest
+was saved locally; no executable or game payload was unpacked.
+
+The recent [community FH4 patches](https://github.com/whyAm-i/Forza-Horizon-4-patches-for-mac)
+explicitly require the **Steam** edition and a matched CrossOver build. Their
+playability reports do not validate this owned UWP package or authorize applying
+Steam executable offsets to it.
 
 At the installation checkpoint, only about 48 GiB was free. Full extraction was
 blocked by automatic approval review because the package alone is 79.37 GiB and
