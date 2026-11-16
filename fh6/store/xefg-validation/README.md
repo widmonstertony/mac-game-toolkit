@@ -3,8 +3,8 @@
 The live FH6 Store configuration now selects XeSS 2.0.2 Quality upscaling and
 XeSS-FG 1.3.1 with one interpolated frame (2×). It retains the game's DLSSG input,
 3472×2266 output, the existing Steam shortcut, audio/network/cloud repairs and
-caches. No shared renderer or other game was changed. This is a candidate awaiting
-the user's game validation, not a claim that all ghosting or stutters are fixed.
+caches. No shared renderer or other game was changed. Live validation is still
+pending; this is not a claim that all ghosting or stutters are fixed.
 
 ## Evidence
 
@@ -47,6 +47,47 @@ and `user32`. These freestanding probes use `-nostdlib -Wl,-e,entry`,
 Run them through the same D3DMetal/Wine engine in an isolated prefix, with the
 working directory containing `xefg-replay/` for the captured-frame test.
 
+## Integrated NVAPI repair, 2026-11-16
+
+The first live XeFG session loaded an old independent fakenvapi 1.4.1 from the
+FH6 prefix's `system32`. OptiScaler logged `Using fakenvapi as nvapi64.dll, remove
+it!`. This OptiScaler version already supplies NVAPI and routes latency calls to
+its shared XeLL context. The external module is an unsupported combination;
+its presence alone does not prove the cause of all loading stalls or ghosting.
+
+`../install_xefg_pacing.py --apply` selects the integrated implementation only for
+the FH6 child process, setting `nvapi64=d` in its Wine overrides and
+`[fakenvapi] UseFakenvapi=true`. OptiScaler's loader hook supplies its own module
+when the external DLL is unavailable. The pinned DLL on disk is preserved, and
+no prefix-wide registry override or other game's configuration is changed.
+INFO logging is enabled for validation.
+
+`nvapi-route-probe.cpp` is an isolated loader regression. With the old DLL still
+present in the fixture, it creates a D3D12 device, checks that the intercepted
+NVAPI module is OptiScaler itself, and calls `NvAPI_Initialize`. It exited 0 with
+`nvapi-owner=OptiScaler` and `nvapi-initialize=PASS`. This tests routing, not frame
+generation or pacing.
+
+The next native-Steam live launch reached the title screen. Its log selected
+XeLL, created the XeFG context and swapchain, and reported one supported
+interpolation. A process file inspection confirmed the game's XeSS, XeFG and
+XeLL libraries and no external `nvapi64.dll`. The Mac was then found locked;
+the login window owned focus, so no further game input was sent. Actual live
+double-frame presents, free-roam quality and stutter resolution remain unverified.
+
+The preceding session's 60-second critical-section warning was followed by a
+read-only inspection showing that the named lock was already released. A later
+render-thread snapshot waited inside XeFG's presentation path. Neither snapshot
+identifies the original lock holder's blocking operation. An AGX compiled-variant
+limit message and subsequent PSO compilation failures were also recorded in that
+session; their causal relation to loading remains unresolved. These observations
+must not be described as a diagnosed or repaired GPU deadlock.
+
+Source references:
+[OptiScaler loader routing](https://github.com/optiscaler/OptiScaler/blob/2fff542e/OptiScaler/hooks/LibraryLoad_Hooks.cpp),
+[NVAPI hooks](https://github.com/optiscaler/OptiScaler/blob/2fff542e/OptiScaler/nvapi/NvApiHooks.cpp),
+and [shared latency routing](https://github.com/optiscaler/OptiScaler/blob/2fff542e/OptiScaler/low_latency/input/input_common.cpp).
+
 ## Install and rollback
 
 First run `install_xess_quality.py --apply` for the SR selection, then
@@ -54,6 +95,13 @@ First run `install_xess_quality.py --apply` for the SR selection, then
 the latter verifies exact SDK hashes, the actual OptiScaler's XeFG/XeLL support,
 the GPU receipts, output size and Quality ratio. It changes only `FGOutput`,
 `InterpolationCount` and `IgnoreInitChecks`, and adds the two local SDK libraries.
+
+Apply `install_xefg_pacing.py --apply` after the above selection, with FH6 stopped.
+It requires the tested OptiScaler hash and existing native-resolution/Quality/2×
+settings. To undo only the integrated-NVAPI change, restore the two
+`before-integrated-nvapi-20261116` backups of `OptiScaler.ini` and
+`fh6-profile.json` with the game stopped. Earlier graphics rollback instructions
+below also undo this later selection.
 
 Restore `OptiScaler.ini.before-xefg-20261115` and
 `fh6-profile.json.before-xefg-20261115` with the game stopped to return to the
