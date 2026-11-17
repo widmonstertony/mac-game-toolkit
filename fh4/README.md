@@ -41,6 +41,62 @@ hash, and their resulting plaintext SHA-256 is recorded locally for resuming.
 
 ## Download and earlier inspection history
 
+### Runtime probe, November 16
+
+`runtime-probe.cpp` was compiled as a headless x64 executable and run with the
+installed Highball r28 engine in the existing isolated test prefix. It did not
+launch FH4 or register a fabricated UWP package. `RoInitialize`, the Uri factory,
+ApplicationData and Package factories succeeded. CoreApplication and CoreWindow
+factory queries returned `0x80040154` (class not registered). The four imported
+UWP CRT DLLs (`vccorlib140_app`, `msvcp140_app`, `vcruntime140_app`, `concrt140_app`)
+failed to load with error 126 in that baseline. The actual game imports those
+app-specific DLL names; desktop VC runtime DLLs do not establish their presence.
+
+This identifies missing baseline components, not the complete set of fixes or
+proof that supplying four DLLs makes the Store edition playable. The existing
+download and verified extraction are complete; remaining work is runtime and
+UWP activation compatibility, plus MACxus's container-format launch gate.
+
+### Dependency installed and newer engine checked
+
+Microsoft's FE3 response for this owned game's dependencies identifies
+`Microsoft.VCLibs.140.00_14.0.33519.0_x64__8wekyb3d8bbwe` (896,581 bytes).
+The package SHA-256 is
+`9c17b521f9d690a1f504da5108ed6eec5669eb3a8fd1331eef43e40d84e74283`.
+After checking that hash and successfully loading all four required app DLLs in
+the isolated Highball probe, `install_vclibs.py --apply` added the eleven official
+`*_app.dll` files to FH4's Content directory. It refused differing existing files
+and verified every installed hash. The local receipt is beside Content. No game
+binary, save or shared engine was overwritten.
+
+A separate MetalSharp Wine 7.0/FEX prefix was also tested, without changing the
+game's launcher. All five factory probes and the four app DLL loads succeeded.
+However, the stronger probe for **ICoreApplication** returned `0x80004002`
+(E_NOINTERFACE); CoreWindow's static interface was present. The pinned upstream
+[`core_application.c`](https://github.com/metalsharp/MetalSharp-Wine/blob/dd1f6c2f9801327d30fd82f2d55071177824fb99/dlls/twinapi.appcore/core_application.c)
+has a factory stub, not the ICoreApplication interface containing Run. Therefore
+factory registration is not evidence that the Store game can start.
+
+### Successful community cases: edition matters
+
+There is a concrete **Highball** success report, not just CrossOver reports:
+[Highball #268, reproduction report](https://github.com/gauthierpiarrette/highball/issues/268#issuecomment-6640110019).
+It tests Steam AppID 1293830/build 12772551, Wine 11 r29/Rosetta, D3DMetal 3,
+and msync on an M4 Pro/24 GB/macOS 26.6.2. It reports actual driving and a single
+39 FPS benchmark at 1512×945 Ultra/2×MSAA. Fresh-prefix reproduction, multiplayer
+and long-session stability were not verified. The attached source scripts and
+report were downloaded and read, not executed against this Store package.
+
+Its changes preload the genuine Steam client to address a loader-lock hang,
+repair embedded Xbox-login CEF behavior, and fix Wine exception unwinding. The
+[maintainer response](https://github.com/gauthierpiarrette/highball/issues/268#issuecomment-6693158063)
+identifies the unwind fix as upstream `a55cddce98`. These findings supersede older
+comments claiming that no Mac FH4 setup works. They do not provide the missing
+Store UWP application lifecycle, and Steam-specific binary offsets cannot be
+assumed to match the Store executable. The
+[whyAm-i patch repository](https://github.com/whyAm-i/Forza-Horizon-4-patches-for-mac)
+also explicitly requires a legitimate Steam copy for its tested configuration.
+
 The PC EAppx bundle has downloaded completely (85,219,173,025 bytes, 79.37 GiB).
 Its full SHA-256 matches Microsoft's FE3 package metadata. See
 `download-receipt.json`. The local destination is
