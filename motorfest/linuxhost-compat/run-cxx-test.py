@@ -28,8 +28,8 @@ expected={
 for name,digest in expected.items():
     if sha(a.gnu_runtime/name)!=digest: raise SystemExit('GNU library hash mismatch: '+name)
 env=dict(os.environ,WINEPREFIX=str(prefix),WINEDEBUG='-all',WINEDLLOVERRIDES='winemenubuilder.exe=d')
-for name in ('WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BATTLEYE_RUNTIME',
-             'DYLD_LIBRARY_PATH','DYLD_FALLBACK_LIBRARY_PATH','DYLD_FALLBACK_FRAMEWORK_PATH'):
+for name in ('WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BATTLEYE_RUNTIME','LINUXHOST_AFFINITY_MODE',
+             'DYLD_LIBRARY_PATH','DYLD_FALLBACK_LIBRARY_PATH','DYLD_FALLBACK_FRAMEWORK_PATH','LINUXHOST_GNU_RUNTIME'):
     env.pop(name,None)
 results={}
 for name,args in [('linked-client',[str(a.client.resolve())]),

@@ -24,7 +24,7 @@ fixtures=out/'invalid-runtime';fixtures.mkdir(exist_ok=False)
 shutil.copy2(a.gnu_runtime/'libgcc_s.so.1',fixtures/'libgcc_s.so.1')
 (fixtures/'libstdc++.so.6.0.21').write_bytes(b'Intentionally invalid owned test fixture\n')
 env=dict(os.environ,WINEPREFIX=str(prefix),WINEDEBUG='-all',WINEDLLOVERRIDES='winemenubuilder.exe=d')
-for name in ('WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BATTLEYE_RUNTIME',
+for name in ('WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BATTLEYE_RUNTIME','LINUXHOST_AFFINITY_MODE',
              'DYLD_LIBRARY_PATH','DYLD_FALLBACK_LIBRARY_PATH','DYLD_FALLBACK_FRAMEWORK_PATH','LINUXHOST_GNU_RUNTIME'):
     env.pop(name,None)
 cases=[('disabled',None),('missing',str(out/'nonexistent-runtime')),('modified',str(fixtures)),

@@ -292,3 +292,46 @@ and game prefix remain unchanged; actual Motorfest gameplay is not verified.
 
 ABI references: [glibc buffer offsets](https://github.com/bminor/glibc/blob/master/sysdeps/x86_64/jmpbuf-offsets.h)
 and [glibc buffer producer](https://github.com/bminor/glibc/blob/master/sysdeps/x86_64/setjmp.S).
+
+
+## Explicit logical-affinity experiment, November 16
+
+`libc-affinity-extra.c` adapts Linux CPU-set buffers to the candidate Wine
+engine's `GetThreadGroupAffinity` and `SetThreadAffinityMask` APIs. It is
+**disabled by default**: only the test-process setting
+`LINUXHOST_AFFINITY_MODE=windows` exposes these two symbols. Unknown modes do not
+fall back to success. The ordinary regression runners remove this setting from
+their environments so the experiment cannot silently change baseline results.
+
+The actual-DLL/Linux-ELF test queries, restricts, yields, reads back and restores
+logical masks on three threads. It checks zero masks, buffer sizes, null buffers,
+negative/unknown thread IDs, zero-filling of larger Linux CPU sets and unchanged
+state after rejected calls. The adapter uses real Windows API return values and
+propagates failures. It does not add a separate cache to manufacture readback.
+
+Scope is the current process's threads and a single Windows processor group.
+An explicit current thread ID and pid=0 are handled. A Windows process ID is not
+silently treated as its leader's thread ID: the host lacks that reliable Linux
+mapping, so this case returns EOPNOTSUPP. Other processes and unsupported group
+topologies are not mapped. The tests do not prove arbitrary non-null invalid
+pointer handling or physical CPU placement.
+
+**This is Windows logical affinity, not a claim of Linux/macOS scheduler
+semantics.** Upstream Wine may store a mask without hard pinning on macOS.
+Consequently this experiment remains opt-in and is not enabled in any game.
+The default client's inspected missing imports remain **four relocations across
+three names**, including both affinity functions and `system`. Lowering that
+number by enabling an unverified semantic substitute would not prove that
+Motorfest works. Signal/process compatibility and a protected game session
+remain outstanding.
+
+```sh
+python3 run-affinity-test.py --build /tmp/motorfest-libc-test \
+  --engine /path/to/MetalSharp-Wine.app/Contents \
+  --prefix /path/to/isolated/probe-prefix
+```
+
+[validation-affinity-2026-11-16.json](validation-affinity-2026-11-16.json) records
+the final build, explicit disabled/invalid/enabled cases, and the full preceding
+regression set. No game or client code ran and no production engine changed.
+Reference: [Microsoft GetThreadGroupAffinity contract](https://learn.microsoft.com/en-us/windows/win32/api/processtopologyapi/nf-processtopologyapi-getthreadgroupaffinity).

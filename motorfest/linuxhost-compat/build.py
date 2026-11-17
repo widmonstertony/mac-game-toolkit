@@ -25,7 +25,7 @@ glibc=src/'glibc.c'; text=glibc.read_text()
 anchor='static const struct libc_function *const tables[] =\n{\n'
 if text.count(anchor)!=1: raise SystemExit('Unexpected resolver table; source review required')
 text=text.replace(anchor,'extern const struct libc_function linuxhost_string_compat_functions[], linuxhost_cxx_support_functions[], linuxhost_time_extra_functions[], linuxhost_jump_extra_functions[];\n'+anchor+'    linuxhost_string_compat_functions, linuxhost_cxx_support_functions, linuxhost_time_extra_functions, linuxhost_jump_extra_functions,\n')
-text='extern void *linuxhost_gnu_symbol(const char *);\n'+text
+text='extern void *linuxhost_gnu_symbol(const char *);\nextern void *linuxhost_affinity_symbol(const char *);\n'+text
 anchor='static char dl_error[256];'
 text=text.replace(anchor,anchor+'\nextern int linuxhost_gnu_prepare(char *,size_t);')
 anchor='    if (!path) return NULL;\n'
@@ -49,7 +49,7 @@ text=text.replace(anchor,anchor+'''        if (stats->unresolved || stats->unsup
         }
 ''')
 anchor='void *linuxhost_resolve( const char *name, void *context )\n{\n'
-text=text.replace(anchor,anchor+'    void *gnu=linuxhost_gnu_symbol(name);\n    if(gnu)return gnu;\n')
+text=text.replace(anchor,anchor+'    void *gnu=linuxhost_gnu_symbol(name);\n    if(gnu)return gnu;\n    void *affinity=linuxhost_affinity_symbol(name);\n    if(affinity)return affinity;\n')
 glibc.write_text(text)
 net=src/'libc_net.c'; text=net.read_text()
 anchor='const struct libc_function linuxhost_net_functions[] =\n{\n'
@@ -70,7 +70,7 @@ sources=['elfload.c','glibc.c','syscall.c','process.c','libc.c','libc_io.c','for
          'libc_thread.c','libc_net.c','libc_misc.c','unwind.c']
 cc=str(a.toolchain.absolute()/'bin/x86_64-w64-mingw32-clang')
 common=[cc,'-O2','-Wall','-mfsgsbase','-DARRAY_SIZE(a)=(sizeof(a)/sizeof((a)[0]))','-I',str(src),
-        *[str(src/f) for f in sources],str(ROOT/'libc-strings.c'),str(ROOT/'libc-cxx-support.c'),str(ROOT/'gnu-runtime.c'),str(ROOT/'libc-time-extra.c'),str(ROOT/'libc-jump-extra.c')]
+        *[str(src/f) for f in sources],str(ROOT/'libc-strings.c'),str(ROOT/'libc-cxx-support.c'),str(ROOT/'gnu-runtime.c'),str(ROOT/'libc-time-extra.c'),str(ROOT/'libc-jump-extra.c'),str(ROOT/'libc-affinity-extra.c')]
 libs=['-lshell32','-lws2_32','-lbcrypt']
 for name,main in [('hosttest.exe',src/'test/hosttest.c'),('strings-probe.exe',ROOT/'probe-driver.c'),
                   ('dependency-probe.exe',ROOT/'dependency-probe.c'),('dlopen-probe.exe',ROOT/'dlopen-probe.c')]:
@@ -86,6 +86,7 @@ subprocess.run([*elf,str(ROOT/'stdio-probe.c'),'-o',str(out/'stdio.so')],check=T
 subprocess.run([*elf,str(ROOT/'time-probe.c'),'-o',str(out/'time.so')],check=True)
 subprocess.run([*elf,str(ROOT/'mount-probe.c'),'-o',str(out/'mount.so')],check=True)
 subprocess.run([*elf,str(ROOT/'jump-probe.c'),'-o',str(out/'jump.so')],check=True)
+subprocess.run([*elf,str(ROOT/'affinity-probe.c'),'-o',str(out/'affinity.so')],check=True)
 subprocess.run([*elf,'-fexceptions',str(ROOT/'cxx-probe.cpp'),'-o',str(out/'cxx-probe.so')],check=True)
 subprocess.run([*elf,'-ftls-model=global-dynamic',str(src/'test/hello.c'),'-o',str(out/'hello.so')],check=True)
 subprocess.run([*elf,'-O1','-fexceptions','-Wl,--eh-frame-hdr',str(src/'test/extras.c'),'-o',str(out/'extras.so')],check=True)
