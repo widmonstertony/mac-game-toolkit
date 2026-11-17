@@ -3,6 +3,7 @@
 // Records MetalFX work through D3DMetal, without closing/submitting the caller's
 // command list or waiting/readback/uploading on the CPU. Not a game hook yet.
 #include <windows.h>
+#include <winternl.h>
 #include <d3d12.h>
 #include <cmath>
 #include <cfloat>
@@ -32,6 +33,34 @@ struct AppleNgxParameters {
     }
 };
 struct AppleCommandFg {
+    // OptiScaler deliberately redirects public nvngx LoadLibrary requests to
+    // its VERSION.dll input shim. This backend needs the genuine Apple module,
+    // not a second trip through the game's DLSS input hooks. Keep all ABI gates.
+    static HMODULE loadNativeNgx(){
+        auto nt=GetModuleHandleW(L"ntdll.dll");
+        using Find=LONG(NTAPI*)(PWSTR,ULONG*,UNICODE_STRING*,void**);
+        using Load=LONG(NTAPI*)(PWSTR,ULONG*,UNICODE_STRING*,void**);
+        using Retain=LONG(NTAPI*)(ULONG,void*);
+        auto find=(Find)GetProcAddress(nt,"LdrGetDllHandle");
+        auto load=(Load)GetProcAddress(nt,"LdrLoadDll");
+        auto retain=(Retain)GetProcAddress(nt,"LdrAddRefDll");
+        if(!find||!load||!retain)return nullptr;
+        WCHAR text[]=L"nvngx.dll";UNICODE_STRING name{};
+        name.Buffer=text;name.Length=sizeof(text)-sizeof(WCHAR);name.MaximumLength=sizeof(text);
+        void *module=nullptr;
+        if(find(nullptr,nullptr,&name,&module)>=0&&module){
+            if(retain(0,module)<0)return nullptr;
+            return (HMODULE)module;
+        }
+        return load(nullptr,nullptr,&name,&module)>=0?(HMODULE)module:nullptr;
+    }
+    static FARPROC nativeExport(HMODULE module,const char *text){
+        using Find=LONG(NTAPI*)(void*,ANSI_STRING*,ULONG,void**);
+        auto find=(Find)GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"LdrGetProcedureAddress");
+        if(!find)return nullptr;ANSI_STRING name{};name.Buffer=(char*)text;
+        name.Length=(USHORT)lstrlenA(text);name.MaximumLength=name.Length+1;
+        void *proc=nullptr;return find(module,&name,0,&proc)>=0?(FARPROC)proc:nullptr;
+    }
     using Init=unsigned(*)(unsigned long long,const wchar_t*,ID3D12Device*,unsigned,const void*);
     using Allocate=unsigned(*)(void**);
     using Create=unsigned(*)(ID3D12GraphicsCommandList*,unsigned,void*,void**);
@@ -48,13 +77,13 @@ struct AppleCommandFg {
         // A failed partial initialization must be explicitly disposed before retry.
         if(module||params.raw)return false;
         if(!d||!width||!height||!renderWidth||!renderHeight||renderWidth>width||renderHeight>height||width>8192||height>8192)return false;
-        module=LoadLibraryW(L"nvngx.dll");if(!module){reason="native NGX unavailable";return false;}
-        auto init=(Init)GetProcAddress(module,"NVSDK_NGX_D3D12_Init_Ext");
-        auto allocate=(Allocate)GetProcAddress(module,"NVSDK_NGX_D3D12_AllocateParameters");
-        create=(Create)GetProcAddress(module,"NVSDK_NGX_D3D12_CreateFeature");
-        evaluate=(Evaluate)GetProcAddress(module,"NVSDK_NGX_D3D12_EvaluateFeature");
-        releaseFeature=(Release)GetProcAddress(module,"NVSDK_NGX_D3D12_ReleaseFeature");
-        releaseParameters=(Release)GetProcAddress(module,"NVSDK_NGX_D3D12_DestroyParameters");
+        module=loadNativeNgx();if(!module){reason="native NGX unavailable";return false;}
+        auto init=(Init)nativeExport(module,"NVSDK_NGX_D3D12_Init_Ext");
+        auto allocate=(Allocate)nativeExport(module,"NVSDK_NGX_D3D12_AllocateParameters");
+        create=(Create)nativeExport(module,"NVSDK_NGX_D3D12_CreateFeature");
+        evaluate=(Evaluate)nativeExport(module,"NVSDK_NGX_D3D12_EvaluateFeature");
+        releaseFeature=(Release)nativeExport(module,"NVSDK_NGX_D3D12_ReleaseFeature");
+        releaseParameters=(Release)nativeExport(module,"NVSDK_NGX_D3D12_DestroyParameters");
         if(!init||!allocate||!create||!evaluate||!releaseFeature||!releaseParameters){reason="missing exports";return false;}
         status=init(0,L".",d,0x15,nullptr);if(status!=1){reason="NGX initialization";return false;}
         status=allocate(&params.raw);if(status!=1||!params.validate()){reason="parameter ABI";return false;}

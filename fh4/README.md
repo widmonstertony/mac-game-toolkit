@@ -2,6 +2,14 @@
 
 ## First actual Store executable launch, November 17
 
+The launcher now has a FH4-only Windows thread-snapshot helper for the next user
+launch. Its module enumeration and read APIs plus suspend/context/resume contract
+pass in the private Wine engine with a self-authored waiter thread. It resumes
+each thread before logging or reading its bounded stack window; output contains
+module-relative PCs and explicitly labelled return candidates, not a claimed
+full unwind. It does not inject a DLL or start the game. This addresses the
+earlier native sampler/debugger visibility gap, not the unresolved startup defect.
+
 Follow-up actual launches at 14:01 and 14:03 reproduce the activation stall.
 Unbuffered adapter entry markers are absent despite the DLL mapping trace;
 the process has not reached its DllMain/factory boundary. A pure-C direct

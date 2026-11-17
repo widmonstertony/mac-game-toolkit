@@ -24,6 +24,7 @@ p.add_argument('--present-control', action='store_true', help='Exercise the real
 p.add_argument('--queued-presents', action='store_true', help='With --present-control, wait for all presents only after the last base frame')
 p.add_argument('--production-shim', action='store_true',
                help='Require the installed Store D3D12 shim in the isolated prefix and enable its wrappers')
+p.add_argument('--public-ngx-redirect', action='store_true', help='Reproduce public NGX loader/export redirection inside the test candidate')
 a = p.parse_args()
 if a.present_control and (a.gap_control or a.missing_ui):
     p.error('--present-control is a separate continuous-frame case')
@@ -66,6 +67,8 @@ env.pop('FH6_APPLE_CREATION_CONTROL',None)
 env.pop('FH6_D3DMETAL_NO_ANTILAG2',None)  # This headless probe does not present a window.
 env.pop('FH6_APPLE_PRESENT_CONTROL',None)
 env.pop('FH6_APPLE_QUEUED_PRESENTS',None)
+env.pop('FH6_APPLE_PUBLIC_NGX_REDIRECT',None)
+if a.public_ngx_redirect:env['FH6_APPLE_PUBLIC_NGX_REDIRECT']='1'
 if a.present_control:
     env['FH6_APPLE_PRESENT_CONTROL']='1'
     env['FH6_D3DMETAL_NO_ANTILAG2']='1'
@@ -83,6 +86,8 @@ with (a.output/'probe.log').open('w') as log:
 contents = (a.output/'probe.log').read_text(errors='replace')
 print('\n'.join(l for l in contents.splitlines() if l.startswith(('PASS','FAIL','native','GPU','REAL','PRESENT','[D3DMetal:'))))
 passed = rc == 0 and 'PASS MetalFX FFX adapter' in contents
+if a.public_ngx_redirect:
+    passed = passed and 'PASS public NGX loader/export redirection installed in test candidate only' in contents
 loaded_shim = next((line[len('LOADED D3D12 '):].strip() for line in contents.splitlines()
                     if line.startswith('LOADED D3D12 ')), None)
 # Hashing a file in the prefix alone does not prove the loader used it.
@@ -99,6 +104,7 @@ result = {'exit':rc,'passed':passed,'missing_ui':a.missing_ui,'gap_control':a.ga
           'shim_wrappers_enabled':a.production_shim,
           'loaded_d3d12':loaded_shim,
           'scheduler_present_test':a.present_control,
+          'public_ngx_redirection_test':a.public_ngx_redirect,
           'queued_presents':a.queued_presents,
           'synthetic_scheduler_verified':bool(a.present_control and passed and scheduler_summary),
           'scheduler_observation':dict(zip(('callbacks','dispatches','native_pairs','errors','ui_errors','original_errors'),

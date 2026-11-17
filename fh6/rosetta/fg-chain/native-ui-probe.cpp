@@ -11,6 +11,7 @@
 #include "native-ui.h"
 #ifdef APPLE_FG_TEST
 #include "../../store/metalfx-bridge/apple-command-backend.h"
+#include "apple-ngx-hook-probe.h"
 #endif
 #define CHECK(x) do{if(!(x)){printf("FAIL line=%d %s\n",__LINE__,#x);return 1;}}while(0)
 #ifdef APPLE_FG_TEST
@@ -80,6 +81,11 @@ int wmain(int argc,wchar_t **argv){
  HMODULE dll=LoadLibraryExW(argv[1],nullptr,LOAD_WITH_ALTERED_SEARCH_PATH);CHECK(dll);
  auto create=(PfnFfxCreateContext)GetProcAddress(dll,"ffxCreateContext");auto destroy=(PfnFfxDestroyContext)GetProcAddress(dll,"ffxDestroyContext");auto query=(PfnFfxQuery)GetProcAddress(dll,"ffxQuery");auto configure=(PfnFfxConfigure)GetProcAddress(dll,"ffxConfigure");auto dispatch=(PfnFfxDispatch)GetProcAddress(dll,"ffxDispatch");CHECK(create&&destroy&&query&&configure&&dispatch);
  HMODULE candidate=LoadLibraryExW(argv[2],nullptr,LOAD_WITH_ALTERED_SEARCH_PATH);CHECK(candidate);
+#ifdef APPLE_FG_TEST
+ if(GetEnvironmentVariableW(L"FH6_APPLE_PUBLIC_NGX_REDIRECT",nullptr,0)){
+  CHECK(appleProbeRedirect(candidate));puts("PASS public NGX loader/export redirection installed in test candidate only");
+ }
+#endif
  auto candidateCreate=(PfnFfxCreateContext)GetProcAddress(candidate,"ffxCreateContext");auto candidateDestroy=(PfnFfxDestroyContext)GetProcAddress(candidate,"ffxDestroyContext");auto candidateConfigure=(PfnFfxConfigure)GetProcAddress(candidate,"ffxConfigure");auto candidateDispatch=(PfnFfxDispatch)GetProcAddress(candidate,"ffxDispatch");CHECK(candidateCreate&&candidateDestroy&&candidateConfigure&&candidateDispatch);
  HWND window=CreateWindowExW(0,L"STATIC",L"FH6 isolated GPU validation",WS_OVERLAPPEDWINDOW,0,0,W,H,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);CHECK(window);
  IDXGIFactory1 *factory=nullptr;CHECK(SUCCEEDED(CreateDXGIFactory1(IID_IDXGIFactory1,(void**)&factory)));

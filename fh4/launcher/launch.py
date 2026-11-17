@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import threading
 
 
 def sha(path):
@@ -83,7 +84,19 @@ def main():
                                     stdout=output, stderr=subprocess.STDOUT)
             record['winePid'] = proc.pid
             status.write_text(json.dumps(record, indent=2)+'\n')
+            def snapshot():
+                helper=profile.get('threadSnapshotHelper')
+                if not helper or proc.poll() is not None:
+                    return
+                try:
+                    with (root/('threads-'+stamp+'.log')).open('x') as trace:
+                        subprocess.run([str(Path(profile['engine'])/'engine/bin/wine'),helper],
+                                       env=environment(profile),stdout=trace,stderr=subprocess.STDOUT,timeout=15)
+                except Exception as error:
+                    (root/('threads-'+stamp+'.error')).write_text(type(error).__name__+'\n')
+            timer=threading.Timer(10,snapshot);timer.daemon=True;timer.start()
             record['exitCode'] = proc.wait()
+            timer.cancel()
         record['ended'] = datetime.datetime.now().astimezone().isoformat(timespec='seconds')
         status.write_text(json.dumps(record, indent=2)+'\n')
 

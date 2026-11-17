@@ -2,6 +2,33 @@
 
 ## Live FH6 FG trial installed, November 17
 
+### Real NGX module versus the OptiScaler input shim
+
+The next user run still records `parameter ABI`, 1,720 Prepare copies and zero
+native middle frames. A self-authored read-only Windows helper queried module
+enumeration and the candidate's state in that same process. Its backend module
+is **VERSION.dll (OptiScaler)**; the real Apple **nvngx.dll** has a different
+module handle. No remote thread, memory patch or game relaunch was used to
+establish this mismatch. The source of the input shim confirms the behavior:
+[LibraryLoad_Hooks.cpp at the pinned interface source](https://github.com/optiscaler/OptiScaler/blob/2fff542e78e257a1e4ff5a1e21a69a166c78c335/OptiScaler/hooks/LibraryLoad_Hooks.cpp#L66)
+returns its own DLL for enabled DLSS-input `nvngx` requests.
+
+The backend now gets/retains the genuine module through ntdll's loader interface
+and resolves its exports through LdrGetProcedureAddress. Game DLSS inputs and
+OptiScaler hooks remain enabled; the strict 16-slot ABI and typed round-trip
+checks remain. The test fixture redirects only the test candidate's public NGX
+LoadLibrary/GetProcAddress imports to reproduce the input-shim routing. Under
+that redirection the old installed candidate yields zero native midpoint pairs;
+the corrected candidate yields 14, with 32 ordered composition callbacks and
+zero UI/original-pixel errors. This is a paired regression for the observed
+wrong-module route, not a live-game image-quality result.
+
+Installed SHA-256:
+`31aab2103f65ebede21cf5727dfa6bd23deeb6ba2cd8369245e929b27f7c5a43`.
+The fault trial was ended only for replacement; no agent game launch follows.
+FSR quality SR and existing resolution/audio/network settings are retained.
+See `ngx-redirection-validation-20261117.json`.
+
 ### Preserve native carrier identity
 
 The next real game run passes Prepare (2,118 recorded snapshots at the sampled
