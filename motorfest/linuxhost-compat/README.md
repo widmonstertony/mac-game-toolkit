@@ -1,6 +1,6 @@
 # Motorfest Linux host compatibility candidate
 
-## Current state — November 16, process/signal build 39
+## Current state — November 17, process/signal build 39
 
 The child-wait and synchronous-signal implementation now passes under the signed
 MetalSharp application (packaged version 7.0; Wine reports 11.20/FEX), including
@@ -23,9 +23,24 @@ and its Highball/native Steam launch mapping have **not been switched**.
   that registration in the clone, the bridge and real GPU readback pass in one
   process. See the combined GPU receipt below.
   **Client `Init`, authentication and Motorfest gameplay have not been verified.**
-- A private native-Steam forwarding overlay has been built. Its session check is
-  blocked because native Steam is not running. This is a missing verification,
-  not evidence that the current forwarding overlay is fully functional.
+- The private native-Steam forwarding overlay now passes initialization and
+  shutdown through the original Steam shim's child process. The native bridge
+  needs the directory containing `steamclient.dylib`, not the Steam data root.
+  The runner resolves and hashes that library. Because the shim does not pass
+  the child's stdout through, validation uses a newly created, nonce-bound
+  completion file written only after real SteamAPI initialization and shutdown.
+  A zero exit status from the shim alone is not accepted. See
+  [the native Steam receipt](validation-steam-entry-2026-11-17.json).
+  This does not yet verify the complete private runner or authenticated gameplay.
+
+The [combined native Steam/GPU check](validation-steam-gpu-2026-11-17.json)
+also passes through that shim: its child initializes the real game Steam API,
+loads the original legacy bridge (`GetVer=250`, no vendor `Init`), completes a
+DX12 GPU clear/fence/readback of 4096 pixels, and shuts down SteamAPI. A fresh
+nonce-bound child result is required for success; parent exit alone is rejected.
+This is an offscreen component integration check, not visible gameplay. The
+[computer-tool capture blocker](../diagnostics/2026-11-17-computer-capture.md)
+currently prevents reliable interactive Steam/game verification.
 
 See [the causal findings, evidence and deployment gates](../diagnostics/2026-11-16-process-signals.md).
 `stage-candidate.py` verifies the component receipts and creates a new, inactive

@@ -1,0 +1,14 @@
+{
+  "exitCode": 0,
+  "passed": true,
+  "childInitAndShutdownVerified": true,
+  "usedNativeSteamShim": true,
+  "nativeClientSha256": "55a9341f7e411f52bae049193a98071ae666b0fddb90ab3cae6aa527d9d84335",
+  "buildReceiptSha256": "d58c7178c0608a68a28deb3da845f92b2c420501b7a867fd08100d0f9edea2c2",
+  "probeSha256": "7f2872e5284101a8681651c50a0c7ae87f088ddd7347f132ae45ff57dfd72c3b",
+  "apiSha256": "dcfaa13aa419a0641917205957dbe15aa472e7cf09a28cf8d3cf429598e67799",
+  "logSha256": "0b7bf86e135d168b91c0fd004400739da2708051f29a47b1e967adf7eb33b726",
+  "gameStarted": false,
+  "installed": false,
+  "gameplayVerified": false
+}

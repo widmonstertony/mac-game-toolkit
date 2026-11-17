@@ -16,6 +16,18 @@ template<class T> struct Ref {
 int main()
 {
     setvbuf(stdout,nullptr,_IONBF,0);
+    char apiPath[32768];
+    void (*steamShutdown)()=nullptr;
+    DWORD apiLength=GetEnvironmentVariableA("MOTORFEST_STEAM_API",apiPath,sizeof(apiPath));
+    if(apiLength) {
+        if(apiLength>=sizeof(apiPath))return 6;
+        HMODULE api=LoadLibraryA(apiPath);
+        auto init=api?reinterpret_cast<unsigned char(*)()>(GetProcAddress(api,"SteamAPI_Init")):nullptr;
+        if(api && !init)init=reinterpret_cast<unsigned char(*)()>(GetProcAddress(api,"SteamAPI_InitSafe"));
+        steamShutdown=api?reinterpret_cast<void(*)()>(GetProcAddress(api,"SteamAPI_Shutdown")):nullptr;
+        if(!init || !steamShutdown || !init())return 6;
+        std::puts("STEAM_API_INIT_OK");
+    }
     HMODULE bridge=LoadLibraryW(L"beclient_x64.dll");
     if(!bridge){std::printf("BRIDGE_LOAD_FAILED error=%lu\n",GetLastError());return 2;}
     auto version=reinterpret_cast<int(*)()>(GetProcAddress(bridge,"GetVer"));
@@ -70,5 +82,21 @@ int main()
     readback->Unmap(0,&none);
     if(bad){std::printf("GPU_READBACK_FAILED bytes=%u\n",bad);return 5;}
     std::puts("COMBINED_BRIDGE_GPU_PASS pixels=4096 visiblePresentation=false gameplay=false");
+    if(steamShutdown) {
+        steamShutdown();
+        char path[32768],nonce[65],payload[160];
+        DWORD n=GetEnvironmentVariableA("MOTORFEST_PROBE_RESULT",path,sizeof(path));
+        if(!n || n>=sizeof(path))return 7;
+        n=GetEnvironmentVariableA("MOTORFEST_PROBE_NONCE",nonce,sizeof(nonce));
+        if(n!=32)return 7;
+        for(DWORD i=0;i<n;i++)if(!((nonce[i]>='0'&&nonce[i]<='9')||(nonce[i]>='a'&&nonce[i]<='f')))return 7;
+        int size=std::snprintf(payload,sizeof(payload),"STEAM_BRIDGE_GPU_AND_SHUTDOWN_OK %s\n",nonce);
+        HANDLE file=CreateFileA(path,GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+        if(file==INVALID_HANDLE_VALUE)return 8;
+        DWORD written=0;BOOL ok=WriteFile(file,payload,(DWORD)size,&written,nullptr);
+        if(ok)ok=FlushFileBuffers(file);
+        CloseHandle(file);
+        if(!ok || written!=(DWORD)size)return 8;
+    }
     return 0;
 }
