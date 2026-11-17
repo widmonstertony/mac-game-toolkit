@@ -1,4 +1,45 @@
-# Linux host C ABI additions: experimental, not installed
+# Motorfest Linux host compatibility candidate
+
+## Current state — November 16, process/signal build 39
+
+The child-wait and synchronous-signal implementation now passes under the signed
+MetalSharp application (packaged version 7.0; Wine reports 11.20/FEX), including
+in an isolated APFS clone of the existing Motorfest prefix. The original prefix
+and its Highball/native Steam launch mapping have **not been switched**.
+
+- `waitpid(-1)` returns an already-finished later child rather than blocking on
+  the first live slot. WNOHANG, normal exit, SIGKILL status, reaping, completed-
+  child signal behavior and more than 16 sequential child creations pass.
+- Signal masks, pending standard signals, handler calls, raw Linux signal syscall
+  layouts, inherited thread masks and saved-mask nonlocal jumps pass. Hardware
+  fault return and repeated fault-to-longjmp tests pass through the real FEX/Wine
+  exception machinery after restoring guest FS at both exception boundaries.
+- The opt-in native shell supervisor returns actual child exit/signal status.
+  It uses a **macOS shell/namespace**, not a Linux `/proc` environment.
+- The pinned, unmodified 2024 Linux client's constructors now run with complete
+  imports. An owned PE adapter loads its original legacy ELF bridge and returns
+  the actual `GetVer=250`, including Wine's builtin DLL-name search route.
+  **Client `Init`, authentication and Motorfest gameplay have not been verified.**
+- A private native-Steam forwarding overlay has been built. Its session check is
+  blocked because native Steam is not running. This is a missing verification,
+  not evidence that the current forwarding overlay is fully functional.
+
+See [the causal findings, evidence and deployment gates](../diagnostics/2026-11-16-process-signals.md).
+`stage-candidate.py` verifies the component receipts and creates a new, inactive
+bundle. It deliberately does not change Steam's runner, registry or game files.
+No proprietary runtime is redistributed in this repository.
+
+Remaining limitations include the upstream shared-address-space fork model,
+serialized child table, async host signals, realtime queues, SA_SIGINFO,
+alternate signal stacks, full AVX exception state and shared-memory semantics.
+The old runtime has not been shown to match the current Steam depot. Successful
+imports/version queries do not establish service acceptance or protected play.
+
+## Historical implementation record
+
+The sections below record successive earlier builds. Their unresolved counts,
+“inspection only” statements and unsupported saved-mask claims describe those
+historical tests, not the current state above.
 
 This is a general C runtime compatibility experiment for the legitimate Linux
 client route. It does not patch a game, anti-cheat binary, account, identity or

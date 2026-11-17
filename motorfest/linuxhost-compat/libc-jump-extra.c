@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only
  * Linux x86_64 nonlocal jump restoration. The buffer layout and pointer guard
- * are glibc ABI, not the Windows CRT's jmp_buf. Signal-mask restoration is not
- * implemented by the host and must not silently become an ordinary jump.
+ * are glibc ABI, not the Windows CRT's jmp_buf. Saved masks use the guest
+ * signal state, including jumping from a filtered ELF fault via NtContinue.
+ * Darwin signal masks are not changed.
  */
 #include <windows.h>
 #include <stdio.h>
@@ -17,7 +18,11 @@ __declspec(noreturn) void lx_jump_reject(void)
 
 __asm__(".text\n.globl lx_longjmp_extra\nlx_longjmp_extra:\n"
     /* System V arguments: rdi = glibc buffer, esi = requested result. */
-    "cmpl $0,64(%rdi)\njne 1f\n"
+    "pushq %rdi\npushq %rsi\nsubq $40,%rsp\nmovq %rdi,%rcx\n"
+    "call linuxhost_restore_jump_mask\ntestl %eax,%eax\nje 3f\n"
+    "movq 48(%rsp),%rcx\nmovl 40(%rsp),%edx\ncall linuxhost_signal_jump_context\n"
+    "addq $40,%rsp\npopq %rsi\npopq %rdi\njmp 4f\n"
+    "3:\naddq $40,%rsp\npopq %rsi\npopq %rdi\njmp 1f\n4:\n"
     "rdfsbase %rcx\ntestq %rcx,%rcx\nje 1f\n"
     "movq 48(%rdi),%r8\nmovq 56(%rdi),%r9\nmovq 8(%rdi),%rdx\n"
     "rorq $17,%r8\nrorq $17,%r9\nrorq $17,%rdx\n"
@@ -30,5 +35,5 @@ __asm__(".text\n.globl lx_longjmp_extra\nlx_longjmp_extra:\n"
     "1:\nsubq $40,%rsp\ncall lx_jump_reject\nud2\n");
 extern void lx_longjmp_extra(void);
 const struct libc_function linuxhost_jump_extra_functions[]={
-    {"longjmp",lx_longjmp_extra},{NULL,NULL}
+    {"longjmp",lx_longjmp_extra},{"siglongjmp",lx_longjmp_extra},{NULL,NULL}
 };

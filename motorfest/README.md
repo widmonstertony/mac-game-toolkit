@@ -1,4 +1,15 @@
-# The Crew Motorfest: preparation, not verified gameplay
+# The Crew Motorfest: compatibility work, gameplay not verified
+
+**Current state, November 16:** child-wait and synchronous-signal fixes pass in
+an isolated clone of the existing container. The real legacy Linux bridge now
+loads by DLL name and returns its original version; its authentication/Init path
+has not been validated. The native Steam overlay is prepared but cannot complete
+its session check while the native Steam client is closed. The production
+Highball runner and other games remain unchanged.
+
+The [current findings and deployment status](diagnostics/2026-11-16-process-signals.md)
+take precedence over the historical progress entries below. An inactive bundle
+is preparation, not a declaration that Motorfest launches successfully.
 
 The installed native Steam game is AppID **2698940**, using its own existing
 Proton-ish/Highball r28 prefix. It does not share the NFS/EA prefix. Its first-run

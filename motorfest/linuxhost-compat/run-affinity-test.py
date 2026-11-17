@@ -19,7 +19,7 @@ build=json.loads((out/'build.json').read_text())
 for name,digest in build['outputs'].items():
     if sha(out/name)!=digest:raise SystemExit('Build hash mismatch: '+name)
 env=dict(os.environ,WINEPREFIX=str(prefix),WINEDEBUG='-all',WINEDLLOVERRIDES='winemenubuilder.exe=d')
-for name in ('WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BATTLEYE_RUNTIME',
+for name in ('LINUXHOST_NATIVE_HELPER','WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BATTLEYE_RUNTIME',
              'DYLD_LIBRARY_PATH','DYLD_FALLBACK_LIBRARY_PATH','DYLD_FALLBACK_FRAMEWORK_PATH',
              'LINUXHOST_GNU_RUNTIME','LINUXHOST_AFFINITY_MODE'):
     env.pop(name,None)

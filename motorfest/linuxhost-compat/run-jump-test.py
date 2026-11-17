@@ -19,11 +19,11 @@ build=json.loads((out/'build.json').read_text())
 for name,digest in build['outputs'].items():
     if sha(out/name)!=digest:raise SystemExit('Build hash mismatch: '+name)
 env=dict(os.environ,WINEPREFIX=str(prefix),WINEDEBUG='-all',WINEDLLOVERRIDES='winemenubuilder.exe=d')
-for name in ('WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BATTLEYE_RUNTIME','LINUXHOST_AFFINITY_MODE',
+for name in ('LINUXHOST_NATIVE_HELPER','WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BATTLEYE_RUNTIME','LINUXHOST_AFFINITY_MODE',
              'DYLD_LIBRARY_PATH','DYLD_FALLBACK_LIBRARY_PATH','DYLD_FALLBACK_FRAMEWORK_PATH','LINUXHOST_GNU_RUNTIME'):
     env.pop(name,None)
 results={}
-for name,entry in [('roundtrip','jump_test'),('saved-mask-rejected','jump_mask_rejection')]:
+for name,entry in [('roundtrip','jump_test'),('saved-mask','jump_mask_test'),('hardware-fault','jump_fault_test'),('fault-return','fault_return_test'),('invalid-mask-rejected','jump_mask_rejection')]:
     log=out/('jump-'+name+'.log')
     dll_path='Z:'+str(out/'linuxhost.dll').replace('/','\\')
     with log.open('w') as f:
@@ -32,13 +32,13 @@ for name,entry in [('roundtrip','jump_test'),('saved-mask-rejected','jump_mask_r
                 dll_path,str(out/'jump.so'),entry],env=env,stdout=f,stderr=subprocess.STDOUT,timeout=45).returncode
         except subprocess.TimeoutExpired:rc=124
     text=log.read_text(errors='replace')
-    if name=='roundtrip':passed=rc==0 and 'DLL_CALL_PASS result=0' in text
+    if name in ('roundtrip','saved-mask','hardware-fault','fault-return'):passed=rc==0 and 'DLL_CALL_PASS result=0' in text
     else:passed=rc in (9,0xc0000409) and 'LINUXHOST_JUMP_UNSUPPORTED_STATE' in text and 'DLL_CALL_' not in text
     results[name]={'exitCode':rc,'passed':passed,'logSha256':sha(log)}
     print(name,results[name],text[-500:],flush=True)
 receipt={'tests':results,'allPassed':all(v['passed'] for v in results.values()),
     'buildReceiptSha256':sha(out/'build.json'),'runnerSha256':sha(Path(__file__)),
-    'scope':'Owned glibc-layout buffer, restored registers/stack/PC, six signed return values; signal-mask restoration unsupported.',
+    'scope':'Owned glibc-layout buffer, restored registers/stack/PC, six signed return values; guest signal-mask restoration; actual illegal-instruction and memory faults; invalid mask discriminator rejected.',
     'clientCodeExecuted':False,'installed':False,'gameplayVerified':False}
 (out/'jump-validation.json').write_text(json.dumps(receipt,indent=2)+'\n')
 raise SystemExit(0 if receipt['allPassed'] else 1)

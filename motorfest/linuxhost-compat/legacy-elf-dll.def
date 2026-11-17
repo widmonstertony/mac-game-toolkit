@@ -1,0 +1,4 @@
+LIBRARY beclient_x64
+EXPORTS
+  GetVer @1
+  Init @2

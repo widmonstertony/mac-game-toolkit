@@ -23,7 +23,7 @@ runtime=a.runtime.resolve()
 client=runtime/'BEClient_x64.so'; bridge=runtime/'v1/lib64/wine/beclient_x64.dll.so'
 if not client.is_file() or not bridge.is_file(): raise SystemExit('Client/bridge missing')
 env=dict(os.environ,WINEPREFIX=str(prefix),WINEDEBUG='-all',WINEDLLOVERRIDES='winemenubuilder.exe=d')
-for name in ('WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BATTLEYE_RUNTIME','LINUXHOST_AFFINITY_MODE',
+for name in ('LINUXHOST_NATIVE_HELPER','WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BATTLEYE_RUNTIME','LINUXHOST_AFFINITY_MODE',
              'DYLD_LIBRARY_PATH','DYLD_FALLBACK_LIBRARY_PATH','DYLD_FALLBACK_FRAMEWORK_PATH','LINUXHOST_GNU_RUNTIME'):
     env.pop(name,None)
 tests=[('strings','strings-probe.exe',[str(out/'strings.so')]),
