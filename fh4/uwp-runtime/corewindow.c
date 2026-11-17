@@ -478,14 +478,8 @@ static HRESULT WINAPI corewindow_impl_get_PointerPosition( ICoreWindow *iface, P
 static HRESULT WINAPI corewindow_impl_get_Visible( ICoreWindow *iface, boolean* value )
 {
     struct corewindow_impl *impl = impl_from_ICoreWindow( iface );
-
-    FIXME( "iface %p, value %p stub!\n", iface, value );
-    if (IsIconic(impl->window_handle)) {
-        *value = FALSE;
-    } else {
-        *value = TRUE;
-    }
-
+    if (!value) return E_POINTER;
+    *value = IsWindowVisible(impl->window_handle) && !IsIconic(impl->window_handle);
     return S_OK;
 }
 
@@ -533,14 +527,12 @@ static HRESULT WINAPI corewindow_impl_ReleasePointerCapture( ICoreWindow *iface 
 static HRESULT WINAPI corewindow_impl_SetPointerCapture( ICoreWindow *iface )
 {
     struct corewindow_impl *impl = impl_from_ICoreWindow( iface );
-
-    FIXME( "iface %p stub!\n", iface );
-    if(SetCapture(impl->window_handle)) {
-        return S_OK;
-    }
-
-    ERR( "SetCapture failed!\n");
-    return E_FAIL;
+    if (!IsWindow(impl->window_handle)) return E_ILLEGAL_METHOD_CALL;
+    if (GetWindowThreadProcessId(impl->window_handle, NULL) != GetCurrentThreadId())
+        return RPC_E_WRONG_THREAD;
+    /* SetCapture returns the previous owner, not a success Boolean. */
+    SetCapture(impl->window_handle);
+    return GetCapture() == impl->window_handle ? S_OK : E_FAIL;
 }
 
 DEFINE_EVENT_STUB(CoreWindow, corewindow_impl, Activated, WindowActivatedEventArgs)

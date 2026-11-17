@@ -78,13 +78,15 @@ finally:
 log = log_path.read_text(errors='replace')
 life_passed = 'LIFECYCLE_PASS' in log
 dispatch_passed = log.count('DISPATCH_ACTION_PASS') == 2 and log.count('DISPATCH_SHUTDOWN_PASS') == 2
-passed = result.returncode == 0 and life_passed and dispatch_passed
+window_passed = log.count('WINDOW_STATE_PASS') == 6
+passed = result.returncode == 0 and life_passed and dispatch_passed and window_passed
 gpu_hr = re.search(r'GPU_COREWINDOW_RESULT=([0-9a-f]{8})',log)
 (out / f'result-{mode}.json').write_text(json.dumps(dict(passed=passed, exitCode=result.returncode,
     testedDllSha256=receipt['files']['fh4-uwp-runtime.dll'],
     testedExeSha256=receipt['files']['lifecycle.exe'],
     logSha256=hashlib.sha256(log_path.read_bytes()).hexdigest(),
     lifecyclePassed=life_passed, normalAsyncDispatchVerified=dispatch_passed,
+    hiddenWindowVisibilityAndCaptureVerified=window_passed,
     gameplayVerified=False, visiblePresentationVerified=False,
     gpuBridgeUsed=a.gpu_bridge,
     gpuImportedEntryUsed=a.gpu_entry,

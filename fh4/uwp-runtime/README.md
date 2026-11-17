@@ -53,6 +53,18 @@ and [DirectX app model](https://learn.microsoft.com/en-us/windows/uwp/gaming/abo
 
 ## Reproduction and verified scope
 
+On November 17, the window-state adapter was corrected: hidden windows no longer
+report `Visible=true`, and successful first mouse capture no longer reports a
+failure. Win32 [SetCapture returns the previous owner](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setcapture),
+which is null when no window previously owned capture. The adapter now checks
+the resulting owner and rejects capture from another thread. The hidden-window
+probe covers null output, initial visibility, first/repeated capture, release,
+and cross-thread rejection without stealing the owner thread's capture.
+Combined lifecycle/dispatcher and D3DMetal GPU readback/resize pass with the
+private package-runtime kernelbase. See `validation-window-2026-11-17.json`.
+These are proven adapter defects, not proven causes of FH4's actual launch failure;
+no game startup or visible presentation is claimed.
+
 Build into a new output directory with llvm-mingw's x64 clang wrapper:
 
 ```sh

@@ -37,7 +37,7 @@ def main():
         raise SystemExit('Game executable is missing')
     receipt=json.loads((build/'build.json').read_text())
     test=json.loads((build/'result-gpu-entry-auto.json').read_text())
-    for field in ('passed','lifecyclePassed','normalAsyncDispatchVerified','gpuImportedEntryVerified','rendererInitializedBeforeCallbacks',
+    for field in ('passed','lifecyclePassed','normalAsyncDispatchVerified','hiddenWindowVisibilityAndCaptureVerified','gpuImportedEntryVerified','rendererInitializedBeforeCallbacks',
                   'automaticManifestRoutingVerified','gpuReadbackPassed','gpuResizePassed','d3dMetalModuleLoaded'):
         if test.get(field) is not True: raise SystemExit('Missing verified gate: '+field)
     artifacts=[('fh4-uwp-runtime.dll','fh4-uwp-runtime.dll','testedDllSha256'),

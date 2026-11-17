@@ -101,6 +101,12 @@ static DWORD WINAPI wrong_thread(void *arg)
     CHECK(ICoreDispatcher_ProcessEvents(d,CoreProcessEventsOption_ProcessOneIfPresent)==RPC_E_WRONG_THREAD);
     return 0;
 }
+static DWORD WINAPI capture_wrong_thread(void *arg)
+{
+    CHECK(ICoreWindow_SetPointerCapture((ICoreWindow *)arg)==RPC_E_WRONG_THREAD);
+    CHECK(!GetCapture());
+    return 0;
+}
 static HRESULT WINAPI view_window(IFrameworkView *p,ICoreWindow *w)
 {
     ICoreWindowInterop *interop=NULL; ICoreDispatcher *d=NULL; boolean access=FALSE; HANDLE t;
@@ -114,6 +120,20 @@ static HRESULT WINAPI view_window(IFrameworkView *p,ICoreWindow *w)
     OK(ICoreWindow_QueryInterface(w,&IID_IUnknown,(void**)&u2)); CHECK(u1==u2);
     IUnknown_Release(u1); IUnknown_Release(u2);
     CHECK(!IsWindowVisible(last_window));
+    /* Exercise only this probe's hidden window; never synthesize user input. */
+    {
+        boolean visible=TRUE;
+        OK(ICoreWindow_get_Visible(w,&visible)); CHECK(!visible);
+        CHECK(ICoreWindow_get_Visible(w,NULL)==E_POINTER);
+        ReleaseCapture(); CHECK(!GetCapture());
+        OK(ICoreWindow_SetPointerCapture(w)); CHECK(GetCapture()==last_window);
+        OK(ICoreWindow_SetPointerCapture(w)); CHECK(GetCapture()==last_window);
+        t=CreateThread(NULL,0,capture_wrong_thread,w,0,NULL); CHECK(t);
+        CHECK(WaitForSingleObject(t,5000)==WAIT_OBJECT_0); CloseHandle(t);
+        CHECK(GetCapture()==last_window);
+        OK(ICoreWindow_ReleasePointerCapture(w)); CHECK(!GetCapture());
+        printf("WINDOW_STATE_PASS\n");
+    }
     if (run_gpu && !fail_stage && gpu_result==E_PENDING)
     {
         HMODULE dll=LoadLibraryW(L"gpu-probe.dll");
