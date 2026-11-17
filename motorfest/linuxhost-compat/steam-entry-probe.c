@@ -29,7 +29,7 @@ int main(int argc,char **argv)
         const char *key="Software\\Valve\\Steam\\ActiveProcess";
         DWORD pid=GetCurrentProcessId();
         if(RegSetKeyValueA(HKEY_CURRENT_USER,key,"pid",REG_DWORD,&pid,sizeof(pid)) ||
-           RegSetKeyValueA(HKEY_CURRENT_USER,key,"SteamClientDll64",REG_SZ,argv[2],(DWORD)strlen(argv[2])+1))return 6;
+           RegSetKeyValueA(HKEY_CURRENT_USER,key,sizeof(void*)==4?"SteamClientDll":"SteamClientDll64",REG_SZ,argv[2],(DWORD)strlen(argv[2])+1))return 6;
         HMODULE client=LoadLibraryA(argv[2]);
         if(!client){printf("STEAM_CLIENT_LOAD_FAILED error=%lu\n",GetLastError());return 7;}
         void *create=GetProcAddress(client,"CreateInterface");

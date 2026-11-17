@@ -1,5 +1,16 @@
 # The Crew Motorfest: compatibility work, gameplay not verified
 
+## Native Steam startup repairs, November 17
+
+The installed candidate has now been launched through native Steam. Three
+startup regressions were identified: the install-script helper incorrectly
+inherited the game's Steam registration, the migrated prefix still selected
+the old x86 CPU translator, and its 32-bit DLL migration was incomplete.
+The helper registration and CPU selector are corrected; the scoped prefix update
+has completed with the correct FEX selector. Protected gameplay is still unverified.
+See [the causal comparisons and remaining gates](diagnostics/2026-11-17-prefix-migration.md).
+This section supersedes the earlier “not launched” installation checkpoint below.
+
 ## Installed candidate, November 17
 
 The native Steam entry for AppID 2698940 now selects a private FEX/Mullion

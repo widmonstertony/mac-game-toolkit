@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "steamApiInitShutdownVerified": true,
+  "architecture": "i386",
+  "forwarderBefore": "e9e961c914a418b6a3c597822bdc920bdea62c842ff42de23dc306331da563f8",
+  "forwarderAfter": "8ec6d27f7b88fdebd914c3cf67e63212346c05cf6214fc5dc2911166194ee734",
+  "native64ForwarderUnchanged": "36ed804f852b472e3d8b14b4cd78f3eef35979b3d9576f1ea368d397de569b3d",
+  "apiSha256": "8d36de57cc6436f4e82ee672023f17a7f83a7a55af558582c2c139f83fb33ed0",
+  "probeSha256": "251652be629a3aa6ee808793a749dc8e55af0dfc70f8f46d7eac01e7b08c243e",
+  "gameplayVerified": false
+}

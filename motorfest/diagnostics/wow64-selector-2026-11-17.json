@@ -1,0 +1,20 @@
+{
+  "old-selector": {
+    "exitCode": 1,
+    "seconds": 1.025142374994175,
+    "passed": false,
+    "stackOverflow": true
+  },
+  "fex-selector": {
+    "exitCode": 0,
+    "seconds": 0.7413678750017425,
+    "passed": true,
+    "stackOverflow": false
+  },
+  "engineFiles": {
+    "MacOS/wine": "0dbb26ba02c96f86ade916b0f76d6d10ba3fb9feadd50a97ac33cacb196f66d8",
+    "lib/wine/aarch64-windows/libwow64fex.dll": "6b61dcdfd7fd8ab61642c99682f6431cd9bda3ea5afbf5bd406a9b8cfee5670b",
+    "lib/wine/aarch64-unix/libwow64fex.so": "16732ae77967c4519b3e825d490d28a6884c964a2db0b2160235a990aa682faf"
+  },
+  "probeSha256": "5b68a9bd59c58525e8f38e344b7731a503296b6e8c1fc1bc0c1b996c5968da77"
+}

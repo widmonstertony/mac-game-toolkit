@@ -24,13 +24,23 @@ def launch_plan(profile, arguments, original):
         WINEDLLPATH=':'.join(map(str,[entry/'steam',entry/'overlay',root/'overlay/x86_64-windows',
           root/'overlay/aarch64-windows',root/'overlay',engine/'lib/mullion',engine/'lib/wine'])),
         WINEDLLOVERRIDES='winemenubuilder.exe=d;beclient_x64=b;d3d11,d3d12,d3d12core,dxgi=b;steamclient,steamclient64=n;lsteamclient=b',
-        SteamAppId=APP_ID,SteamGameId=APP_ID,STEAM_COMPAT_CLIENT_INSTALL_PATH=str(client),
+        STEAM_COMPAT_CLIENT_INSTALL_PATH=str(client),
         SteamPath='Z:'+str(entry/'steam').replace('/','\\'),GRAPHICS_BACKEND='mullion',
         LINUXHOST_LEGACY_HOST='Z:'+str(root/'host/linuxhost.dll').replace('/','\\'),
         LINUXHOST_LEGACY_BRIDGE=str(root/'runtime/v1/lib64/wine/beclient_x64.dll.so'),
         PROTON_BATTLEYE_RUNTIME=str(root/'runtime'),LINUXHOST_GNU_RUNTIME=str(root/'gnu'),
         LINUXHOST_NATIVE_HELPER=str(root/'host/native-child-helper'),LINUXHOST_AFFINITY_MODE='windows',
         DXMT_ALLOW_CROSS_PROCESS_SWAPCHAIN='1',WINE_SIMULATE_WRITECOPY='1')
+    if arguments[0]=='waitforexitandrun':
+        env.setdefault('SteamAppId',APP_ID)
+        env.setdefault('SteamGameId',APP_ID)
+    else:
+        # Steam's install-script helper must not register as the running game.
+        # Otherwise Steam refuses the real launch with AppError_16.
+        env.pop('SteamAppId',None)
+        env.pop('SteamGameId',None)
+    if profile.get('startupDiagnostics') and arguments[0]=='waitforexitandrun':
+        env['WINEDEBUG']='-all,err+all,+seh,+loaddll'
     return [str(engine/'MacOS/wine'),str(entry/'steam/steam.exe'),*arguments[1:]],env
 
 def main():
@@ -45,8 +55,9 @@ def main():
     with (Path(profile['data'])/'.notproton-prefix.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         with log.open('ab',buffering=0) as f:
-            f.write(b'\nMOTORFEST_PRIVATE_ENTRY engine=FEX/Mullion gameplayVerified=false\n')
+            f.write(('\nMOTORFEST_PRIVATE_ENTRY verb='+sys.argv[1]+' engine=FEX/Mullion gameplayVerified=false\n').encode())
             result=subprocess.run(command,env=env,stdout=f,stderr=subprocess.STDOUT)
+            f.write(('MOTORFEST_PRIVATE_EXIT verb='+sys.argv[1]+' status='+str(result.returncode)+'\n').encode())
     raise SystemExit(result.returncode)
 
 if __name__=='__main__':main()

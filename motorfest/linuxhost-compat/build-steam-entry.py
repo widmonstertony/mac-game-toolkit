@@ -36,6 +36,16 @@ definition.write_text('LIBRARY steamclient64\nEXPORTS\n'+''.join(f'{n}=lsteamcli
 source=out/'steamclient64.c'
 source.write_text('unsigned char bridge_interface_storage[1024*1024]={1};\nint bridge_entry(void *m,unsigned reason,void *r){(void)m;(void)reason;(void)r;return 1;}\n')
 subprocess.run([str(cc),'-shared','-nostdlib','-fno-stack-protector','-Wl,--entry,bridge_entry',str(source),str(definition),'-o',str(steam/'steamclient64.dll')],check=True)
+# Ubisoft's game starter is i386 even when the game is x64. Forward its
+# original Steam API to the same real native client, through the i386 bridge.
+exports32=subprocess.check_output([str(readobj),'--coff-exports',str(bridge/'i386-windows/lsteamclient.dll')],text=True)
+names32=re.findall(r'^  Name: ([A-Za-z_][A-Za-z_0-9]*)$',exports32,re.M)
+if not {'CreateInterface','Steam_BGetCallback','Steam_FreeLastCallback'}.issubset(names32):raise SystemExit('Incompatible i386 bridge exports')
+definition32=out/'steamclient.def'
+definition32.write_text('LIBRARY steamclient\nEXPORTS\n'+''.join(f'{n}=lsteamclient.{n}\n' for n in names32))
+source32=out/'steamclient.c'
+source32.write_text('unsigned char bridge_interface_storage[1024*1024]={1};\nint __stdcall bridge_entry(void *m,unsigned reason,void *r){(void)m;(void)reason;(void)r;return 1;}\n')
+subprocess.run([str(a.toolchain/'bin/i686-w64-mingw32-clang'),'-shared','-nostdlib','-fno-stack-protector','-Wl,--entry,_bridge_entry@12',str(source32),str(definition32),'-o',str(steam/'steamclient.dll')],check=True)
 subprocess.run([str(cc),str(Path(__file__).with_name('steam-entry-probe.c')),'-ladvapi32','-o',str(out/'steam-entry-probe.exe')],check=True)
 receipt={'bridgeInputs':{n:sha(bridge/n) for n in inputs},'outputs':{str(f.relative_to(out)):sha(f) for f in out.rglob('*') if f.is_file()},'builderSha256':sha(Path(__file__)),'probeSourceSha256':sha(Path(__file__).with_name('steam-entry-probe.c')),'exportCount':len(names),'installed':False,'gameplayVerified':False}
 (out/'steam-entry-build.json').write_text(json.dumps(receipt,indent=2)+'\n')
