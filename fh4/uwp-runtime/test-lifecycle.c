@@ -7,6 +7,7 @@
 
 #define CHECK(x) do { if (!(x)) { fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#x); ExitProcess(2); } } while(0)
 #define OK(x) CHECK((x) == S_OK)
+#include "test-dispatch.h"
 static ICoreApplication *app;
 static ICoreWindowStatic *windows;
 static ICoreDispatcher *retained_dispatcher;
@@ -132,6 +133,7 @@ static HRESULT WINAPI view_window(IFrameworkView *p,ICoreWindow *w)
     t=CreateThread(NULL,0,wrong_thread,d,0,NULL); CHECK(t);
     CHECK(WaitForSingleObject(t,5000)==WAIT_OBJECT_0); CloseHandle(t);
     retained_dispatcher=d;
+    if(!fail_stage) dispatch_tests(d);
     return stage_result();
 }
 static HRESULT WINAPI view_load(IFrameworkView *p,HSTRING entry)
@@ -149,6 +151,7 @@ static HRESULT WINAPI view_run(IFrameworkView *p)
     CHECK(PostThreadMessageW(GetCurrentThreadId(),WM_APP+2,0,0));
     OK(ICoreDispatcher_ProcessEvents(retained_dispatcher,CoreProcessEventsOption_ProcessOneAndAllPending));
     CHECK(!PeekMessageW(&msg,NULL,WM_APP+1,WM_APP+2,PM_NOREMOVE));
+    if(!fail_stage) queue_shutdown_test(retained_dispatcher);
     return stage_result();
 }
 static HRESULT WINAPI view_end(IFrameworkView *p) { ++uninitializes; return S_OK; }
@@ -229,6 +232,7 @@ int main(int argc,char **argv)
         OK(ICoreWindowStatic_GetForCurrentThread(windows,&w)); CHECK(!w);
         if (retained_dispatcher)
         {
+            verify_shutdown_test(retained_dispatcher);
             OK(ICoreDispatcher_ProcessEvents(retained_dispatcher,CoreProcessEventsOption_ProcessAllIfPresent));
             CHECK(ICoreDispatcher_Release(retained_dispatcher)==0); retained_dispatcher=NULL;
         }

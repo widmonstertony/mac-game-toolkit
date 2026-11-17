@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "exitCode": 0,
+  "testedDllSha256": "f54c105c10348d7df8078edfdf4540dc15441341245e954818667c7347e728b3",
+  "testedExeSha256": "4d23788a8deba81ff648dcbce990f0f13023b6a6fee419c9ce62d6901e237321",
+  "logSha256": "e1c77eafd8dd3ca5202df44f30b7382d69cbdc8644cc83e7cf994be180c81f91",
+  "lifecyclePassed": true,
+  "gameplayVerified": false,
+  "visiblePresentationVerified": false,
+  "gpuBridgeUsed": false,
+  "gpuImportedEntryUsed": true,
+  "gpuImportedEntryVerified": true,
+  "rendererInitializedBeforeCallbacks": true,
+  "rendererInitializationCount": 1,
+  "gpuImportedBothGameFactoriesVerified": true,
+  "unhandledFaultObserved": false,
+  "gpuEntrySha256": "07a2a3e827c85a068d06027fbd689eaefc002bcc014e9ceb4cdab7e5ef6923f5",
+  "automaticManifestRoutingVerified": true,
+  "gpuBridgeSha256": "e8f3c5faca663819cb5771aa802f4a1cf32b344c42ede8456bd2c7888ae515d6",
+  "gpuCoreWindowResult": "00000000",
+  "gpuReadbackPassed": true,
+  "gpuResizePassed": true,
+  "d3dMetalModuleLoaded": true,
+  "activationEventSubsetVerified": true,
+  "activationRoutingVerified": true,
+  "normalAsyncDispatchVerified": true,
+  "testPrefixKind": "isolated Highball x64 probe clone",
+  "initialAttempt": {
+    "testPrefixKind": "isolated ARM/FEX probe clone",
+    "exitCode": 123,
+    "failure": "kernel32 load c000007b before probe execution"
+  }
+}

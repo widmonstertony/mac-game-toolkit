@@ -369,7 +369,7 @@ done:
     }
     if (impl->window)
     {
-        impl->window->dispatcher->stopped = TRUE;
+        dispatcher_stop(impl->window->dispatcher);
         SetWindowLongPtrW(impl->window->window_handle,GWLP_USERDATA,0);
         DestroyWindow(impl->window->window_handle);
         impl->window->window_handle = NULL;

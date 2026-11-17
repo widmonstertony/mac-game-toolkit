@@ -26,6 +26,12 @@
 
 #define CONST_VTABLE
 #define COBJMACROS
+#ifndef RO_E_CLOSED
+#define RO_E_CLOSED ((HRESULT)0x80000013)
+#endif
+#ifndef E_ILLEGAL_DELEGATE_ASSIGNMENT
+#define E_ILLEGAL_DELEGATE_ASSIGNMENT ((HRESULT)0x80000018)
+#endif
 #ifndef E_ILLEGAL_METHOD_CALL
 #define E_ILLEGAL_METHOD_CALL ((HRESULT)0x8000000E)
 #endif
@@ -82,7 +88,14 @@ struct dispatcher_impl {
     DWORD owner_thread;
     BOOL stopped;
     LONG ref;
+    SRWLOCK queue_lock;
+    HWND window;
+    struct dispatch_action *queue_head, *queue_tail;
 };
+#define FH4_DISPATCH_MESSAGE (WM_APP+0x4f4)
+extern void dispatcher_dispatch_one(struct dispatcher_impl *dispatcher);
+extern void dispatcher_stop(struct dispatcher_impl *dispatcher);
+extern HRESULT dispatcher_queue_action(struct dispatcher_impl *,CoreDispatcherPriority,IDispatchedHandler *,IAsyncAction **);
 
 struct corewindow_tls {
     struct corewindow_impl *window;

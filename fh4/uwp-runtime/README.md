@@ -43,6 +43,13 @@ and [DirectX app model](https://learn.microsoft.com/en-us/windows/uwp/gaming/abo
   RoGetActivationFactory. No persistent class registration or shared DLL
   replacement. Highball's RoRegisterActivationFactories is a success-returning
   stub, so that function is not used as evidence of registration.
+- Normal-priority CoreDispatcher.RunAsync queues a retained delegate to the
+  owner's hidden-window message pump. IAsyncAction/IAsyncInfo expose status,
+  results, errors, cancellation, Close and a single completion-handler assignment.
+  Completion handlers run outside internal locks, including late subscriptions.
+  Shutdown drains pending actions without executing their work, and retained
+  dispatchers complete newly submitted actions without invoking their delegates.
+  This follows the documented [RunAsync shutdown behavior](https://learn.microsoft.com/en-us/uwp/api/windows.ui.core.coredispatcher.runasync).
 
 ## Reproduction and verified scope
 
@@ -67,6 +74,17 @@ window destruction, no stale quit message, view/handler/event-argument reference
 counts, cross-thread lookup, dispatcher survival, entry-point/app-ID delivery,
 real RoGetActivationFactory routing and launch-argument ABI. Details are in
 `validation-2026-11-16.json`.
+
+On November 17, the normal asynchronous dispatcher passed in the same combined
+Highball/D3DMetal test: worker-to-owner execution, no premature callback,
+Started/Completed/Error/Canceled results, early Close rejection, closed-object
+errors, early/late single completion, callback failure, canceled-work suppression,
+shutdown drain and reference balances. Both complete lifecycle iterations pass
+these assertions; all eight lifecycle cases and 4,096-pixel GPU readback/resize
+also pass. See `validation-dispatch-2026-11-17.json`. This closes an actual stub
+in the candidate runtime, not a demonstrated FH4 gameplay failure. An initial
+attempt using an ARM/FEX test-prefix clone failed loading kernel32 before the
+probe began; the successful run uses an isolated Highball x64 test-prefix clone.
 
 ## Remaining work before a game trial
 
@@ -153,7 +171,7 @@ The candidate remains inactive and explicitly lists the unfinished work.
 ### Remaining game-integration gaps
 
 This remains a partial UWP implementation. CoreWindow input/window events,
-CoreDispatcher async actions, splash-screen behavior, application suspension,
+non-normal-priority/idle CoreDispatcher actions, splash-screen behavior, application suspension,
 multi-view APIs, complete inspectable metadata and UWP package/activation
 integration are not implemented. Unimplemented event subscriptions explicitly
 fail instead of returning an uninitialized success token. Local-launch arguments

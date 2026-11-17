@@ -37,7 +37,7 @@ def main():
         raise SystemExit('Game executable is missing')
     receipt=json.loads((build/'build.json').read_text())
     test=json.loads((build/'result-gpu-entry-auto.json').read_text())
-    for field in ('passed','lifecyclePassed','gpuImportedEntryVerified','rendererInitializedBeforeCallbacks',
+    for field in ('passed','lifecyclePassed','normalAsyncDispatchVerified','gpuImportedEntryVerified','rendererInitializedBeforeCallbacks',
                   'automaticManifestRoutingVerified','gpuReadbackPassed','gpuResizePassed','d3dMetalModuleLoaded'):
         if test.get(field) is not True: raise SystemExit('Missing verified gate: '+field)
     artifacts=[('fh4-uwp-runtime.dll','fh4-uwp-runtime.dll','testedDllSha256'),
@@ -67,7 +67,7 @@ def main():
               environmentDelta={'FH4_UWP_REAL_DXGI':'Z:'+str(renderer).replace('/','\\')},
               requiredDllOverride='dxgi=n,b (merge with the FH4-only profile, do not replace unrelated overrides)',
               rendererSha256=sha(renderer),testedEntryResultSha256=sha(build/'result-gpu-entry-auto.json'),
-              pending=['UWP window/input events and async dispatch',
+              pending=['UWP window/input events, non-normal/idle async dispatch',
                        'Adapter GetParent factory interception',
                        'Package activation and Xbox/cloud-save integration',
                        'Actual FH4 menu/driving and visible presentation validation'])

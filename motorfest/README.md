@@ -1,10 +1,15 @@
 # The Crew Motorfest: compatibility work, gameplay not verified
 
-**Current state, November 16:** child-wait and synchronous-signal fixes pass in
+**Current state, November 17:** child-wait and synchronous-signal fixes pass in
 an isolated clone of the existing container. The real legacy Linux bridge now
 loads by DLL name and returns its original version; its authentication/Init path
-has not been validated. The native Steam overlay is prepared but cannot complete
-its session check while the native Steam client is closed. The production
+has not been validated. The original native Steam shim now passes a real
+SteamAPI initialization/shutdown test and a combined legacy-bridge/DX12 GPU
+readback test. The native client path had to point to the directory containing
+`steamclient.dylib`; completion is verified through the actual shim child.
+These checks do not verify Ubisoft's candidate browser route, anti-cheat
+authentication, or Motorfest gameplay. Computer Use still cannot bind Steam
+because it requests capture of an off-display hidden window. The production
 Highball runner and other games remain unchanged.
 
 The [current findings and deployment status](diagnostics/2026-11-16-process-signals.md)

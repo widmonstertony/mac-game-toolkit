@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parent
-SOURCES = ['coreapplication.c', 'corewindow.c', 'dispatcher.c', 'manifest.c', 'activation.c', 'exports.c']
+SOURCES = ['coreapplication.c', 'corewindow.c', 'dispatcher.c', 'dispatch-action.c', 'manifest.c', 'activation.c', 'exports.c']
 
 
 def main():
@@ -51,7 +51,7 @@ def main():
 ''', encoding='utf-8')
     hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
               [*[ROOT / s for s in SOURCES], ROOT / 'private.h', ROOT / 'wine/debug.h',
-               ROOT / 'test-lifecycle.c', ROOT / 'gpu-probe.cpp', ROOT / 'corewindow-swapchain.cpp',
+               ROOT / 'test-lifecycle.c', ROOT / 'test-dispatch.h', ROOT / 'gpu-probe.cpp', ROOT / 'corewindow-swapchain.cpp',
                out / 'fh4-uwp-runtime.dll', out / 'lifecycle.exe', out / 'gpu-probe.dll',
                out / 'fh4-corewindow-swapchain.dll', ROOT/'dxgi-entry.cpp',ROOT/'dxgi-entry.def',out/'entry/dxgi.dll']}
     (out / 'build.json').write_text(json.dumps({'files': hashes, 'gameplayVerified': False}, indent=2)+'\n')

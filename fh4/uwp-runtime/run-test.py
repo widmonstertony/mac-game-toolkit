@@ -75,13 +75,15 @@ finally:
             entry_dll.unlink()
 log = log_path.read_text(errors='replace')
 life_passed = 'LIFECYCLE_PASS' in log
-passed = result.returncode == 0 and life_passed
+dispatch_passed = log.count('DISPATCH_ACTION_PASS') == 2 and log.count('DISPATCH_SHUTDOWN_PASS') == 2
+passed = result.returncode == 0 and life_passed and dispatch_passed
 gpu_hr = re.search(r'GPU_COREWINDOW_RESULT=([0-9a-f]{8})',log)
 (out / f'result-{mode}.json').write_text(json.dumps(dict(passed=passed, exitCode=result.returncode,
     testedDllSha256=receipt['files']['fh4-uwp-runtime.dll'],
     testedExeSha256=receipt['files']['lifecycle.exe'],
     logSha256=hashlib.sha256(log_path.read_bytes()).hexdigest(),
-    lifecyclePassed=life_passed, gameplayVerified=False, visiblePresentationVerified=False,
+    lifecyclePassed=life_passed, normalAsyncDispatchVerified=dispatch_passed,
+    gameplayVerified=False, visiblePresentationVerified=False,
     gpuBridgeUsed=a.gpu_bridge,
     gpuImportedEntryUsed=a.gpu_entry,
     gpuImportedEntryVerified=a.gpu_entry and 'FH4_DXGI_ENTRY CreateDXGIFactory1 hr=00000000' in log,

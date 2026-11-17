@@ -36,11 +36,18 @@ static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARA
     // sort through and find what code to run for the message given
     switch(message)
     {
+        case FH4_DISPATCH_MESSAGE:
+            if(GetWindowLongPtrW(hWnd,GWLP_USERDATA))
+                dispatcher_dispatch_one((struct dispatcher_impl*)GetWindowLongPtrW(hWnd,GWLP_USERDATA));
+            return 0;
         // this message is read when the window is closed
         case WM_DESTROY:
             {
                 // close the application entirely
-                if (GetWindowLongPtrW(hWnd, GWLP_USERDATA)) PostQuitMessage(0);
+                if (GetWindowLongPtrW(hWnd, GWLP_USERDATA)) {
+                    dispatcher_stop((struct dispatcher_impl*)GetWindowLongPtrW(hWnd,GWLP_USERDATA));
+                    SetWindowLongPtrW(hWnd,GWLP_USERDATA,0);PostQuitMessage(0);
+                }
                 return 0;
             } break;
         case WM_QUIT:
@@ -92,7 +99,7 @@ static ULONG WINAPI dispatcher_impl_Release( ICoreDispatcher *iface )
 
     TRACE( "iface %p decreasing refcount to %lu.\n", iface, ref );
 
-    if (!ref) free( impl );
+    if (!ref) {dispatcher_stop(impl);free( impl );}
     return ref;
 }
 
@@ -143,7 +150,7 @@ static HRESULT WINAPI dispatcher_impl_ProcessEvents( ICoreDispatcher *iface, Cor
         }
         else have = PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE);
         if (!have) break;
-        if (msg.message == WM_QUIT) { impl->stopped = TRUE; break; }
+        if (msg.message == WM_QUIT) { dispatcher_stop(impl); break; }
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
         if (options == CoreProcessEventsOption_ProcessOneIfPresent) break;
@@ -155,8 +162,7 @@ static HRESULT WINAPI dispatcher_impl_ProcessEvents( ICoreDispatcher *iface, Cor
 
 static HRESULT WINAPI dispatcher_impl_RunAsync( ICoreDispatcher *iface, CoreDispatcherPriority priority, IDispatchedHandler *callback, IAsyncAction **action)
 {
-    FIXME("iface %p, priority %d, callback %p, action %p, stub.\n", iface, priority, callback, action);
-    return E_NOTIMPL;
+    return dispatcher_queue_action(impl_from_ICoreDispatcher(iface),priority,callback,action);
 }
 
 static HRESULT WINAPI dispatcher_impl_RunIdleAsync( ICoreDispatcher *iface, IIdleDispatchedHandler *callback, IAsyncAction **action)
@@ -229,7 +235,7 @@ struct dispatcher_impl *create_dispatcher(struct corewindow_impl *for_window, ch
 
     for_window->window_handle = CreateWindowExW(WS_EX_APPWINDOW, widentity_name, wdisplay_name, WS_OVERLAPPEDWINDOW, 0, 0, 1920, 1080, NULL, NULL, NULL, NULL);
     if (!for_window->window_handle) { free(object); object = NULL; }
-    else SetWindowLongPtrW(for_window->window_handle,GWLP_USERDATA,1);
+    else {object->window=for_window->window_handle;SetWindowLongPtrW(object->window,GWLP_USERDATA,(LONG_PTR)object);}
     free(widentity_name); free(wdisplay_name);
 
     return object;

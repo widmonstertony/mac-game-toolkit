@@ -263,6 +263,7 @@ static ULONG WINAPI corewindow_interop_impl_Release( ICoreWindowInterop *iface )
     {
         if (impl->window_handle)
         {
+            dispatcher_stop(impl->dispatcher);
             SetWindowLongPtrW(impl->window_handle,GWLP_USERDATA,0);
             DestroyWindow(impl->window_handle);
         }
@@ -351,6 +352,7 @@ static ULONG WINAPI corewindow_impl_Release( ICoreWindow *iface )
     {
         if (impl->window_handle)
         {
+            dispatcher_stop(impl->dispatcher);
             SetWindowLongPtrW(impl->window_handle,GWLP_USERDATA,0);
             DestroyWindow(impl->window_handle);
         }
@@ -636,6 +638,7 @@ static ULONG WINAPI corewindow4_impl_Release( ICoreWindow4 *iface )
     {
         if (impl->window_handle)
         {
+            dispatcher_stop(impl->dispatcher);
             SetWindowLongPtrW(impl->window_handle,GWLP_USERDATA,0);
             DestroyWindow(impl->window_handle);
         }

@@ -35,9 +35,19 @@ Recovery attempts:
   SIP was not disabled, and no alternate mechanism was used to force that service
   to restart. WindowServer, audio services, Steam and the game were not killed.
 
-Pending isolation: put the already-open Steam main window on the built-in main
-display and retry the supported binding. If it still selects the hidden window,
-the tool needs a window-selection fix: reject invalid/nonintersecting tiny
+The user confirmed that Steam was already on the built-in main display. The
+supported binding still failed; relocating that window is not an established
+workaround and should not be repeatedly requested.
+
+The installed helper and the copy bundled with the desktop application both
+report version 26.1111.1001923, build 1001923, and SHA-256
+`8932666902823e01a5555b96ce6b50787c7aab8b5b1085f05b1660304a4652a8`.
+Reinstalling that identical copy is not a demonstrated repair. Plugin discovery
+did not expose a helper update or window-selection repair tool. Attempting to
+open the desktop application's own UI for its update entry was rejected by
+Computer Use's app safety restriction; no alternate automation was used.
+
+The proposed tool-side remedy is to reject invalid/nonintersecting tiny
 utility windows, prefer the application's usable main window, and tolerate one
 uncapturable window without failing the whole application binding. This is a
 proposed upstream remedy, not a patch applied to the signed helper. The current
