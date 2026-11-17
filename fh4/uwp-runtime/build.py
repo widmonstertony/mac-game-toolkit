@@ -24,6 +24,11 @@ def main():
                    '-luser32', '-lshlwapi', '-lxmllite', '-luuid'], check=True)
     subprocess.run(common + [str(ROOT / 'test-lifecycle.c'), '-o', str(out / 'lifecycle.exe'),
                    '-lruntimeobject', '-lole32', '-luser32', '-luuid'], check=True)
+    subprocess.run(common + ['-shared', '-fno-exceptions', '-fno-rtti', str(ROOT / 'corewindow-swapchain.cpp'),
+                   '-o', str(out / 'fh4-corewindow-swapchain.dll'),
+                   '-Wl,--out-implib,'+str(out/'corewindow-swapchain.lib'), '-ldxguid', '-luuid'], check=True)
+    subprocess.run(common + ['-shared', '-fno-exceptions', '-fno-rtti', str(ROOT / 'gpu-probe.cpp'), '-o', str(out / 'gpu-probe.dll'),
+                   str(out/'corewindow-swapchain.lib'), '-ld3d12', '-ldxgi', '-ldxguid', '-luuid'], check=True)
     (out / 'AppxManifest.xml').write_text('''<?xml version="1.0" encoding="UTF-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10">
   <Identity Name="Local.UwpLifecycleProbe" Version="1.0.0.0"/>
@@ -42,7 +47,9 @@ def main():
 ''', encoding='utf-8')
     hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
               [*[ROOT / s for s in SOURCES], ROOT / 'private.h', ROOT / 'wine/debug.h',
-               ROOT / 'test-lifecycle.c', out / 'fh4-uwp-runtime.dll', out / 'lifecycle.exe']}
+               ROOT / 'test-lifecycle.c', ROOT / 'gpu-probe.cpp', ROOT / 'corewindow-swapchain.cpp',
+               out / 'fh4-uwp-runtime.dll', out / 'lifecycle.exe', out / 'gpu-probe.dll',
+               out / 'fh4-corewindow-swapchain.dll']}
     (out / 'build.json').write_text(json.dumps({'files': hashes, 'gameplayVerified': False}, indent=2)+'\n')
     print(out)
 

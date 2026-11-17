@@ -70,6 +70,49 @@ real RoGetActivationFactory routing and launch-argument ABI. Details are in
 
 ## Remaining work before a game trial
 
+### Real GPU CoreWindow adapter, November 16
+
+The next missing API is now directly reproduced and partially addressed. Using
+the same test executable, actual Highball/D3DMetal device and queue, and hidden
+CoreWindow, the unadapted `IDXGIFactory2::CreateSwapChainForCoreWindow` returns
+`0x80004001` (`E_NOTIMPL`). D3DMetal's own log reports that method as unsupported.
+
+`corewindow-swapchain.cpp` provides an experimental factory/swap-chain wrapper.
+It retrieves the actual HWND through ICoreWindowInterop and uses D3DMetal's
+existing HWND swap chain. The wrapper retains the original CoreWindow and its
+factory, returns that window through GetCoreWindow, preserves COM identity and
+forwards GPU methods. Newer DXGI interfaces are advertised only when supported
+by the underlying renderer. Foreground-layer composition and exclusive fullscreen
+are not claimed as supported by this route.
+
+Through the wrapped factory's **standard** CreateSwapChainForCoreWindow method,
+the same probe successfully creates a swap chain, checks its dimensions/window/
+parent identity, clears an actual GPU back buffer, waits for a fence and reads
+back all 4,096 pixels (RGBA8, one quantization-step tolerance). Present returns
+S_OK and ResizeBuffers successfully changes 64×64 to 128×96. This verifies
+GPU work and submission, **not visible display or FH4 gameplay**. The window
+remains hidden. See `validation-gpu-2026-11-16.json` for the paired receipts.
+
+The combined test also succeeds using Wine's automatic `lifecycle.exe.manifest`
+loading, with no explicit CreateActCtx call or registry changes. This supplies
+a tested startup routing mechanism for an executable without an embedded
+manifest; integration with the owned game still needs separate verification.
+
+Reproduce the failing native control and then the adapted case with one build:
+
+```sh
+python3 run-test.py --gpu --auto-manifest --build /tmp/fh4-uwp-probe \
+  --engine /path/to/highball-engine --prefix /path/to/isolated/probe-prefix
+python3 run-test.py --gpu-bridge --auto-manifest --build /tmp/fh4-uwp-probe \
+  --engine /path/to/highball-engine --prefix /path/to/isolated/probe-prefix
+```
+
+The first command is expected to fail at the unimplemented native method.
+Each mode saves a separate log and result receipt. Only the test executable's
+temporary associated manifest is created, and it is removed afterward.
+
+### Still incomplete
+
 This remains a partial UWP implementation. CoreWindow input/window events,
 CoreDispatcher async actions, splash-screen behavior, application suspension,
 multi-view APIs, complete inspectable metadata and UWP package/activation
@@ -77,9 +120,11 @@ integration are not implemented. Unimplemented event subscriptions explicitly
 fail instead of returning an uninitialized success token. Local-launch arguments
 are only the empty-argument case; other activation kinds are unsupported.
 
-No GPU swap chain or frame presentation has been tested with this CoreWindow.
-Wine's baseline DXGI CreateSwapChainForCoreWindow is also a stub; D3DMetal's
-behavior must be tested separately. The game may encounter additional APIs.
+The factory wrapper is currently invoked by the probe. It has not been connected
+to the game's imported CreateDXGIFactory1/2 functions, and factory identities
+obtained through adapter GetParent are not wrapped yet. Window input, DPI,
+resize events, longer GPU operation and visible presentation need verification.
+The game may encounter additional APIs.
 MACxus's MSIXVC-oriented launch gate still needs a legitimate EAppx/UWP route.
 The tests do **not** establish entitlement, Xbox authentication, cloud-save
 access, menu entry, driving, multiplayer or performance. No game deployment

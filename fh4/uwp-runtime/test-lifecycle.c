@@ -13,6 +13,9 @@ static ICoreDispatcher *retained_dispatcher;
 static HWND last_window;
 static unsigned fail_stage, stage, uninitializes;
 static LONG refs = 1;
+static BOOL run_gpu;
+static BOOL gpu_bridge;
+static HRESULT gpu_result=E_PENDING;
 static HRESULT stage_result(void) { return ++stage == fail_stage ? E_ABORT : S_OK; }
 static LONG handler_refs=1;
 static unsigned activations;
@@ -98,6 +101,15 @@ static HRESULT WINAPI view_window(IFrameworkView *p,ICoreWindow *w)
     OK(ICoreWindow_QueryInterface(w,&IID_IUnknown,(void**)&u2)); CHECK(u1==u2);
     IUnknown_Release(u1); IUnknown_Release(u2);
     CHECK(!IsWindowVisible(last_window));
+    if (run_gpu && !fail_stage && gpu_result==E_PENDING)
+    {
+        HMODULE dll=LoadLibraryW(L"gpu-probe.dll");
+        HRESULT (WINAPI *probe)(IUnknown*,BOOL)=dll ? (void*)GetProcAddress(dll,"RunGpuProbe") : NULL;
+        CHECK(probe);
+        gpu_result=probe((IUnknown*)w,gpu_bridge);
+        printf("GPU_COREWINDOW_RESULT=%08lx\n",(unsigned long)gpu_result);
+        FreeLibrary(dll);
+    }
     interop->lpVtbl->Release(interop);
     OK(ICoreWindow_get_Dispatcher(w,&d)); CHECK(d);
     OK(ICoreDispatcher_get_HasThreadAccess(d,&access)); CHECK(access);
@@ -147,15 +159,26 @@ static const IFrameworkViewSourceVtbl source_vtbl={source_qi,source_add,source_r
     source_name,source_trust,source_create};
 static IFrameworkViewSource source={&source_vtbl};
 
-int main(void)
+int main(int argc,char **argv)
 {
     HMODULE dll; HSTRING name; IActivationFactory *factory=NULL; ICoreWindow *w=NULL;
     HRESULT (WINAPI *get_factory)(HSTRING,IActivationFactory**);
-    ACTCTXW ctx={sizeof(ctx)}; HANDLE context; ULONG_PTR cookie;
+    ACTCTXW ctx={sizeof(ctx)}; HANDLE context=INVALID_HANDLE_VALUE; ULONG_PTR cookie=0;
+    BOOL automatic=FALSE;
+    for(int i=1;i<argc;i++)
+    {
+        if(!strcmp(argv[i],"--gpu"))run_gpu=TRUE;
+        else if(!strcmp(argv[i],"--gpu-bridge"))run_gpu=gpu_bridge=TRUE;
+        else if(!strcmp(argv[i],"--auto-manifest"))automatic=TRUE;
+        else CHECK(FALSE);
+    }
     OK(RoInitialize(RO_INIT_SINGLETHREADED));
-    ctx.lpSource=L"runtime.manifest";
-    context=CreateActCtxW(&ctx); CHECK(context!=INVALID_HANDLE_VALUE);
-    CHECK(ActivateActCtx(context,&cookie));
+    if(!automatic)
+    {
+        ctx.lpSource=L"runtime.manifest";
+        context=CreateActCtxW(&ctx); CHECK(context!=INVALID_HANDLE_VALUE);
+        CHECK(ActivateActCtx(context,&cookie));
+    }
     dll=LoadLibraryW(L"fh4-uwp-runtime.dll"); CHECK(dll);
     get_factory=(void*)GetProcAddress(dll,"DllGetActivationFactory"); CHECK(get_factory);
     OK(WindowsCreateString(L"Windows.ApplicationModel.Core.CoreApplication",45,&name));
@@ -200,6 +223,8 @@ int main(void)
     }
     ICoreWindowStatic_Release(windows); ICoreApplication_Release(app);
     /* Window classes keep module procedures registered until process exit. */
-    CHECK(DeactivateActCtx(0,cookie)); ReleaseActCtx(context);
-    RoUninitialize(); puts("LIFECYCLE_PASS gameplayVerified=false activationEventSubsetVerified=true activationRoutingVerified=true"); return 0;
+    if(!automatic) { CHECK(DeactivateActCtx(0,cookie)); ReleaseActCtx(context); }
+    else puts("AUTOMATIC_MANIFEST_ROUTING_PASS no_registry_changes=true");
+    RoUninitialize(); puts("LIFECYCLE_PASS gameplayVerified=false activationEventSubsetVerified=true activationRoutingVerified=true");
+    return run_gpu && FAILED(gpu_result) ? 3 : 0;
 }

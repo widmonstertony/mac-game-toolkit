@@ -9,7 +9,14 @@ Highball lifecycle/activation contract cases, including real WinRT factory
 routing through a process-local activation context. This resolves part of the
 observed interface gap in a probe; **it is not installed into the game and does
 not establish FH4 playability or cloud-save access**. Window events, async
-dispatch, graphics interop and the package launch route remain incomplete.
+dispatch and the package launch route remain incomplete.
+
+A paired real-GPU probe now identifies D3DMetal's missing CoreWindow swap-chain
+method (`E_NOTIMPL`). The experimental FH4 wrapper successfully bridges that
+window to the existing HWND renderer, with verified GPU pixel readback,
+Present submission, resizing and retained UWP window/factory identities.
+Automatic startup-manifest loading also passed. Game-local factory installation
+and actual FH4 execution are still pending; this is not a gameplay result.
 
 ## Extraction completed, November 16
 
