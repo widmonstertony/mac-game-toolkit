@@ -63,6 +63,10 @@ Live samples of the BE wrapper show a process wait; the game sample shows active
 exception/memory-protection work during startup rather than a rendered game.
 One 60-second critical-section timeout was recorded in the run and has not yet
 been causally tied to the game-start delay. Do not call it a repaired deadlock.
+By the following process check, the game and BE-wrapper processes were gone;
+Ubisoft background activity remained. No game menu was verified. The exit cause
+has not been established, and the BE handoff alone is not evidence that BattlEye
+caused the exit. Computer Use still timed out when binding the live Wine window.
 
 These are startup compatibility repairs, not a claim that Motorfest is playable.
 Ubisoft's full handoff, the original BattlEye client's authenticated session,
