@@ -111,7 +111,46 @@ The first command is expected to fail at the unimplemented native method.
 Each mode saves a separate log and result receipt. Only the test executable's
 temporary associated manifest is created, and it is removed afterward.
 
-### Still incomplete
+### Normal DXGI import entry and renderer initialization
+
+`dxgi-entry.cpp`/`.def` now provide an app-local DXGI entry with the original
+renderer loaded **unchanged** from `FH4_UWP_REAL_DXGI`. The owned FH4 executable
+imports CreateDXGIFactory1 and CreateDXGIFactory2; both imports, and the legacy
+CreateDXGIFactory export, passed through this entry in the real-GPU probe.
+The probe no longer explicitly wraps its factory in this mode. The import
+entry provides the wrapper, and the normal CoreWindow swap-chain call works.
+
+An initialization-order failure was found during this integration. Loading the
+proxy without first initializing the original DXGI module caused an execute
+page fault during initial device setup. CoreApplication.Run now initializes the
+original renderer outside DllMain and before invoking the app's framework
+callbacks. It retains a single successful entry-module reference for process
+lifetime rather than incrementing it on every Run. A negative control using the
+same probe and DXGI DLLs with the prior UWP runtime reproduced the execute fault;
+the corrected runtime passed all lifecycle and GPU checks. Wine's failing
+backtrace contains only the invalid execute address, so this identifies the
+tested ordering dependency, not a fully symbolized internal Apple call chain.
+
+`validation-entry-2026-11-16.json` records artifact hashes, the negative control,
+the imported-entry result and one-time initialization. Reproduce with:
+
+```sh
+python3 run-test.py --gpu-entry --auto-manifest --build /tmp/fh4-uwp-probe \
+  --engine /path/to/highball-engine --prefix /path/to/isolated/probe-prefix
+```
+
+The runner temporarily supplies `dxgi.dll` **only beside the test executable**.
+The real renderer path must be absolute; self-loading is rejected to avoid
+recursion. The two private import thunks for D3D10 are forwarded but have not
+been validated for D3D11 applications; this experiment targets FH4's DX12 route.
+
+`stage-profile.py` verifies these positive test receipts and the actual FH4 Store
+manifest before preparing three DLLs and an associated executable manifest in a
+separate candidate directory. It refuses to stage inside the game, records
+existing target hashes, and does not install, launch, register or change saves.
+The candidate remains inactive and explicitly lists the unfinished work.
+
+### Remaining game-integration gaps
 
 This remains a partial UWP implementation. CoreWindow input/window events,
 CoreDispatcher async actions, splash-screen behavior, application suspension,
@@ -120,9 +159,9 @@ integration are not implemented. Unimplemented event subscriptions explicitly
 fail instead of returning an uninitialized success token. Local-launch arguments
 are only the empty-argument case; other activation kinds are unsupported.
 
-The factory wrapper is currently invoked by the probe. It has not been connected
-to the game's imported CreateDXGIFactory1/2 functions, and factory identities
-obtained through adapter GetParent are not wrapped yet. Window input, DPI,
+Normal CreateDXGIFactory1/2 imports now reach the wrapper in the probe, but the
+entry has not been installed into FH4. Factory identities obtained through
+adapter GetParent are not wrapped yet. Window input, DPI,
 resize events, longer GPU operation and visible presentation need verification.
 The game may encounter additional APIs.
 MACxus's MSIXVC-oriented launch gate still needs a legitimate EAppx/UWP route.

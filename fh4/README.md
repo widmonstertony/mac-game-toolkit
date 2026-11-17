@@ -18,6 +18,12 @@ Present submission, resizing and retained UWP window/factory identities.
 Automatic startup-manifest loading also passed. Game-local factory installation
 and actual FH4 execution are still pending; this is not a gameplay result.
 
+The next probe now also validates normal CreateDXGIFactory1/2 imports through a
+FH4-local DXGI entry, without an explicit test-side factory wrapper. Initializing
+the unchanged original DXGI module before app callbacks resolves a reproducible
+device-setup fault in that probe. A separate inactive candidate has been staged;
+no files have been installed into Content and actual FH4 execution is unverified.
+
 ## Extraction completed, November 16
 
 The owned Store payload has now been unpacked into

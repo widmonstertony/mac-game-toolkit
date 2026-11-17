@@ -31,6 +31,15 @@ extern "C" __declspec(dllexport) HRESULT WINAPI RunGpuProbe(IUnknown *window,BOO
     D3D12_COMMAND_QUEUE_DESC q{};
     HR(device->CreateCommandQueue(&q,__uuidof(ID3D12CommandQueue),queue.out()));
     HR(CreateDXGIFactory1(__uuidof(IDXGIFactory2),factory.out()));
+    {
+        Ptr<IDXGIFactory> legacy;
+        Ptr<IDXGIFactory2> version2,from_legacy;
+        HR(CreateDXGIFactory(__uuidof(IDXGIFactory),legacy.out()));
+        HR(legacy->QueryInterface(__uuidof(IDXGIFactory2),from_legacy.out()));
+        HR(CreateDXGIFactory2(0,__uuidof(IDXGIFactory2),version2.out()));
+        factory.p->Release();factory.p=version2.p;version2.p=nullptr;
+        std::puts("GPU_FACTORY_EXPORTS_PASS versions=0,1,2");
+    }
     if(bridge) {
         IDXGIFactory2 *wrapped=nullptr;
         HR(FH4WrapDxgiFactory(factory.p,__uuidof(IDXGIFactory2),(void**)&wrapped));

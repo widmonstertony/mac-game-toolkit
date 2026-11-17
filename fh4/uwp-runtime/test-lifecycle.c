@@ -16,6 +16,18 @@ static LONG refs = 1;
 static BOOL run_gpu;
 static BOOL gpu_bridge;
 static HRESULT gpu_result=E_PENDING;
+static LONG WINAPI report_exception(EXCEPTION_POINTERS *p)
+{
+    HMODULE module=NULL; char path[1024]; ULONG_PTR ret=0; SIZE_T read=0;
+    fprintf(stderr,"PROBE_EXCEPTION code=%08lx ip=%p\n",p->ExceptionRecord->ExceptionCode,p->ExceptionRecord->ExceptionAddress);
+    if(ReadProcessMemory(GetCurrentProcess(),(void*)p->ContextRecord->Rsp,&ret,sizeof(ret),&read) && read==sizeof(ret))
+    {
+        if(GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            (LPCSTR)ret,&module) && GetModuleFileNameA(module,path,sizeof(path)))
+            fprintf(stderr,"PROBE_EXCEPTION return_module=%s offset=%llx\n",path,(unsigned long long)(ret-(ULONG_PTR)module));
+    }
+    fflush(stderr); ExitProcess(80); return EXCEPTION_EXECUTE_HANDLER;
+}
 static HRESULT stage_result(void) { return ++stage == fail_stage ? E_ABORT : S_OK; }
 static LONG handler_refs=1;
 static unsigned activations;
@@ -165,6 +177,7 @@ int main(int argc,char **argv)
     HRESULT (WINAPI *get_factory)(HSTRING,IActivationFactory**);
     ACTCTXW ctx={sizeof(ctx)}; HANDLE context=INVALID_HANDLE_VALUE; ULONG_PTR cookie=0;
     BOOL automatic=FALSE;
+    SetUnhandledExceptionFilter(report_exception);
     for(int i=1;i<argc;i++)
     {
         if(!strcmp(argv[i],"--gpu"))run_gpu=TRUE;

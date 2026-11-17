@@ -300,6 +300,27 @@ static HRESULT WINAPI coreapp_impl_GetCurrentView( ICoreApplication *iface, ICor
 }
 
 DWORD corewindow_tls = TLS_OUT_OF_INDEXES;
+static HRESULT prepare_graphics_renderer(void)
+{
+    static HMODULE initialized_renderer_entry;
+    HMODULE dxgi;
+    HRESULT (WINAPI *initialize)(void);
+    HRESULT hr;
+    /* D3DMetal requires its original DXGI initialization before device creation.
+     * Do this outside DllMain, before invoking the app's framework callbacks.
+     * The explicit setting is only present in the isolated UWP graphics profile. */
+    if (initialized_renderer_entry) return S_OK;
+    if (!GetEnvironmentVariableW(L"FH4_UWP_REAL_DXGI",NULL,0)) return S_OK;
+    dxgi=LoadLibraryW(L"dxgi.dll");
+    if (!dxgi) return HRESULT_FROM_WIN32(GetLastError());
+    initialize=(void*)GetProcAddress(dxgi,"FH4InitializeRenderer");
+    hr=initialize ? initialize() : HRESULT_FROM_WIN32(ERROR_PROC_NOT_FOUND);
+    /* Keep a successfully initialized module resident: app objects may outlive Run. */
+    if (FAILED(hr)) FreeLibrary(dxgi);
+    else initialized_renderer_entry=dxgi;
+    return hr;
+}
+
 static HRESULT WINAPI coreapp_impl_Run(ICoreApplication *iface, IFrameworkViewSource *source)
 {
     struct coreapp_impl *impl = impl_from_ICoreApplication(iface);
@@ -312,6 +333,8 @@ static HRESULT WINAPI coreapp_impl_Run(ICoreApplication *iface, IFrameworkViewSo
     impl->owner_thread=GetCurrentThreadId();
     if (!read_app_manifest(&impl->manifest))
     { hr = APPX_E_INVALID_MANIFEST; goto done; }
+    hr=prepare_graphics_renderer();
+    if (FAILED(hr)) goto done;
     corewindow_tls = TlsAlloc();
     if (corewindow_tls == TLS_OUT_OF_INDEXES) { hr = E_OUTOFMEMORY; goto done; }
     hr = IFrameworkViewSource_CreateView(source,&view);
