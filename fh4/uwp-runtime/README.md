@@ -53,6 +53,46 @@ and [DirectX app model](https://learn.microsoft.com/en-us/windows/uwp/gaming/abo
 
 ## Reproduction and verified scope
 
+### Owned package class registration, November 17
+
+The earlier staged process manifest registered only CoreApplication/CoreWindow.
+It omitted all **34 classes across four DLLs** declared by the owned FH4
+AppxManifest. `package_classes.py` now translates those original in-process
+registrations into the process activation context, retaining class names and
+threading models and recording original DLL hashes. It rejects missing DLLs,
+path escapes, duplicate/overriding classes and unsupported threading models.
+No Microsoft DLL is replaced, no license is manufactured, and no global WinRT
+registry is modified. The original declarations follow Microsoft's
+[InProcessServer contract](https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/appxmanifestschema/element-inprocessserver).
+
+The original owned DLLs were actually loaded in the isolated Wine prefix using
+`package-class-probe.c`. With the old manifest, all 34 queries returned
+`REGDB_E_CLASSNOTREG` (`80040154`). With the merged manifest, **32 factories
+succeed**, including all 31 Xbox Services classes and Fanatec's factory. The
+remaining two fail with `E_NOTIMPL`, with a concrete native trace:
+
+- `GameControllerInfo.GameControllerInfo` calls
+  `RegisterCustomFactoryForHardwareId(1103, 46675)`.
+- `Microsoft.Xbox.Input.AdvancedGipWheel` calls
+  `RegisterCustomFactoryForGipInterface(f546656f-e106-4c82-a90f-554012904b85)`.
+
+Both functions are unimplemented in the private Highball engine's
+`windows.gaming.input/manager.c`; the inspected Wine upstream source also
+returns `E_NOTIMPL`. Returning empty success is not a repair: provider matching,
+controller creation and callbacks still need an implementation. The runner
+correctly exits nonzero while either owned factory fails. This is not proof
+of the game's exact startup call order, Xbox sign-in, cloud saves or gameplay.
+No factory instances were activated by the probe.
+
+For reproduction, compile `package-class-probe.c` with the same llvm-mingw
+compiler using `-municode -lruntimeobject -lole32 -luuid`, prepare a candidate
+with `stage-profile.py`, then run `run-package-classes.py --help`. Its temporary
+layout uses links to the four hash-verified owned DLLs beside the staged
+manifest, matching eventual app-local deployment. An initial test without
+those links found the class entries but returned module-not-found; this was a
+probe layout error, not evidence of missing original DLLs. Results and negative
+control hashes are in `validation-package-classes-2026-11-17.json`.
+
 On November 17, the window-state adapter was corrected: hidden windows no longer
 report `Visible=true`, and successful first mouse capture no longer reports a
 failure. Win32 [SetCapture returns the previous owner](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setcapture),

@@ -1,5 +1,17 @@
 # Forza Horizon 4: owned Microsoft Store package
 
+## Original Xbox class registrations, November 17
+
+The isolated startup manifest now preserves the owned package's four WinRT
+servers and 34 classes. Actual original-DLL factory queries improve from
+34 class-not-registered errors to 32 successful factories, including all 31
+Xbox Services classes. Two controller factories still reject startup because
+Highball's hardware-ID and GIP custom-factory registration methods return
+`E_NOTIMPL`. The exact calls are recorded in
+[the UWP runtime report](uwp-runtime/README.md#owned-package-class-registration-november-17).
+The candidate remains inactive; factory lookup is not Xbox authentication or
+gameplay validation. FH4 files and account/cloud-save data remain untouched.
+
 ## Process package context candidate, November 17
 
 The [private package runtime](package-runtime/README.md) now implements the

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 import xml.etree.ElementTree as ET
+from package_classes import merge_package_classes
 
 
 def sha(p):
@@ -48,12 +49,12 @@ def main():
             raise SystemExit('Artifact differs from tested build: '+name)
     renderer=a.engine.resolve()/'renderers/d3dmetal/wine/x86_64-windows/dxgi.dll'
     if not renderer.is_file(): raise SystemExit('Original D3DMetal DXGI is missing')
+    activation=(build/'runtime.manifest').read_text().replace(
+        'name="Local.UwpLifecycleProbe"','name="Local.FH4StoreCompatibility"')
+    activation, package_classes = merge_package_classes(activation,raw,game)
     out.mkdir(parents=True,exist_ok=False)
     files=out/'files';files.mkdir()
     for source,name,_ in artifacts: shutil.copy2(build/source,files/name)
-    activation=(build/'runtime.manifest').read_text().replace(
-        'name="Local.UwpLifecycleProbe"','name="Local.FH4StoreCompatibility"')
-    ET.fromstring(activation)
     (files/'ForzaHorizon4.exe.manifest').write_text(activation)
     plan=[]
     for item in files.iterdir():
@@ -64,6 +65,7 @@ def main():
               package=dict(name=identity.get('Name'),version=identity.get('Version'),
                            applicationId=app.get('Id'),entryPoint=app.get('EntryPoint')),
               gameDirectory=str(game),packageManifestSha256=sha(manifest),files=plan,
+              packageClassServers=package_classes,
               environmentDelta={'FH4_UWP_REAL_DXGI':'Z:'+str(renderer).replace('/','\\')},
               requiredDllOverride='dxgi=n,b (merge with the FH4-only profile, do not replace unrelated overrides)',
               rendererSha256=sha(renderer),testedEntryResultSha256=sha(build/'result-gpu-entry-auto.json'),
