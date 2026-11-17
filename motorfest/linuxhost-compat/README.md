@@ -335,3 +335,34 @@ python3 run-affinity-test.py --build /tmp/motorfest-libc-test \
 the final build, explicit disabled/invalid/enabled cases, and the full preceding
 regression set. No game or client code ran and no production engine changed.
 Reference: [Microsoft GetThreadGroupAffinity contract](https://learn.microsoft.com/en-us/windows/win32/api/processtopologyapi/nf-processtopologyapi-getthreadgroupaffinity).
+
+
+## Native-shell capability check, November 16
+
+The user can perform the eventual native Steam launch manually; unavailable
+computer-control tools are not a reason to stop runtime work. The current
+candidate still cannot be presented as a game-ready repair.
+
+`native-shell-probe.c` checks one proposed implementation path for the remaining
+`system` export: CreateProcessW on `Z:\\bin\\sh` with the fixed command `exit 7`,
+CREATE_NO_WINDOW, and waiting for its exit status. The signed candidate engine
+returns creation success **with null process and thread handles**.
+WaitForSingleObject consequently returns WAIT_FAILED / ERROR_INVALID_HANDLE (6).
+No game, anti-cheat client or caller-supplied command is run. No existing process
+is terminated. The second probe distinguishes this from an actual ten-second
+child timeout. See [validation-native-shell-2026-11-16.json](validation-native-shell-2026-11-16.json).
+
+This matches current upstream Wine's
+[native Unix process path](https://github.com/wine-mirror/wine/blob/master/dlls/ntdll/unix/process.c):
+a successful fork_and_exec for a non-PE image returns null Windows process/thread
+handles. It does **not** establish that the shell failed to execute, nor that
+this exact issue caused the production Motorfest stall. It establishes that
+CreateProcess plus a Windows wait is insufficient for a synchronous Linux
+`system` implementation. A real native completion/status bridge or the complete
+Linux process route is required; returning a made-up zero status is not a fix.
+macOS shell namespace and Linux signal handling are separate unresolved contracts.
+
+The last production Ubisoft log still contains successful play-session renewals;
+no Motorfest/Ubisoft/BattlEye process was present at this inspection. That does
+not certify successful protected gameplay. No login reset, game launch, runtime
+swap, audio/network setting, or other game's configuration was performed here.

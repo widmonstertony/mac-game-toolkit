@@ -1,0 +1,10 @@
+{
+  "exitCode": 11,
+  "sourceSha256": "f69e7c0f394126594741f6372f43e9463e627b084562133746508c8cec2c34d4",
+  "exeSha256": "462b6966ce95a30f715c0b10ce77db38dd2c326da4375d25f4da46fde01c2e2f",
+  "engineWineSha256": "0dbb26ba02c96f86ade916b0f76d6d10ba3fb9feadd50a97ac33cacb196f66d8",
+  "logSha256": "0c0a78f2d1be70e0b48ca2bea8d44cf0ce2853b8ef35cfce7c99d5ebaa80e7eb",
+  "log": "NATIVE_SHELL_CREATED process_handle=null thread_handle=null\nNATIVE_SHELL_WAIT_FAILED wait=4294967295 winerror=6\n",
+  "gameStarted": false,
+  "linuxSystemSemanticsVerified": false
+}
