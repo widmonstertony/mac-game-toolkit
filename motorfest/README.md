@@ -1,5 +1,23 @@
 # The Crew Motorfest: compatibility work, gameplay not verified
 
+## Current checkpoint, November 17 11:48
+
+Motorfest now reaches an in-game activity scene according to the user's screenshot.
+The Factory7 null dereference is repaired, and two independently reproduced shader
+compiler defects are fixed in a private library: device/constant pointer selection
+and descriptor set 16 colliding with Metal buffer 1. Real GPU readbacks and robust
+access checks pass. See [Factory7](dxgi-factory7/README.md) and
+[shader repairs](moltenvk-address-space/README.md). The prior process then suffered
+a GPU timeout on a loading screen; the new combined library is installed and being
+verified in a native Steam run. This is not yet a complete gameplay success.
+
+A separate 32-bit FEX critical-section contention probe reproduced a roughly
+five-second stall with owner zero and semaphore one. Both msync modes can exhibit
+it; neither mode is installed as a fix. The log text “retrying (60 sec)” describes
+the next retry interval after the initial five-second timeout, not proof of an
+already elapsed 60-second hold. Lost wake causality still needs investigation.
+
+
 ## Native Steam startup repairs, November 17
 
 The installed candidate has now been launched through native Steam. Three

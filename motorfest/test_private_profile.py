@@ -18,6 +18,22 @@ class ScopeTests(unittest.TestCase):
         command,env=runner.launch_plan(self.profile,args,self.env)
         self.assertEqual(command[2:],args[1:]);self.assertEqual(env['AUDIO_SETTING'],'keep')
         self.assertEqual(env['WINEPREFIX'],str(Path(self.profile['data']).resolve()/'pfx'));self.assertNotIn('CX_ROOT',env)
+    def test_factory7_loading_is_opt_in_and_preserves_other_renderers(self):
+        _,default=runner.launch_plan(self.profile,['run','game.exe'],self.env)
+        self.assertIn('d3d11,d3d12,d3d12core,dxgi=b',default['WINEDLLOVERRIDES'])
+        _,fixed=runner.launch_plan(dict(self.profile,factory7DxgiNative=True),['run','game.exe'],self.env)
+        self.assertIn('d3d11,d3d12,d3d12core=b;dxgi=n,b',fixed['WINEDLLOVERRIDES'])
+        self.assertEqual(fixed['GRAPHICS_BACKEND'],default['GRAPHICS_BACKEND'])
+        self.assertEqual(fixed['WINEDLLPATH'],default['WINEDLLPATH'])
+    def test_private_icd_scope(self):
+        data=Path(self.profile['data']); private=data/'.motorfest-private-20261117'
+        private.mkdir(parents=True); icd=private/'MoltenVK_icd.json'; icd.write_text('{}')
+        profile=dict(self.profile,moltenvkAddressSpaceIcd=str(icd))
+        _,env=runner.launch_plan(profile,['run','game.exe'],self.env)
+        self.assertEqual(env['VK_DRIVER_FILES'],str(icd.resolve()))
+        self.assertEqual(env['VK_ICD_FILENAMES'],str(icd.resolve()))
+        with self.assertRaises(ValueError):
+            runner.launch_plan(dict(profile,moltenvkAddressSpaceIcd='/tmp/foreign.json'),['run','game.exe'],self.env)
     def test_foreign_games_rejected(self):
         for app in ('1222680','1846380','1551360',''):
             with self.subTest(app=app),self.assertRaises(ValueError):

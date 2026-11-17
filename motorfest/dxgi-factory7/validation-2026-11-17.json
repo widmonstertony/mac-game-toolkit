@@ -1,0 +1,14 @@
+{
+  "sourceCommit": "39d1e4a40121ddfe4f9fc3793bfc336f4491d5b5",
+  "dllSha256": "646ce30305523716083e7e4cac6c1590ae763fc6f1e7ea2ca89622b6d565d5bc",
+  "engineDxgiSha256": "7c31b508d9a1dbe09fb7f50c5e1da233ea6cf76da67ccab24d736e711abcb2f1",
+  "baselineMissingInterface": true,
+  "gpuReadback": true,
+  "factory7IdentityEventsLifetime": true,
+  "gameplayVerified": false,
+  "battlEyeHandshakeVerified": false,
+  "hotplugTested": false,
+  "previousFactory7Sha256": "617d9fca9f41cce403a1280bc5a8db2be377eaed4f0bd469cc578c237272dc8b",
+  "firstFaultRecordBytes": 2280,
+  "firstFaultContinuesToOriginalHandler": true
+}

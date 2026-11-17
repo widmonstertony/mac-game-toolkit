@@ -1,0 +1,23 @@
+diff --git a/src/dxgi/dxgi.cpp b/src/dxgi/dxgi.cpp
+index b61933c..a13c70e 100644
+--- a/src/dxgi/dxgi.cpp
++++ b/src/dxgi/dxgi.cpp
+@@ -114,14 +114,18 @@ static void InitializeMetalCachePath() {
+   }
+ }
+ 
++#include "motorfest-first-fault.inc"
++
+ extern "C" BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason,
+                                LPVOID reserved) {
++  if (reason == DLL_PROCESS_DETACH) mf_fault_shutdown();
+   if (reason != DLL_PROCESS_ATTACH)
+     return TRUE;
+ 
+   DisableThreadLibraryCalls(instance);
+ 
+   InitializeMetalCachePath();
++  mf_fault_init();
+   return TRUE;
+ }
+ 

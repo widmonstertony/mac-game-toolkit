@@ -1,0 +1,27 @@
+diff --git a/MoltenVK/MoltenVK/GPUObjects/MVKDevice.h b/MoltenVK/MoltenVK/GPUObjects/MVKDevice.h
+index 4de30f77..37a3bfed 100644
+--- a/MoltenVK/MoltenVK/GPUObjects/MVKDevice.h
++++ b/MoltenVK/MoltenVK/GPUObjects/MVKDevice.h
+@@ -111,7 +111,7 @@ static constexpr uint32_t   kMVKMaxViewportScissorCount = 16;
+ static constexpr uint32_t   kMVKMaxTextureCount = 128; // Maximum value across all GPUs in Metal feature set tables
+ static constexpr uint32_t   kMVKMaxBufferCount = 31;
+ static constexpr uint32_t   kMVKRayTracingImplicitBufferCount = 12;	// Includes the 64-bit atomic lock and depth bounds buffers
+-static constexpr uint32_t   kMVKDescriptorSetStorageCount = std::numeric_limits<uint16_t>::digits;
++static constexpr uint32_t   kMVKDescriptorSetStorageCount = std::numeric_limits<uint32_t>::digits;
+ static constexpr uint32_t   kMVKMaxDescriptorSetCount = std::min(kMVKDescriptorSetStorageCount,
+ 													 kMVKMaxBufferCount - kMVKRayTracingImplicitBufferCount);
+ static constexpr uint32_t   kMVKInlineDescriptorSetCount = 8;
+diff --git a/MoltenVK/MoltenVK/Utility/MVKStateTracking.h b/MoltenVK/MoltenVK/Utility/MVKStateTracking.h
+index b62de1ed..9c0ecc8d 100644
+--- a/MoltenVK/MoltenVK/Utility/MVKStateTracking.h
++++ b/MoltenVK/MoltenVK/Utility/MVKStateTracking.h
+@@ -227,7 +227,8 @@ union MVKStageResourceBits {
+ 		MVKStaticBitSet<kMVKMaxSamplerCount> samplers;
+ 		MVKStaticBitSet<kMVKMaxDescriptorSetCount> descriptorSetData;
+ 	};
+-	MVKStaticBitSet<192> allBits;
++	// Wider descriptor-set tracking needs four machine words, including struct padding.
++	MVKStaticBitSet<256> allBits;
+ 	constexpr MVKStageResourceBits(): allBits{} {}
+ 	// Note: Reset is done with a large memset over multiple StageResourceBits
+ };

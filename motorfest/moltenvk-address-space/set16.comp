@@ -1,0 +1,6 @@
+#version 450
+layout(local_size_x=1) in;
+layout(set=1,binding=0,std430) buffer Out { uint data[]; } dst;
+layout(set=16,binding=0,std140) uniform HighSet { uint value; } src;
+layout(push_constant) uniform Push { uint value; } pc;
+void main(){dst.data[0]=src.value;dst.data[1]=pc.value;}

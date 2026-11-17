@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Motorfest-only native Steam entry. Invoked by Steam, never a second Steam client."""
-import fcntl, json, os, sys, subprocess
+import fcntl, json, os, sys, subprocess, time
 from pathlib import Path
 
 APP_ID='2698940'
@@ -39,6 +39,27 @@ def launch_plan(profile, arguments, original):
         # Otherwise Steam refuses the real launch with AppError_16.
         env.pop('SteamAppId',None)
         env.pop('SteamGameId',None)
+    if profile.get('factory7DxgiNative'):
+        env['WINEDLLOVERRIDES']=env['WINEDLLOVERRIDES'].replace(
+            'd3d11,d3d12,d3d12core,dxgi=b','d3d11,d3d12,d3d12core=b;dxgi=n,b')
+    if profile.get('moltenvkAddressSpaceIcd'):
+        icd=Path(profile['moltenvkAddressSpaceIcd']).resolve()
+        private=data/'.motorfest-private-20261117'
+        if not icd.is_relative_to(private) or not icd.is_file():
+            raise ValueError('Motorfest private ICD missing or out of scope')
+        env['VK_DRIVER_FILES']=str(icd)
+        env['VK_ICD_FILENAMES']=str(icd)
+    if profile.get('shaderDumpDirectory'):
+        dump=Path(profile['shaderDumpDirectory']).resolve()
+        if not dump.is_relative_to(data/'.motorfest-private-20261117'):
+            raise ValueError('Motorfest shader dump directory out of scope')
+        dump.mkdir(parents=True,exist_ok=True)
+        env['MVK_CONFIG_SHADER_DUMP_DIR']=str(dump)
+    if profile.get('firstFaultDiagnostics') and arguments[0]=='waitforexitandrun':
+        diag=data/'.motorfest-private-20261117/diagnostics'
+        diag.mkdir(parents=True,exist_ok=True)
+        fault=diag/('first-fault-'+str(time.time_ns())+'.bin')
+        env['MOTORFEST_FIRST_FAULT_PATH']='Z:'+str(fault).replace('/','\\')
     if profile.get('startupDiagnostics') and arguments[0]=='waitforexitandrun':
         env['WINEDEBUG']='-all,err+all,+seh,+loaddll'
     return [str(engine/'MacOS/wine'),str(entry/'steam/steam.exe'),*arguments[1:]],env

@@ -1,0 +1,6 @@
+#version 450
+layout(local_size_x=8) in;
+layout(set=0,binding=0,std430) readonly buffer In { vec4 rows[]; } src;
+layout(set=0,binding=1,std430) buffer Out { vec4 rows[]; } dst;
+layout(set=0,binding=2,std140) uniform Constants { vec4 rows[8]; } cb;
+void main() { uint i=gl_LocalInvocationID.x; dst.rows[i]=src.rows[i]; dst.rows[i+8]=cb.rows[i]; }

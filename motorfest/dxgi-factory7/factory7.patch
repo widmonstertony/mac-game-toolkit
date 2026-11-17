@@ -1,0 +1,56 @@
+diff --git a/src/dxgi/dxgi_factory.cpp b/src/dxgi/dxgi_factory.cpp
+index 739a4e1..30612d8 100644
+--- a/src/dxgi/dxgi_factory.cpp
++++ b/src/dxgi/dxgi_factory.cpp
+@@ -11,6 +11,7 @@
+ #include "mullion_format.hpp"
+ #include <unordered_map>
+ #include <unordered_set>
++#include "dxgi_adapter_notifications.hpp"
+ 
+ namespace mullion {
+ 
+@@ -125,7 +126,7 @@ public:
+   }
+ };
+ 
+-class MTLDXGIFactory : public MTLDXGIObject<IDXGIFactory6> {
++class MTLDXGIFactory : public MTLDXGIObject<IDXGIFactory7> {
+ 
+ public:
+   MTLDXGIFactory(UINT Flags, bool Extended) : flags_(Flags), extended_(Extended) {};
+@@ -142,7 +143,7 @@ public:
+         riid == __uuidof(IDXGIFactory) || (riid == __uuidof(IDXGIFactory1) && extended_) ||
+         riid == __uuidof(IDXGIFactory2) || riid == __uuidof(IDXGIFactory2) ||
+         riid == __uuidof(IDXGIFactory3) || riid == __uuidof(IDXGIFactory4) ||
+-        riid == __uuidof(IDXGIFactory5) || riid == __uuidof(IDXGIFactory6)) {
++        riid == __uuidof(IDXGIFactory5) || riid == __uuidof(IDXGIFactory6) || riid == __uuidof(IDXGIFactory7)) {
+       *ppvObject = ref(this);
+       return S_OK;
+     }
+@@ -386,7 +387,7 @@ public:
+     return S_OK;
+   }
+ 
+-  BOOL STDMETHODCALLTYPE IsCurrent() final { return TRUE; }
++  BOOL STDMETHODCALLTYPE IsCurrent() final { return adapters_.current(); }
+ 
+   HRESULT STDMETHODCALLTYPE RegisterOcclusionStatusWindow(
+       HWND WindowHandle, UINT wMsg, DWORD *pdwCookie) final {
+@@ -476,7 +477,16 @@ public:
+     return adapter->QueryInterface(riid, ppvAdapter);
+   };
+ 
++HRESULT STDMETHODCALLTYPE RegisterAdaptersChangedEvent(HANDLE event, DWORD *cookie) final {
++    return adapters_.add(event, cookie);
++  }
++
++  HRESULT STDMETHODCALLTYPE UnregisterAdaptersChangedEvent(DWORD cookie) final {
++    return adapters_.remove(cookie);
++  }
++
+ private:
++  AdapterNotifications adapters_;
+   UINT flags_;
+   bool extended_;
+ };

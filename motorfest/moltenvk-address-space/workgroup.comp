@@ -1,0 +1,10 @@
+#version 450
+layout(local_size_x=64) in;
+struct Item { float ao; vec3 normal; float depth; };
+shared Item cells[968];
+layout(set=0,binding=0,std430) buffer Out { float values[]; } dst;
+void main(){
+ for(uint i=gl_LocalInvocationID.x;i<968;i+=64){cells[i].ao=float(i);cells[i].normal=vec3(float(i+1),float(i+2),float(i+3));cells[i].depth=float(i+4);}
+ barrier();
+ for(uint i=gl_LocalInvocationID.x;i<968;i+=64){uint j=(i+17)%968;dst.values[i*5]=cells[j].ao;dst.values[i*5+1]=cells[j].normal.x;dst.values[i*5+2]=cells[j].normal.y;dst.values[i*5+3]=cells[j].normal.z;dst.values[i*5+4]=cells[j].depth;}
+}

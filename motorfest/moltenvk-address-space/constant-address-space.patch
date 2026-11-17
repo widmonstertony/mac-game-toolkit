@@ -1,0 +1,61 @@
+diff --git a/spirv_msl.cpp b/spirv_msl.cpp
+index 53dd2a05..9c2804c2 100644
+--- a/spirv_msl.cpp
++++ b/spirv_msl.cpp
+@@ -4245,6 +4245,27 @@ void CompilerMSL::mark_packable_structs()
+ 		if (type.basetype == SPIRType::Struct && type.pointer && type.storage == StorageClassPhysicalStorageBuffer)
+ 			mark_as_packable(type);
+ 	});
++
++	// Implicit-layout threadgroup structs need no host-visible vec3 alignment.
++	// Keep explicit/buffer layouts unchanged; only pack simple float members.
++	ir.for_each_typed_id<SPIRType>([&](uint32_t, SPIRType &type) {
++		if (type.basetype != SPIRType::Struct || type.parent_type || type.pointer ||
++		    !has_extended_decoration(type.self, SPIRVCrossDecorationWorkgroupStruct) ||
++		    has_extended_decoration(type.self, SPIRVCrossDecorationBufferBlockRepacked) ||
++		    has_decoration(type.self, DecorationBlock) || has_decoration(type.self, DecorationBufferBlock))
++			return;
++		for (uint32_t i = 0; i < type.member_types.size(); i++)
++		{
++			const auto &member = get<SPIRType>(type.member_types[i]);
++			if (has_member_decoration(type.self, i, DecorationOffset) || member.pointer ||
++			    !member.array.empty() || member.columns != 1 || member.basetype != SPIRType::Float ||
++			    member.width != 32 || (member.vecsize != 1 && member.vecsize != 3))
++				return;
++		}
++		for (uint32_t i = 0; i < type.member_types.size(); i++)
++			if (get<SPIRType>(type.member_types[i]).vecsize == 3)
++				set_extended_member_decoration(type.self, i, SPIRVCrossDecorationPhysicalTypePacked);
++	});
+ }
+ 
+ // If the specified type is a struct, it and any nested structs
+@@ -15181,7 +15202,13 @@ string CompilerMSL::robust_guarded_load(const string &expr, const SPIRType &type
+ 	               type.basetype == SPIRType::Half || type.basetype == SPIRType::Float || type.basetype == SPIRType::Double;
+ 	bool plain = type.array.empty() && type.columns == 1 && type.pointer_depth == 0 && numeric;
+ 	auto chain = robust_access_chains.find(ptr);
+-	if (ptr_type.storage != StorageClassUniform || !plain || expr.empty() || expr.back() != ']' ||
++	// SPIR-V 1.0 storage buffers also use Uniform storage (with BufferBlock).
++	// Select against a constant zero pointer only when the backing allocation
++	// really lives in the Metal constant address space. Device/unknown pointers
++	// retain the value-select bounds guard, including null and OOB reads.
++	auto *backing = maybe_get_backing_variable(ptr);
++	bool constant_memory = backing && get_variable_address_space(*backing) == "constant";
++	if (ptr_type.storage != StorageClassUniform || !constant_memory || !plain || expr.empty() || expr.back() != ']' ||
+ 	    chain == end(robust_access_chains) || !chain->second.ends_on_checked_element ||
+ 	    has_extended_decoration(ptr, SPIRVCrossDecorationPhysicalTypePacked) ||
+ 	    has_extended_decoration(ptr, SPIRVCrossDecorationPhysicalTypeID))
+diff --git a/spirv_msl.hpp b/spirv_msl.hpp
+index ce39d174..ad19d7ac 100644
+--- a/spirv_msl.hpp
++++ b/spirv_msl.hpp
+@@ -318,7 +318,8 @@ static const uint32_t kArgumentBufferBinding = ~(3u);
+ static const uint32_t kConservativeBaryLocation = 1000;
+ 
+ // Somewhat arbitrary. Can't be too large or it starts eating into builtin magic buffers, etc.
+-static const uint32_t kMaxArgumentBuffers = 16;
++// Descriptor-set masks are 32-bit; the consumer enforces the hardware slot budget.
++static const uint32_t kMaxArgumentBuffers = 32;
+ 
+ static const uint32_t kMaxXfbBuffers = 4;
+ 
