@@ -40,7 +40,7 @@ struct AppleCommandFg {
     HMODULE module{};AppleNgxParameters params;Create create{};Evaluate evaluate{};
     Release releaseFeature{},releaseParameters{};void *feature{};
     ID3D12Device *device{};ID3D12Resource *realOutput{};
-    UINT w{},h{},rw{},rh{};uint64_t lastFrame{};unsigned samples{};bool hasFrame{},failed{};
+    UINT w{},h{},rw{},rh{};uint64_t lastFrame{};unsigned samples{},readySamples{3};bool hasFrame{},failed{};
     unsigned status{};const char *reason="unused";
     // Calls must be serialized by the owner. Resources live until GPU completion.
     bool initialize(ID3D12Device *d,UINT width,UINT height,UINT renderWidth,UINT renderHeight){
@@ -118,7 +118,11 @@ struct AppleCommandFg {
         list->ResourceBarrier(2,barriers);status=evaluate(list,feature,params.raw,nullptr);
         if(status!=1){failed=true;reason="native evaluation";return false;}
         list->ResourceBarrier(2,barriers);
-        lastFrame=f.frame;hasFrame=true;samples=reset?1:(samples<3?samples+1:3);generated=samples>=3;
+        // Measured native behavior differs for creation and a live reset:
+        // creation copies two samples; resetting an existing feature copies
+        // three. Do not label the third post-reset copy as interpolation.
+        if(reset)readySamples=hasFrame?4:3;
+        lastFrame=f.frame;hasFrame=true;samples=reset?1:(samples<4?samples+1:4);generated=samples>=readySamples;
         reason=generated?"native midpoint recorded":"native startup copy recorded";return true;
     }
     // Never call this while any command list referencing the backend is pending.

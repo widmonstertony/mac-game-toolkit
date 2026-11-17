@@ -43,14 +43,15 @@ extern "C" void entry(){
    !poisonMotion.init(gpu.d,DXGI_FORMAT_R16G16_FLOAT,D3D12_RESOURCE_FLAG_NONE,rw,rh)||
    !checkMotion.init(gpu.d,DXGI_FORMAT_R16G16_FLOAT,D3D12_RESOURCE_FLAG_NONE,rw,rh))ExitProcess(16);
  }
- unsigned generated=0,nonEndpoint=0;ChainFrame f{};
+ char resetControl[4]{};bool resetTest=GetEnvironmentVariableA("FH6_COMMAND_RESET_CONTROL",resetControl,sizeof(resetControl))&&resetControl[0]=='1';
+ unsigned pixelFailures=0,generated=0,nonEndpoint=0;ChainFrame f{};
  f.hasConstants=1;f.cameraMotionIncluded=1;f.nearPlane=.1f;f.farPlane=1000;f.fov=1.04719755f;f.aspect=float(w)/h;f.inverted=1;
  f.scale[0]=1.f/rw;f.scale[1]=1.f/rh;f.cameraBasis[4]=f.cameraBasis[6]=f.cameraBasis[11]=1;
  // Row-vector infinite reverse-Z perspective, consistent with the simple camera.
  f.projection[0]=1.7320508f/f.aspect;f.projection[5]=1.7320508f;f.projection[11]=1;f.projection[14]=.1f;
  static char outputRoot[2048]{};if(input!=INVALID_HANDLE_VALUE&&!GetEnvironmentVariableA("FH6_COMMAND_REPLAY_OUTPUT",outputRoot,sizeof(outputRoot)))ExitProcess(6);
  for(unsigned n=0;n<count;++n){
-  int left=30+n*4;f.frame=n+1;
+  int left=30+n*4;f.frame=n+1;f.reset=resetTest&&n==6;
   if(input!=INVALID_HANDLE_VALUE){if(!io(input,&f,sizeof(f))||!io(input,c,w*h*4)||!io(input,d,rw*rh*4)||!io(input,m,rw*rh*4))ExitProcess(7);}
   else for(UINT y=0;y<h;++y)for(UINT x=0;x<w;++x){unsigned k=y*w+x;bool square=x>=left&&x<left+32&&y>=48&&y<80;
    c[k*4]=c[k*4+1]=c[k*4+2]=square?255:8;c[k*4+3]=255;
@@ -95,7 +96,7 @@ extern "C" void entry(){
   if(input==INVALID_HANDLE_VALUE){unsigned area=0,sum=0;for(unsigned y=0;y<h;++y)for(unsigned x=0;x<w;++x)if(o[(y*w+x)*4]>128){++area;sum+=x;}
    const float centroid=area?float(sum)/area:-1,expected=left+15.5f-(midpoint?2.f:0.f);
    report("square area=%u centroid=%.3f expected=%.3f\n",area,centroid,expected);
-   if(area!=1024||fabsf(centroid-expected)>.15f)ExitProcess(11);
+   if(area!=1024||fabsf(centroid-expected)>.15f){if(!resetTest)ExitProcess(11);++pixelFailures;}
   }else{static char target[2300];using S=int(__cdecl*)(char*,size_t,const char*,...);auto s=(S)GetProcAddress(GetModuleHandleW(L"msvcrt.dll"),"_snprintf");
    s(target,sizeof(target),"%s\\frame-%llu.rgba",outputRoot,f.frame);
    auto file=CreateFileA(target,GENERIC_WRITE,0,nullptr,CREATE_NEW,0,nullptr);if(file==INVALID_HANDLE_VALUE||!io(file,o,w*h*4,true))ExitProcess(12);CloseHandle(file);}
@@ -105,6 +106,7 @@ extern "C" void entry(){
  if(input!=INVALID_HANDLE_VALUE)CloseHandle(input);
  if(snapshots)inputs.releaseAfterGpuCompletion();
  if(!backend.releaseAfterGpuCompletion())ExitProcess(14);
- if(generated!=count-2||nonEndpoint!=generated)ExitProcess(15);
+ if(generated!=count-(resetTest?5:2)||nonEndpoint!=generated)ExitProcess(15);
+ if(pixelFailures){report("FAIL reset midpoint pixels mismatched=%u\n",pixelFailures);ExitProcess(11);}
  report("PASS frames=%u warmed=%u non_current=%u real_gpu_fences=%llu quality_verified=%s\n",count,generated,nonEndpoint,gpu.value,input==INVALID_HANDLE_VALUE?"synthetic_only":"false");ExitProcess(0);
 }

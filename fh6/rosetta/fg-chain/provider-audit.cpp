@@ -25,7 +25,7 @@ static volatile LONG recordCount;
 static INIT_ONCE observerOnce=INIT_ONCE_STATIC_INIT;
 #ifdef NATIVE_UI_FIX
 #include "native-ui-provider.h"
-#ifdef HISTORY_VISIBILITY_FIX
+#if defined(HISTORY_VISIBILITY_FIX) || defined(APPLE_FG_CANDIDATE)
 #include "d3dmetal-latency.h"
 #include "d3dmetal-fence-observer.h"
 #endif
@@ -126,7 +126,7 @@ extern "C" __declspec(dllexport) ffxReturnCode_t ffxCreateContext(ffxContext *ct
 {
     InitOnceExecuteOnce(&initOnce,initialize,nullptr,nullptr);
     connectObserver();
-#if defined(NATIVE_UI_FIX) && defined(HISTORY_VISIBILITY_FIX)
+#if defined(NATIVE_UI_FIX) && (defined(HISTORY_VISIBILITY_FIX) || defined(APPLE_FG_CANDIDATE))
     protectD3DMetalLatency(desc);
     Fh6FenceObserver::attach(desc);
 #endif

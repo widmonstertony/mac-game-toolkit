@@ -23,6 +23,7 @@ def main():
     p.add_argument('--cc', required=True, type=Path, help='GCC MinGW x86_64 compiler')
     p.add_argument('--out', required=True, type=Path)
     p.add_argument('--deps', type=Path)
+    p.add_argument('--apple-only', action='store_true', help='Build the isolated MetalFX FFX candidate and its fixture dependencies')
     args = p.parse_args()
     here = Path(__file__).resolve().parent
     hlsl_hash = hashlib.sha256((here / 'native-ui.hlsl').read_bytes()).hexdigest()
@@ -67,12 +68,18 @@ def main():
             (['-municode', str(here / 'provider-versions.cpp'), '-ld3d12', '-ldxguid'], 'provider-versions.exe'),
             (['-municode', str(here / 'native-ui-probe.cpp'), '-ld3d12', '-ldxguid', '-ldxgi'], 'native-ui-probe.exe'),
             (['-municode', str(here / 'compile-native-ui.cpp'), '-ld3dcompiler'], 'compile-native-ui.exe')]
+    if args.apple_only:
+        jobs = [job for job in jobs if job[1] in ('fh6-fg-chain.asi', 'sl.interposer.dll', 'framegeneration-audit.dll')]
+        jobs += [(['-shared', '-DNATIVE_UI_FIX', '-DAPPLE_FG_CANDIDATE', str(here/'provider-audit.cpp'), '-ldxguid'], 'framegeneration-apple.dll'),
+                 (['-municode', '-DAPPLE_FG_TEST', str(here/'native-ui-probe.cpp'), '-ld3d12', '-ldxguid', '-ldxgi'], 'apple-ffx-probe.exe')]
     for flags, name in jobs:
         subprocess.run(common + flags + ['-o', str(out / name)], check=True)
     receipt = {'purpose': 'audit DLLs are observation only; native-ui candidate changes generated-frame UI composition and requires separate GPU/visual validation',
                'upstream_headers': headers,
                'source_sha256': {x.name: hashlib.sha256(x.read_bytes()).hexdigest() for x in here.iterdir() if x.suffix in ('.h', '.cpp', '.hlsl')},
                'artifacts': {name: hashlib.sha256((out / name).read_bytes()).hexdigest() for _, name in jobs}}
+    if args.apple_only:
+        receipt['apple_sources'] = {str(x.relative_to(here.parent.parent.parent)): hashlib.sha256(x.read_bytes()).hexdigest() for x in (here/'../../store/metalfx-bridge').resolve().glob('apple-*.h')}
     (out / 'build-manifest.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(json.dumps({'out': str(out), 'artifacts': receipt['artifacts']}, indent=2))
 

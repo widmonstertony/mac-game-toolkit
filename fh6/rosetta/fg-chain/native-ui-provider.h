@@ -5,6 +5,9 @@
 #ifdef HISTORY_VISIBILITY_FIX
 #include "history-post.h"
 #endif
+#ifdef APPLE_FG_CANDIDATE
+#include "../../store/metalfx-bridge/apple-ffx-stage.h"
+#endif
 // Only compiled into the separate FH6 candidate provider. Ordinary audit DLLs
 // retain descriptor pointer identity and never record GPU work.
 static SRWLOCK nativeLock=SRWLOCK_INIT;
@@ -18,6 +21,9 @@ struct NativeContext {
 #ifdef HISTORY_VISIBILITY_FIX
     HistoryPost history;
 #endif
+#ifdef APPLE_FG_CANDIDATE
+    AppleFfxStage apple;
+#endif
     FgGpuCapture capture;
     CapturePrepare prepared[8]{};
     ID3D12CommandQueue *queue{};
@@ -27,6 +33,10 @@ static NativeQueue nativeQueues[4];
 static NativeContext nativeContexts[4];
 #ifdef HISTORY_VISIBILITY_FIX
 extern "C" __declspec(dllexport) unsigned FH6HistoryActive(){unsigned count=0;for(auto &c:nativeContexts)if(c.history.device)count++;return count;}
+#endif
+#ifdef APPLE_FG_CANDIDATE
+extern "C" __declspec(dllexport) unsigned FH6AppleMiddleFrames(){unsigned n=0;for(auto &c:nativeContexts)n+=c.apple.middle;return n;}
+extern "C" __declspec(dllexport) unsigned FH6AppleWarmupFrames(){unsigned n=0;for(auto &c:nativeContexts)n+=c.apple.warmup;return n;}
 #endif
 extern "C" __declspec(dllexport) unsigned FH6CaptureActive() {
     unsigned count=0;for(auto &c:nativeContexts)count+=InterlockedCompareExchange(&c.capture.activeJobs,0,0);return count;
@@ -95,6 +105,15 @@ template<typename Prepare> static void nativePrepared(ffxContext context,const P
         data.scale[0]=p.motionVectorScale.x;data.scale[1]=p.motionVectorScale.y;
         data.jitter[0]=p.jitterOffset.x;data.jitter[1]=p.jitterOffset.y;
         const auto &cfg=c.config[p.frameID%8];
+#ifdef APPLE_FG_CANDIDATE
+        if(c.queue&&cfg.valid&&cfg.frame==p.frameID&&cfg.enabled&&!cfg.async&&getFrame){
+            ChainFrame frame{};
+            if(getFrame(p.frameID,&frame)&&NativeUiCompositor::full(frame.tags[2],c.display.width,c.display.height)&&
+               NativeUiCompositor::full(frame.tags[3],c.display.width,c.display.height)&&
+               (!cfg.hudless.resource||cfg.hudless.resource==(void*)frame.tags[2].native))
+                c.apple.prepare(c.device,c.queue,frame,p,reset);
+        }
+#endif
         if(!reset && c.queue && cfg.valid && cfg.frame==p.frameID && cfg.enabled && !cfg.async && !cfg.hudless.resource && getFrame) {
             ChainFrame frame{};
             if(getFrame(p.frameID,&frame))
@@ -150,6 +169,9 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
     if(c && c->queue && getFrame) {
         const auto &cfg=c->config[p.frameID%8];
         if(cfg.valid && cfg.frame==p.frameID && !cfg.async){
+#ifdef APPLE_FG_CANDIDATE
+            c->apple.retire((ID3D12Resource*)p.outputs[0].resource,p.frameID);
+#endif
             c->capture.retire((ID3D12Resource*)p.outputs[0].resource,p.frameID,c->queue);
 #ifdef HISTORY_VISIBILITY_FIX
             c->history.retire((ID3D12Resource*)p.outputs[0].resource,p.frameID,c->queue);
@@ -157,14 +179,21 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
         }
         if(cfg.valid && cfg.frame==p.frameID && cfg.enabled && !cfg.async && getFrame(p.frameID,&frame)) {
             const auto w=p.presentColor.description.width,h=p.presentColor.description.height;
+            hudless=cfg.hudless;
+#ifdef APPLE_FG_CANDIDATE
+            // DLSSG owns the authoritative resource tags. Null FFX HUDLessColor
+            // is allowed only with complete same-frame native scene/UI tags.
+            if(!hudless.resource&&NativeUiCompositor::full(frame.tags[2],w,h)&&NativeUiCompositor::full(frame.tags[3],w,h))
+                hudless=ffxApiGetResourceDX12((ID3D12Resource*)frame.tags[2].native,FFX_API_RESOURCE_STATE_PIXEL_COMPUTE_READ);
+#endif
             if(!c->compositor.device && p.presentColor.description.format==FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM &&
                NativeUiCompositor::full(frame.tags[2],w,h) && NativeUiCompositor::full(frame.tags[3],w,h) &&
-               cfg.hudless.resource==(void*)frame.tags[2].native) {
+               hudless.resource==(void*)frame.tags[2].native) {
                 c->compositor.initialize(c->device);
                 if(report) {char line[210];snprintf(line,sizeof(line),"{\"event\":\"native_ui_pipeline\",\"frame\":%llu,\"pipelineHr\":%u}",
                     (unsigned long long)p.frameID,(unsigned)c->compositor.status);report(line);}
             }
-            binding=c->compositor.prepare(frame,cfg.hudless,p);hudless=cfg.hudless;
+            binding=c->compositor.prepare(frame,hudless,p);
         }
     }
     ffxReturnCode_t result;
@@ -173,7 +202,22 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
 #endif
     if(binding) {
         auto sceneOnly=p;sceneOnly.presentColor=hudless;
+#ifdef APPLE_FG_CANDIDATE
+        if(c->apple.record(c->device,frame,p,binding->scene))result=FFX_API_RETURN_OK;
+        else {
+            // FSR was not evaluated during native frames: invalidate stale FG
+            // history when returning to it. Preserve the caller descriptor.
+            sceneOnly.reset=sceneOnly.reset||c->apple.lastWasNative;
+            result=dispatch?dispatch(context,&sceneOnly.header):FFX_API_RETURN_NO_PROVIDER;
+            if(!result)c->apple.lastWasNative=false;
+        }
+        if(report&&(c->applied<8||p.frameID%60==0)){char line[300];snprintf(line,sizeof(line),
+            "{\"event\":\"apple_fg_dispatch\",\"frame\":%llu,\"native\":%s,\"middle\":%llu,\"warmup\":%llu,\"reason\":\"%s\"}",
+            (unsigned long long)p.frameID,c->apple.lastWasNative?"true":"false",(unsigned long long)c->apple.middle,
+            (unsigned long long)c->apple.warmup,c->apple.reason);report(line);}
+#else
         result=dispatch?dispatch(context,&sceneOnly.header):FFX_API_RETURN_NO_PROVIDER;
+#endif
         if(result==FFX_API_RETURN_OK) {
             #ifdef HISTORY_VISIBILITY_FIX
             historyCorrected=c->history.record(frame,c->prepared[p.frameID%8],p,binding->scene);
@@ -196,7 +240,13 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
     } else {
         // Unknown/absent resources, async queues, extensions or formats retain
         // the existing algorithm; do not switch off FG or fake success.
+#ifdef APPLE_FG_CANDIDATE
+        auto fallback=p;if(c)fallback.reset=fallback.reset||c->apple.lastWasNative;
+        result=dispatch?dispatch(context,&fallback.header):FFX_API_RETURN_NO_PROVIDER;
+        if(!result&&c)c->apple.lastWasNative=false;
+#else
         result=dispatch?dispatch(context,desc):FFX_API_RETURN_NO_PROVIDER;
+#endif
         if(!result && c && c->queue) {
             const auto &cfg=c->config[p.frameID%8];
             if(cfg.valid && cfg.frame==p.frameID && cfg.enabled && !cfg.async && !cfg.hudless.resource &&
@@ -215,6 +265,9 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
     // Its copy still needs retirement even when scene/UI disappeared.
     if(!result&&c)c->history.submitted(p.frameID,(ID3D12Resource*)p.outputs[0].resource,historyCorrected);
 #endif
+#ifdef APPLE_FG_CANDIDATE
+    if(!result&&c)c->apple.recorded(p.frameID,(ID3D12Resource*)p.outputs[0].resource);
+#endif
     ReleaseSRWLockExclusive(&nativeLock);return result;
 }
 static void nativeDestroyed(ffxContext context,ffxReturnCode_t result) {
@@ -222,6 +275,9 @@ static void nativeDestroyed(ffxContext context,ffxReturnCode_t result) {
     AcquireSRWLockExclusive(&nativeLock);
     for(auto &c:nativeContexts)if(c.context==context) {
         bool drained=!c.applied;
+#ifdef APPLE_FG_CANDIDATE
+        drained=drained&&!c.apple.copied;
+#endif
 #ifdef HISTORY_VISIBILITY_FIX
         drained=drained&&!c.history.recorded;
 #endif
@@ -232,6 +288,9 @@ static void nativeDestroyed(ffxContext context,ffxReturnCode_t result) {
                 drained=WaitForSingleObject(event,10000)==WAIT_OBJECT_0;
             if(fence)fence->Release();if(event)CloseHandle(event);
         }
+#ifdef APPLE_FG_CANDIDATE
+        if(drained&&!c.apple.releaseAfterGpuCompletion())drained=false;
+#endif
         if(drained) {
 #ifdef HISTORY_VISIBILITY_FIX
             c.history.release();

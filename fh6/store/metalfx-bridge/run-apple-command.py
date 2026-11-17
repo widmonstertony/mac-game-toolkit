@@ -19,8 +19,11 @@ p.add_argument('--prefix', type=Path, required=True)
 p.add_argument('--sequence', type=Path)
 p.add_argument('--typeless-depth', action='store_true')
 p.add_argument('--snapshot-inputs', action='store_true')
+p.add_argument('--reset-control', action='store_true', help='Verify the three copied samples after resetting a live native feature')
 p.add_argument('--output', type=Path, required=True)
 a = p.parse_args()
+if a.sequence and a.reset_control:
+    p.error("Reset control is synthetic-only; recorded sequences preserve their original reset flags")
 for required in (a.exe, a.carrier / 'x86_64-windows/nvngx.dll', a.prefix / 'system.reg'):
     if not required.is_file():
         raise SystemExit(f'Missing existing probe dependency: {required}')
@@ -44,6 +47,7 @@ env.update(WINEPREFIX=str(a.prefix.resolve()), WINEDLLOVERRIDES='winemenubuilder
            WINEDEBUG='-all', FH6_D3DMETAL_NO_ANTILAG2='1')
 env['FH6_COMMAND_TYPELESS_DEPTH'] = '1' if a.typeless_depth else '0'
 env['FH6_COMMAND_SNAPSHOTS'] = '1' if a.snapshot_inputs else '0'
+env['FH6_COMMAND_RESET_CONTROL'] = '1' if a.reset_control else '0'
 with tempfile.TemporaryDirectory(prefix='fh6-command-replay-') as temp:
     if a.sequence:
         receipt = json.loads((a.sequence/'sequence.json').read_text())
@@ -88,7 +92,7 @@ with tempfile.TemporaryDirectory(prefix='fh6-command-replay-') as temp:
     print('\n'.join(line for line in (a.output/'probe.log').read_text(errors='replace').splitlines()
                     if line.startswith(('frame=', 'square ', 'snapshot ', 'PASS', 'FAIL', '[D3DMetal:'))))
     (a.output/'result.json').write_text(json.dumps({'exit': rc, 'capture': str(a.sequence) if a.sequence else None,
-                                                'snapshot_inputs': a.snapshot_inputs, 'typeless_depth': a.typeless_depth,
+                                                'snapshot_inputs': a.snapshot_inputs, 'typeless_depth': a.typeless_depth, 'reset_control': a.reset_control,
                                                 'game_quality_verified': False}, indent=2)+'\n')
     if rc != 0:
         raise SystemExit(1)

@@ -7,6 +7,59 @@ game's staging hook, UI composition or ordered swapchain presentation. A separat
 headless D3DMetal test now verifies real D3D12 staging buffers across the bridge.
 Passing these tests does not establish live 2x presentation or solve ghosting.
 
+## Full FFX candidate, not installed
+
+`APPLE_FG_CANDIDATE` now connects the command-list backend to the existing
+provider's Prepare/Dispatch lifecycle through `apple-ffx-stage.h`. It requires
+same-frame native DLSSG scene/UI/depth/motion metadata, matching constants,
+RGBA8 SDR output and the known non-async direct queue. A null FFX HUDLessColor
+is accepted only when the full native scene and UI tags are present. It copies
+depth/motion during Prepare, runs MetalFX into the scheduler's generated
+output, and composes the premultiplied native UI afterward. The existing FFX
+scheduler retains ownership of submission and presentation. No CPU readback,
+queue submission or wait is added to the dispatch stage.
+
+Unsupported frames use the original provider. On returning from native FG,
+the copied FSR dispatch descriptor resets stale history without mutating the
+caller's descriptor. All Prepare copies, including frames later declined by
+the native path, need output retirement or a drained context before release.
+The existing D3DMetal latency guard remains compiled into this candidate.
+
+The full-provider test caught two misleading-success cases:
+
+* The same native DLL returned `0xBAD00000` when the test ran outside the real
+  game directory. This reproduces the already documented application-file
+  capability gate, not a new OS incompatibility. The runner uses the existing
+  game's directory and records the genuine `nvngx_dlssg.dll` hash; it creates
+  no marker file and modifies no game file.
+* A live MetalFX feature reset copies **three** samples, versus **two** on
+  initial creation. The old counter falsely labeled the third post-reset
+  current image as a middle image. Independent GPU pixels reproduced this:
+  observed centroid 77.5 versus expected 75.5. The backend now distinguishes
+  creation and live reset; the FFX adapter uses original FG during native
+  warmup instead of presenting/counting those copies as native interpolation.
+
+On this Mac, the complete real FFX 3.1.6 provider tests passed:
+
+| Case | Measured result |
+| --- | --- |
+| 16 continuous frames, alternating explicit/null scene descriptor | 14 native midpoint images; 2 native warmup copies handled by FSR; UI errors 0 |
+| One async-route fallback, return to native, then explicit reset | 8 native midpoint images; 7 native warmup samples; UI errors 0 |
+| Missing native scene/UI | No native evaluations; final output byte-identical to original after 16 samples |
+
+Every tested native middle image has exactly 1,024 foreground pixels and the
+analytic half-step centroid. Context teardown drains and clears the native
+counters. These tests use the hash-checked stock renderer shim in an isolated
+prefix; they do not establish the production patched shim's behavior, real
+swapchain scheduling, high-speed car quality or game stutter. The game provider
+has **not** been replaced. Before deployment, those remaining gates still apply.
+
+Build with `fg-chain/build.py --apple-only --cc ... --deps ... --out ...` and
+run `run-apple-ffx.py --artifacts ... --carrier ... --prefix ... --output ...`.
+`--gap-control` and `--missing-ui` select the additional cases. Each run uses
+a new result directory, checks artifact/import hashes and writes a result
+explicitly marking live presentation and game quality unverified.
+
 ## Command-list resource lifetime verification
 
 `apple-command-backend.h` records through the installed, ABI-checked Apple NGX

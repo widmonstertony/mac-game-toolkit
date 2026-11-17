@@ -9,8 +9,15 @@
 #include <sl.h>
 #include <sl_consts.h>
 #include "native-ui.h"
+#ifdef APPLE_FG_TEST
+#include "../../store/metalfx-bridge/apple-command-backend.h"
+#endif
 #define CHECK(x) do{if(!(x)){printf("FAIL line=%d %s\n",__LINE__,#x);return 1;}}while(0)
-static const UINT W=128,H=96;
+#ifdef APPLE_FG_TEST
+static const UINT W=192,H=128,Frames=16;
+#else
+static const UINT W=128,H=96,Frames=12;
+#endif
 struct Token:sl::FrameToken{uint32_t id;Token(uint32_t i):id(i){}operator uint32_t()const override{return id;}};
 __attribute__((noinline)) static FARPROC resolve(HMODULE m,const char *name){return GetProcAddress(m,name);}
 #include "probe-gpu.h"
@@ -44,8 +51,17 @@ static int nativeDepthCopyTest(GPU &g) {
 int wmain(int argc,wchar_t **argv){
  setvbuf(stdout,nullptr,_IONBF,0);CHECK(argc==3 || (argc==4 && !wcscmp(argv[3],L"--missing-ui")));
  const bool missingUi=argc==4;
- GPU g;CHECK(g.init());CHECK(mathTest(g)==0);CHECK(nativeDepthCopyTest(g)==0);
-#ifdef SEQUENCE_FORWARDING_TEST
+ GPU g;CHECK(g.init());
+#ifdef APPLE_FG_TEST
+ if(GetEnvironmentVariableW(L"FH6_APPLE_CREATION_CONTROL",nullptr,0)){
+  AppleCommandFg control;CHECK(control.initialize(g.d,W,H,W,H));CHECK(g.begin());void *feature{};
+  auto status=control.create(g.l,11,control.params.raw,&feature);
+  printf("native creation before FFX status=%08x feature=%p\n",status,feature);
+  CHECK(g.end());if(feature)control.releaseFeature(feature);CHECK(control.releaseAfterGpuCompletion());
+ }
+#endif
+ CHECK(mathTest(g)==0);CHECK(nativeDepthCopyTest(g)==0);
+#if defined(SEQUENCE_FORWARDING_TEST) || defined(APPLE_FG_TEST)
  HMODULE deviceModule{};auto deviceMethod=(*(void***)g.d)[0];
  CHECK(GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,(char*)deviceMethod,&deviceModule));
  CHECK(deviceModule==GetModuleHandleW(L"apd12.dll"));puts("PASS actual D3DMetal device apd12.dll");
@@ -124,7 +140,7 @@ int wmain(int argc,wchar_t **argv){
   ffxCreateContextDescFrameGeneration cd{{FFX_API_CREATE_CONTEXT_DESC_TYPE_FRAMEGENERATION,&backend.header},FFX_FRAMEGENERATION_ENABLE_DEPTH_INVERTED,{W,H},{W,H},FFX_API_SURFACE_FORMAT_R8G8B8A8_UNORM};
   CHECK((k==2?candidateCreate:create)(&contexts[k],&cd.header,nullptr)==0);CHECK(compositors[k].initialize(g.d));
  }
- BYTE source[W*H*4],overlay[W*H*4],final[W*H*4],zero[W*H*4]{};float z[W*H];uint16_t mv[W*H*2];BYTE pixels[3][W*H*4]{};
+ static BYTE source[W*H*4],overlay[W*H*4],final[W*H*4],zero[W*H*4]{};static float z[W*H];static uint16_t mv[W*H*2];static BYTE pixels[3][W*H*4]{};
  auto historyActive=(unsigned(*)())resolve(candidate,"FH6HistoryActive");
  if(historyActive){
   // The game genuinely enables FG on loading screens with no scene/UI tags.
@@ -141,7 +157,13 @@ int wmain(int argc,wchar_t **argv){
   }
   printf("Enabled FG loading screen: owned history pipelines=%u expected=0\n",historyActive());CHECK(historyActive()==0);
  }
- for(UINT64 id=0;id<12;id++){
+#ifdef APPLE_FG_TEST
+ const bool gapControl=GetEnvironmentVariableW(L"FH6_APPLE_GAP_CONTROL",nullptr,0)!=0;
+ auto middleCount=(unsigned(*)())resolve(candidate,"FH6AppleMiddleFrames");
+ auto warmupCount=(unsigned(*)())resolve(candidate,"FH6AppleWarmupFrames");CHECK(middleCount&&warmupCount);
+ unsigned previousMiddle=0;
+#endif
+ for(UINT64 id=0;id<Frames;id++){
   for(UINT y=0;y<H;y++)for(UINT x=0;x<W;x++){
    const UINT i=y*W+x;const bool car=x>=20+id*2&&x<52+id*2&&y>=40&&y<72;
    source[i*4]=car?100:25;source[i*4+1]=car?30:40;source[i*4+2]=car?20:60;source[i*4+3]=255;
@@ -153,7 +175,8 @@ int wmain(int argc,wchar_t **argv){
   CHECK(depth.write(g.l,(BYTE*)z,W*4,read));CHECK(motion.write(g.l,(BYTE*)mv,W*4,read));CHECK(scene.write(g.l,source,W*4,read));CHECK(ui.write(g.l,overlay,W*4,read));CHECK(present.write(g.l,final,W*4,read));
   Token token((uint32_t)id);sl::ViewportHandle viewport(0);sl::Constants constants{};constants.cameraNear=.1f;constants.cameraFar=50000;constants.depthInverted=sl::Boolean::eTrue;constants.cameraMotionIncluded=sl::Boolean::eTrue;constants.motionVectors3D=sl::Boolean::eFalse;constants.reset=id==0?sl::Boolean::eTrue:sl::Boolean::eFalse;
   float identity[16]{};for(int k=0;k<16;k++)identity[k]=k%5==0?1.f:0.f;memcpy(&constants.clipToPrevClip,identity,64);
-#ifdef SEQUENCE_FORWARDING_TEST
+#if defined(SEQUENCE_FORWARDING_TEST) || defined(APPLE_FG_TEST)
+  constants.motionVectorsDilated=sl::Boolean::eFalse;constants.motionVectorsJittered=sl::Boolean::eFalse;
   constants.cameraFOV=1.05f;constants.cameraAspectRatio=float(W)/H;
   constants.jitterOffset={0,0};constants.cameraPos={0,0,0};
   constants.mvecScale={1.f/W,1.f/H};constants.cameraRight={1,0,0};constants.cameraUp={0,1,0};constants.cameraFwd={0,0,1};
@@ -167,10 +190,13 @@ int wmain(int argc,wchar_t **argv){
   for(int k=0;k<3;k++){
    CHECK(outputs[k].write(g.l,zero,W*4,D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
    ffxConfigureDescFrameGeneration cfg{};cfg.header.type=FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION;cfg.frameID=id;cfg.frameGenerationEnabled=true;cfg.flags=FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY;if(!missingUi || k==1)cfg.HUDLessColor=res(scene);cfg.generationRect={0,0,W,H};
-#ifdef SEQUENCE_FORWARDING_TEST
+#if defined(SEQUENCE_FORWARDING_TEST) || defined(APPLE_FG_TEST)
    // Actual FH6 leaves this empty and supplies scene/UI through DLSSG tags.
    // Exercise both contracts while preserving identical direct/outer inputs.
    if(k!=1 && id%2)cfg.HUDLessColor={};
+#endif
+#ifdef APPLE_FG_TEST
+   if(gapControl&&k==2&&id==6)cfg.allowAsyncWorkloads=true;
 #endif
    CHECK((k==2?candidateConfigure:configure)(&contexts[k],&cfg.header)==0);
    ffxDispatchDescFrameGenerationPrepareV2 prep{};prep.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2;prep.frameID=id;prep.commandList=g.l;prep.renderSize={W,H};prep.motionVectorScale={1,1};prep.frameTimeDelta=16.6667f;prep.reset=id==0;prep.cameraNear=.1f;prep.cameraFar=50000;prep.cameraFovAngleVertical=1.05f;prep.viewSpaceToMetersFactor=1;prep.depth=res(depth);prep.motionVectors=res(motion);prep.cameraUp[1]=prep.cameraRight[0]=prep.cameraForward[2]=1;CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&prep.header)==0);
@@ -180,6 +206,9 @@ int wmain(int argc,wchar_t **argv){
    if(k>0){binding=compositors[k].prepare(f,res(scene),p);CHECK(binding);}
    // Reference explicitly interpolates scene-only, candidate takes the same
    // same-frame validated native scene instead of difference-extracted final.
+#ifdef APPLE_FG_TEST
+   if(gapControl&&k==2&&id==9)p.reset=true;
+#endif
    const auto original=p;
    CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&p.header)==0);
    CHECK(!memcmp(&original,&p,sizeof(p)));
@@ -187,6 +216,16 @@ int wmain(int argc,wchar_t **argv){
    outputs[k].copyOut(g.l);
   }
   CHECK(g.end());for(int k=0;k<3;k++)CHECK(outputs[k].read(pixels[k],W*4));
+#ifdef APPLE_FG_TEST
+  if(!missingUi&&middleCount()>previousMiddle){
+   unsigned area=0;double center=0;
+   for(UINT y=36;y<76;y++)for(UINT x=0;x<W;x++)if(pixels[2][(y*W+x)*4]>70){area++;center+=x;}
+   if(area)center/=area;const double expected=34.5+2*id;
+   printf("native midpoint frame=%llu area=%u centroid=%.3f expected=%.3f\n",(unsigned long long)id,area,center,expected);
+   CHECK(area==1024&&fabs(center-expected)<.01);
+  }
+  previousMiddle=middleCount();
+#endif
 #ifdef SEQUENCE_FORWARDING_TEST
   // Both paths use the exact installed provider; the outer recorder must not
   // alter even one generated/UI byte on any frame, including history startup.
@@ -202,8 +241,12 @@ int wmain(int argc,wchar_t **argv){
  if(y>=36&&y<76&&abs(int(source[i*4+k])-int(pixels[2][i*4+k]))>2)generatedDifferent++;
   if(y<12&&x<40){const float expected=overlay[i*4+k]+(1-overlay[i*4+3]/255.f)*source[i*4+k];if(fabsf(pixels[2][i*4+k]-expected)>2)uiErrors++;}
  }}
- printf("GPU contrast: reference_errors=%u non_ui_difference_components=%u generated_differs_from_base_components=%u ui_errors=%u frames=12 contexts=3\n",refErrors,oldDiff,generatedDifferent,uiErrors);
-#ifdef SEQUENCE_FORWARDING_TEST
+ printf("GPU contrast: reference_errors=%u non_ui_difference_components=%u generated_differs_from_base_components=%u ui_errors=%u frames=%u contexts=3\n",refErrors,oldDiff,generatedDifferent,uiErrors,Frames);
+#ifdef APPLE_FG_TEST
+ printf("native counters middle=%u warmup=%u\n",middleCount(),warmupCount());
+ if(missingUi){CHECK(middleCount()==0);CHECK(!memcmp(pixels[0],pixels[2],sizeof(pixels[0])));}
+ else {CHECK(middleCount()==(gapControl?8u:14u)&&warmupCount()==(gapControl?7u:2u));CHECK(generatedDifferent>0&&uiErrors==0);}
+#elif defined(SEQUENCE_FORWARDING_TEST)
  CHECK(!memcmp(pixels[0],pixels[2],sizeof(pixels[0])));
 #else
  if(missingUi) CHECK(!memcmp(pixels[0],pixels[2],sizeof(pixels[0])));
@@ -219,7 +262,10 @@ int wmain(int argc,wchar_t **argv){
 #endif
  );CHECK(activeCaptures);
  const auto deadline=GetTickCount64()+10000;while(activeCaptures() && GetTickCount64()<deadline)Sleep(10);CHECK(activeCaptures()==0);
-#ifdef SEQUENCE_FORWARDING_TEST
+#ifdef APPLE_FG_TEST
+ CHECK(middleCount()==0&&warmupCount()==0);
+ puts("PASS MetalFX FFX adapter midpoint pixels, native UI, null/explicit scene metadata and drained teardown; live presentation unverified");
+#elif defined(SEQUENCE_FORWARDING_TEST)
  puts("PASS continuous recorder preserves installed provider output byte for byte across 12 frames; no game image-quality claim");
 #else
  if(missingUi) puts("PASS missing HUDless/UI passthrough matches the original provider byte for byte");

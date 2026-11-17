@@ -40,7 +40,7 @@ def pe_imports(path):
     return sorted(result)
 
 
-def store_test_runtime(prefix):
+def store_test_runtime(prefix, stock_renderer=False):
     data = Path.home() / 'Library/Application Support/MACxus'
     config = json.loads((data / 'local-highball.json').read_text())
     layer = data / 'external-highball/fh6-prior-fixes'
@@ -57,7 +57,8 @@ def store_test_runtime(prefix):
                WINEMSYNC='1', WINEESYNC='0', CX_D3DMETALPATH=str(renderer/'external'), D3DM_MTL4='0',
                HB_D3D12_REAL='Z:' + str(shim/'wine/x86_64-windows/apd12.dll').replace('/', '\\'))
     for name in ('d3d12.dll', 'd3d12core.dll', 'dxgi.dll'):
-        if sha(prefix/'drive_c/windows/system32'/name) != sha(layer/'system32'/name):
+        reference = shim/'wine/x86_64-windows'/name if stock_renderer and name == 'd3d12.dll' else layer/'system32'/name
+        if sha(prefix/'drive_c/windows/system32'/name) != sha(reference):
             raise RuntimeError('Test prefix needs the verified Store ' + name)
     original = data/'bottles/xbox-highball/drive_c/highball/fg-native-ui/framegeneration-original.dll'
     return layer/'engine/bin/wine', env, original
