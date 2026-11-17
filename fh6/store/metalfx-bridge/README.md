@@ -50,15 +50,26 @@ On this Mac, the complete real FFX 3.1.6 provider tests passed:
 Every tested native middle image has exactly 1,024 foreground pixels and the
 analytic half-step centroid. Context teardown drains and clears the native
 counters. These tests use the hash-checked stock renderer shim in an isolated
-prefix; they do not establish the production patched shim's behavior, real
+prefix; they do not establish real
 swapchain scheduling, high-speed car quality or game stutter. The game provider
 has **not** been replaced. Before deployment, those remaining gates still apply.
+
+A subsequent isolated run uses the actual production patched D3D12 shim
+(`82387437…b8dc988`) with `HB_D3D12_TSSHIM=1`. The continuous, gap/reset and
+missing-UI cases all pass with the same 14/2, 8/7 and 0/0 native counts.
+The probe reports the loaded module path and the runner requires
+`C:\windows\system32\d3d12.dll`, in addition to checking that file against
+the production reference. This closes the tested shim-combination gap; it
+does not exercise the game's additional ASI plugins or actual presentation.
+See `apple-ffx-production-results-20261117.json`.
 
 Build with `fg-chain/build.py --apple-only --cc ... --deps ... --out ...` and
 run `run-apple-ffx.py --artifacts ... --carrier ... --prefix ... --output ...`.
 `--gap-control` and `--missing-ui` select the additional cases. Each run uses
 a new result directory, checks artifact/import hashes and writes a result
 explicitly marking live presentation and game quality unverified.
+Use `--production-shim` only with a separate prefix containing the verified
+production shim. The runner does not copy or replace any prefix DLL itself.
 
 ## Command-list resource lifetime verification
 

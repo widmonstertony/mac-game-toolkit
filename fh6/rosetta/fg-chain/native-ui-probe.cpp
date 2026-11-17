@@ -53,6 +53,9 @@ int wmain(int argc,wchar_t **argv){
  const bool missingUi=argc==4;
  GPU g;CHECK(g.init());
 #ifdef APPLE_FG_TEST
+ wchar_t shimPath[32768]{};
+ CHECK(GetModuleFileNameW(GetModuleHandleW(L"d3d12.dll"),shimPath,32768));
+ printf("LOADED D3D12 %ls\n",shimPath);
  if(GetEnvironmentVariableW(L"FH6_APPLE_CREATION_CONTROL",nullptr,0)){
   AppleCommandFg control;CHECK(control.initialize(g.d,W,H,W,H));CHECK(g.begin());void *feature{};
   auto status=control.create(g.l,11,control.params.raw,&feature);

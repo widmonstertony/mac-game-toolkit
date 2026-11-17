@@ -19,6 +19,8 @@ p.add_argument('--output', type=Path, required=True)
 p.add_argument('--game-dir', type=Path, default=Path.home()/'Games/Windows/Xbox/Forza-Horizon-6')
 p.add_argument('--missing-ui', action='store_true')
 p.add_argument('--gap-control', action='store_true')
+p.add_argument('--production-shim', action='store_true',
+               help='Require the installed Store D3D12 shim in the isolated prefix and enable its wrappers')
 a = p.parse_args()
 prefix = a.prefix.resolve(strict=True)
 if prefix == Path.home()/'Library/Application Support/MACxus/bottles/xbox-highball':
@@ -33,7 +35,7 @@ helper = here/'../../rosetta/fg-chain/run_native_ui_probe.py'
 spec = importlib.util.spec_from_file_location('native_ui_probe', helper.resolve())
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-wine, env, original = module.store_test_runtime(prefix, stock_renderer=True)
+wine, env, original = module.store_test_runtime(prefix, stock_renderer=not a.production_shim)
 manifest = json.loads((a.artifacts/'build-manifest.json').read_text())
 for name, digest in manifest['artifacts'].items():
     if module.sha(a.artifacts/name) != digest:
@@ -49,7 +51,7 @@ win = lambda path: 'Z:'+str(path.resolve()).replace('/', '\\')
 for key in ('WINEDLLPATH','WINEDLLPATH_PREPEND'):
     env[key] = str(a.carrier.resolve())+':'+env[key]
 env['WINEDLLOVERRIDES'] += ';nvngx=b'
-env.update(D3DM_ENABLE_METALFX='1',HB_D3D12_TSSHIM='0',WINEDEBUG='-all',
+env.update(D3DM_ENABLE_METALFX='1',HB_D3D12_TSSHIM='1' if a.production_shim else '0',WINEDEBUG='-all',
            FH6_APPLE_GAP_CONTROL='1' if a.gap_control else '')
 if not a.gap_control:
     env.pop('FH6_APPLE_GAP_CONTROL',None)
@@ -67,11 +69,19 @@ with (a.output/'probe.log').open('w') as log:
 contents = (a.output/'probe.log').read_text(errors='replace')
 print('\n'.join(l for l in contents.splitlines() if l.startswith(('PASS','FAIL','native','GPU','REAL','[D3DMetal:'))))
 passed = rc == 0 and 'PASS MetalFX FFX adapter' in contents
+loaded_shim = next((line[len('LOADED D3D12 '):].strip() for line in contents.splitlines()
+                    if line.startswith('LOADED D3D12 ')), None)
+# Hashing a file in the prefix alone does not prove the loader used it.
+passed = passed and loaded_shim is not None and loaded_shim.lower() == r'c:\windows\system32\d3d12.dll'
 result = {'exit':rc,'passed':passed,'missing_ui':a.missing_ui,'gap_control':a.gap_control,
           'candidate_sha256':module.sha(candidate),'original_sha256':module.sha(original),
           'native_carrier_sha256':module.sha(a.carrier/'x86_64-windows/nvngx.dll'),
           'game_marker_sha256':module.sha(a.game_dir/'nvngx_dlssg.dll'),
-          'stock_renderer_shim':True,'live_presentation_verified':False,'game_quality_verified':False}
+          'stock_renderer_shim':not a.production_shim,
+          'renderer_shim_sha256':module.sha(prefix/'drive_c/windows/system32/d3d12.dll'),
+          'shim_wrappers_enabled':a.production_shim,
+          'loaded_d3d12':loaded_shim,
+          'live_presentation_verified':False,'game_quality_verified':False}
 (a.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
 if not passed:
     raise SystemExit(1)
