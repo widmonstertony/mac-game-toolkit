@@ -150,3 +150,16 @@ Do not publish the block-page IP, request ID, login state files or credentials.
 Ubisoft's [game listing](https://store.ubisoft.com/tr/the-crew-motorfest/63bc67e6d406ab22f1174306.html)
 requires Ubisoft Connect and BattlEye. Reports of working Linux Proton do not
 by themselves establish macOS Wine compatibility.
+
+
+## Latest isolated candidate, November 16: five unresolved references
+
+Formatted I/O, local-time conversion, timer waiting and mount-table parsing now
+pass actual Linux ELF callers along with the existing networking, GNU C++ and
+real-DLL regressions. The same inspection-only client is down to five unresolved
+relocations across four names: `system`, `sched_getaffinity`, `longjmp` and
+`sched_setaffinity`. The [mount validation record](linuxhost-compat/validation-mount-2026-11-16.json)
+identifies the exact build and test scope. The candidate has not replaced the
+installed engine, and no protected game session has been validated. Symbol
+resolution alone is insufficient: process, signal and scheduler semantics still
+need review against actual runtime behavior.

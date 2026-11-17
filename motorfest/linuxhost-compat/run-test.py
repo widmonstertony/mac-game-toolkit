@@ -29,6 +29,7 @@ for name in ('WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BAT
 tests=[('strings','strings-probe.exe',[str(out/'strings.so')]),
        ('network','strings-probe.exe',[str(out/'network.so')]),
        ('stdio','strings-probe.exe',[str(out/'stdio.so')]),
+       ('mount','strings-probe.exe',[str(out/'mount.so')]),
        ('time-utc','strings-probe.exe',[str(out/'time.so')]),
        ('time-pacific','strings-probe.exe',[str(out/'time.so')]),
        *[(f'overflow-{i}','strings-probe.exe',[str(out/'strings.so'),str(i)]) for i in range(8)],
@@ -40,6 +41,15 @@ for name,exe,args in tests:
     test_env=dict(env)
     if name=='time-utc':test_env['TZ']='UTC0'
     if name=='time-pacific':test_env['TZ']='PST8PDT'
+    if name=='mount':
+        fixture=out/'mount-fixture.txt'
+        fixture.write_text('# owned parser fixture, not a host mount inventory\n\t\n'
+            '/dev/test\\040name /test\\011mount\\012name fixture rw,tag=one\\134two\\\\three 1 2\n'
+            'minimal\n'
+            'hidden /autofs autofs rw,ignore 0 0\n'
+            'visible /autofs autofs ignore-me 0 0\n'
+            'final\\0 /end fixture ro 3')
+        test_env['LINUXHOST_MOUNT_FIXTURE']=str(fixture)
     log_path=out/(name+'.log')
     with log_path.open('w') as f:
         try:
@@ -49,7 +59,7 @@ for name,exe,args in tests:
     log=log_path.read_text(errors='replace')
     if name.startswith('overflow'):
         passed=rc in (9,0xc0000409) and 'LINUXHOST_FORTIFY_REJECT' in log and 'FORTIFY_UNEXPECTED_RETURN' not in log
-    elif name in ('strings','network','stdio','time-utc','time-pacific'): passed=rc==0 and 'STRING_ABI_PASS result=0' in log
+    elif name in ('strings','network','stdio','mount','time-utc','time-pacific'): passed=rc==0 and 'STRING_ABI_PASS result=0' in log
     elif name=='inspect': passed=rc in (0,1) and 'unsupported relocations' in log
     else: passed=rc==0 and '0 failure(s)' in log
     if name=='time-utc': passed=passed and 'TIME_UTC_VALIDATED' in log

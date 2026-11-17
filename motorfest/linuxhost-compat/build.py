@@ -60,8 +60,12 @@ shutil.copy2(ROOT/'libc-network-extra.inc',src/'libc-network-extra.inc')
 io=src/'libc_io.c';text=io.read_text()
 anchor='const struct libc_function linuxhost_libc_io_functions[] =\n'
 if text.count(anchor)!=1:raise SystemExit('Unexpected stdio table')
-io.write_text(text.replace(anchor,'#include "libc-stdio-extra.inc"\n'+anchor))
+text=text.replace(anchor,'#include "libc-stdio-extra.inc"\n#include "libc-mount-extra.inc"\n'+anchor)
+table='const struct libc_function linuxhost_libc_io_functions[] =\n{\n'
+if text.count(table)!=1:raise SystemExit('Unexpected stdio entries')
+io.write_text(text.replace(table,table+'    { "setmntent", lx_setmntent }, { "endmntent", lx_endmntent }, { "getmntent", lx_getmntent },\n'))
 shutil.copy2(ROOT/'libc-stdio-extra.inc',src/'libc-stdio-extra.inc')
+shutil.copy2(ROOT/'libc-mount-extra.inc',src/'libc-mount-extra.inc')
 sources=['elfload.c','glibc.c','syscall.c','process.c','libc.c','libc_io.c','fork.c',
          'libc_thread.c','libc_net.c','libc_misc.c','unwind.c']
 cc=str(a.toolchain.absolute()/'bin/x86_64-w64-mingw32-clang')
@@ -80,6 +84,7 @@ subprocess.run([*elf,str(ROOT/'strings-probe.c'),'-o',str(out/'strings.so')],che
 subprocess.run([*elf,str(ROOT/'network-probe.c'),'-o',str(out/'network.so')],check=True)
 subprocess.run([*elf,str(ROOT/'stdio-probe.c'),'-o',str(out/'stdio.so')],check=True)
 subprocess.run([*elf,str(ROOT/'time-probe.c'),'-o',str(out/'time.so')],check=True)
+subprocess.run([*elf,str(ROOT/'mount-probe.c'),'-o',str(out/'mount.so')],check=True)
 subprocess.run([*elf,'-fexceptions',str(ROOT/'cxx-probe.cpp'),'-o',str(out/'cxx-probe.so')],check=True)
 subprocess.run([*elf,'-ftls-model=global-dynamic',str(src/'test/hello.c'),'-o',str(out/'hello.so')],check=True)
 subprocess.run([*elf,'-O1','-fexceptions','-Wl,--eh-frame-hdr',str(src/'test/extras.c'),'-o',str(out/'extras.so')],check=True)

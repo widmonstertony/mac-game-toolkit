@@ -215,3 +215,38 @@ that Motorfest works on macOS.
 References: [GNU formatted input](https://sourceware.org/glibc/manual/latest/html_node/Formatted-Input-Basics.html),
 [GNU fortification](https://sourceware.org/glibc/manual/latest/html_node/Source-Fortification.html),
 and [Microsoft localtime64 range and TZ behavior](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/localtime-s-localtime32-s-localtime64-s?view=msvc-170).
+
+
+## Mount-table reader, November 16
+
+The isolated candidate now implements `setmntent`, `getmntent`, and `endmntent`
+on actual host descriptors. No mount inventory, authentication result or system
+inspection reply is synthesized. The tests use an explicitly owned text fixture
+and memory file; no external disk is enumerated. The parser covers escaped spaces,
+tabs, newlines and backslashes, comments/blank lines, omitted fields, optional
+integer fields, autofs ignore-option token boundaries, EOF without a newline,
+and a 10,000-character record without truncation. Closed-descriptor reads set
+EBADF and the stream error indicator, distinct from EOF. Missing files fail.
+`endmntent(NULL)` returns 1, matching glibc's actual implementation.
+
+The host has no complete Linux exec/cancellation implementation. The opener
+requests O_CLOEXEC and real file handles are non-inheritable, but this test does
+not claim Linux descriptor inheritance/cancellation semantics. `getmntent` uses
+reused static storage and is not a reentrant API. The input parser does not make
+upstream `/proc`/`/sys` emulation accurate. Those limitations remain relevant to
+any real client execution, which has **not** been attempted.
+
+The combined general ABI, GNU C++ and ordinary-dlopen/DLL regressions pass.
+The inspection-only client now has **5 unresolved relocations across 4 names**:
+`system`, `sched_getaffinity`, `longjmp`, and `sched_setaffinity`. See
+[validation-mount-2026-11-16.json](validation-mount-2026-11-16.json).
+Resolving those names is not the full acceptance test. For example, current Wine
+[thread affinity handling](https://github.com/wine-mirror/wine/blob/master/server/thread.c)
+only calls the actual OS scheduler under HAVE_SCHED_SETAFFINITY; otherwise storing
+a mask may succeed without enforcing CPU placement. That upstream observation
+must not be mistaken for tested behavior of this particular candidate binary.
+
+Contract references: [GNU mtab interface](https://sourceware.org/glibc/manual/latest/html_node/mtab.html)
+and [glibc implementation details](https://github.com/bminor/glibc/blob/master/misc/mntent_r.c).
+The candidate remains isolated; Motorfest gameplay and native Steam launch are
+not verified with these changes, and production game containers are unchanged.
