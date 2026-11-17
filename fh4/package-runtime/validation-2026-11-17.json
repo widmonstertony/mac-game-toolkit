@@ -1,0 +1,97 @@
+{
+  "tests": [
+    {
+      "name": "register-main",
+      "exitCode": 0,
+      "passMarker": [],
+      "logSha256": "347da7fb0355a558409b809293e566cd43107360540c4ac7fcd2c59c7d49b16a"
+    },
+    {
+      "name": "register-dep",
+      "exitCode": 0,
+      "passMarker": [],
+      "logSha256": "ac4cb99d8467a02f1b56a86390e1efa072dbc720cf43640003d59f5e5916e1f6"
+    },
+    {
+      "name": "ordinary",
+      "exitCode": 0,
+      "passMarker": [
+        "UNPACKAGED_SCOPE_PASS"
+      ],
+      "logSha256": "fa6e33c1015f2baa791d5dc521adfcdc761df24a8e12d7e69fe975c79dcd9f00"
+    },
+    {
+      "name": "scoped",
+      "exitCode": 0,
+      "passMarker": [
+        "PACKAGE_CONTEXT_PASS strings=true short_buffer=true pointer_bounds=true graph_order=true transitive_dependency=true cwd_excluded=true missing_dependency_fails=true"
+      ],
+      "logSha256": "a0e242c258681ba08e5f663a1718b4b37c2ac0b8362fd8f70e489cceee290cb8"
+    },
+    {
+      "name": "inherited-unrelated",
+      "exitCode": 0,
+      "passMarker": [
+        "UNPACKAGED_SCOPE_PASS"
+      ],
+      "logSha256": "6e4d1164e0b7f2abe1fcf651ad490054e362958ecdac7f67bd20fb9377581c4e"
+    },
+    {
+      "name": "catalog-mismatch",
+      "exitCode": 0,
+      "passMarker": [
+        "UNPACKAGED_SCOPE_PASS"
+      ],
+      "logSha256": "d70f398dd303c1180d0a64c2cce58423449d5abbb81b4e710f69f8b7dafddcc7"
+    }
+  ],
+  "passed": true,
+  "gameplayVerified": false,
+  "productionChanged": false,
+  "kernelbaseSha256": "d54e17614df041c0ec12986fe627c87c67b4ca88b4931bcd682cc10151e5a21e",
+  "combinedGpu": {
+    "passed": true,
+    "exitCode": 0,
+    "testedDllSha256": "f54c105c10348d7df8078edfdf4540dc15441341245e954818667c7347e728b3",
+    "testedExeSha256": "4d23788a8deba81ff648dcbce990f0f13023b6a6fee419c9ce62d6901e237321",
+    "logSha256": "3d0cf33bc8b52569126fcdf61052f230c337034f28fea1fa527c0bcf4d6aa6d9",
+    "lifecyclePassed": true,
+    "normalAsyncDispatchVerified": true,
+    "gameplayVerified": false,
+    "visiblePresentationVerified": false,
+    "gpuBridgeUsed": false,
+    "gpuImportedEntryUsed": true,
+    "gpuImportedEntryVerified": true,
+    "rendererInitializedBeforeCallbacks": true,
+    "rendererInitializationCount": 1,
+    "gpuImportedBothGameFactoriesVerified": true,
+    "unhandledFaultObserved": false,
+    "gpuEntrySha256": "07a2a3e827c85a068d06027fbd689eaefc002bcc014e9ceb4cdab7e5ef6923f5",
+    "automaticManifestRoutingVerified": true,
+    "gpuBridgeSha256": "e8f3c5faca663819cb5771aa802f4a1cf32b344c42ede8456bd2c7888ae515d6",
+    "gpuCoreWindowResult": "00000000",
+    "gpuReadbackPassed": true,
+    "gpuResizePassed": true,
+    "d3dMetalModuleLoaded": true,
+    "activationEventSubsetVerified": true,
+    "activationRoutingVerified": true
+  },
+  "buildCompatibilityRepair": {
+    "cause": "Clang Windows target does not define __GNUC__; inline LastError GS synchronization was omitted",
+    "negativeControl": "Unmodified package source rebuilt with original guard: GetTokenInformation error observed as 0 and services environment creation crashes",
+    "correctedControl": "GetTokenInformation returns error 122; services initialization succeeds",
+    "newPatchInstallsIntoProduction": false
+  },
+  "rendererRelocationRepair": {
+    "negativeControl": "Both original and candidate kernelbase fail after engine clone with duplicate D3DMetal framework loaded",
+    "correctedControl": "Use unchanged original renderer/framework paths; candidate passes lifecycle and GPU readback",
+    "appleLibrariesModified": false
+  },
+  "sourceApplicationVerified": true,
+  "ownedManifestAndDependencyFilesVerified": true,
+  "exportAbi": {
+    "originalCount": 1430,
+    "candidateCount": 1430,
+    "namesAndOrdinalsIdentical": true
+  }
+}

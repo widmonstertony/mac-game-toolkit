@@ -1,5 +1,16 @@
 # Forza Horizon 4: owned Microsoft Store package
 
+## Process package context candidate, November 17
+
+The [private package runtime](package-runtime/README.md) now implements the
+previously missing process identity and graph-based LoadPackagedLibrary route.
+Actual Wine API probes and the combined UWP/D3DMetal GPU probe pass. Integration
+also exposed and corrected a Clang LastError synchronization omission and a
+duplicate renderer-loading problem in the isolated engine copy. The owned FH4
+manifest and all framework files have been verified to prepare its context.
+This candidate is still inactive: actual Store activation, input and cloud-save
+integration are not yet verified, and no FH4 gameplay success is claimed.
+
 ## Package catalogue preparation, November 17
 
 The owned executable imports LoadPackagedLibrary, GetPackagePath and

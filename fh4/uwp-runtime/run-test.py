@@ -13,6 +13,7 @@ p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build', type=Path, required=True)
 p.add_argument('--engine', type=Path, required=True, help='Highball engine root')
 p.add_argument('--prefix', type=Path, required=True)
+p.add_argument('--graphics-engine', type=Path, help='Original renderer/framework root when testing a private Wine-only engine copy')
 p.add_argument('--gpu', action='store_true', help='Also probe D3DMetal CoreWindow swap-chain creation and GPU readback')
 p.add_argument('--gpu-bridge', action='store_true', help='Use the experimental CoreWindow-to-HWND graphics adapter')
 p.add_argument('--gpu-entry', action='store_true', help='Use the app-local DXGI import entry with no explicit factory wrapping')
@@ -32,15 +33,16 @@ if a.gpu_entry and hashlib.sha256((out/'entry/dxgi.dll').read_bytes()).hexdigest
 for name in ('fh4-uwp-runtime.dll', 'lifecycle.exe', *(['gpu-probe.dll','fh4-corewindow-swapchain.dll'] if a.gpu else [])):
     if hashlib.sha256((out / name).read_bytes()).hexdigest() != receipt['files'][name]:
         raise SystemExit('Build hash mismatch: '+name)
-fw = a.engine / 'frameworks'
+graphics = (a.graphics_engine or a.engine).resolve()
+fw = graphics / 'frameworks'
 env = dict(os.environ, WINEPREFIX=str(prefix), WINEDEBUG='-all', WINEMSYNC='1',
            WINEESYNC='0', MVK_CONFIG_LOG_LEVEL='0', WINEDLLOVERRIDES='winemenubuilder.exe=d',
            DYLD_FALLBACK_LIBRARY_PATH=str(fw)+':/usr/lib',
            DYLD_FALLBACK_FRAMEWORK_PATH=str(fw)+':/System/Library/Frameworks')
 env.pop('FH4_UWP_REAL_DXGI',None)
 if a.gpu:
-    renderer=a.engine/'renderers/d3dmetal'
-    shim=a.engine/'renderers/d3dmetal-tsshim'
+    renderer=graphics/'renderers/d3dmetal'
+    shim=graphics/'renderers/d3dmetal-tsshim'
     paths=':'.join(map(str,[shim/'wine',renderer/'wine',a.engine/'engine/lib/wine']))
     env.update(WINEDEBUG='-all,+loaddll',WINEDLLPATH=paths,WINEDLLPATH_PREPEND=paths,
                WINEDLLOVERRIDES='winemenubuilder.exe=d;d3d12,d3d12core,dxgi=n,b',

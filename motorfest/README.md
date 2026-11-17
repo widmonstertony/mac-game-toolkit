@@ -1,4 +1,20 @@
-# The Crew Motorfest: compatibility work, gameplay not verified
+# The Crew Motorfest: scene entry verified, compatibility validation continues
+
+## Current checkpoint, November 17 13:00
+
+The user confirmed entering the game scene in the 12:02 native Steam launch,
+and later confirmed that the 12:49 termination was **their manual exit**, not
+a crash. The actual game process ran from approximately 12:04 to 12:49.
+Steam removed it from the running list. During this run, the prior three shader
+errors and access violation did not recur; the first-fault record remains empty.
+This establishes one scene-entry/run/manual-exit cycle, not a guarantee that the
+separate prior CPU crash is fixed or an independent BattlEye handshake trace.
+
+The i386 lost-wake engine is installed for the **next launch only**. This completed
+run used the prior CPU engine plus the installed graphics repairs. No restart was
+requested. Native resolution, quality and audio settings were not changed.
+Computer-tool connection was restored, but binding the Wine window still times
+out; this run's scene/exit confirmation therefore comes from the user and logs.
 
 ## Current checkpoint, November 17 12:23
 
