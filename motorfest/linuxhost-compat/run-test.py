@@ -28,24 +28,32 @@ for name in ('WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BAT
     env.pop(name,None)
 tests=[('strings','strings-probe.exe',[str(out/'strings.so')]),
        ('network','strings-probe.exe',[str(out/'network.so')]),
-       *[(f'overflow-{i}','strings-probe.exe',[str(out/'strings.so'),str(i)]) for i in range(7)],
+       ('stdio','strings-probe.exe',[str(out/'stdio.so')]),
+       ('time-utc','strings-probe.exe',[str(out/'time.so')]),
+       ('time-pacific','strings-probe.exe',[str(out/'time.so')]),
+       *[(f'overflow-{i}','strings-probe.exe',[str(out/'strings.so'),str(i)]) for i in range(8)],
        ('hello','hosttest.exe',['hello',str(out/'hello.so')]),
        ('extras','hosttest.exe',['extras',str(out/'extras.so')]),
        ('inspect','hosttest.exe',['inspect',str(bridge),str(client)])]
 results={}
 for name,exe,args in tests:
+    test_env=dict(env)
+    if name=='time-utc':test_env['TZ']='UTC0'
+    if name=='time-pacific':test_env['TZ']='PST8PDT'
     log_path=out/(name+'.log')
     with log_path.open('w') as f:
         try:
-            rc=subprocess.run([str(a.engine/'MacOS/wine'),str(out/exe),*args],env=env,cwd=out,
+            rc=subprocess.run([str(a.engine/'MacOS/wine'),str(out/exe),*args],env=test_env,cwd=out,
                 stdout=f,stderr=subprocess.STDOUT,timeout=45).returncode
         except subprocess.TimeoutExpired: rc=124
     log=log_path.read_text(errors='replace')
     if name.startswith('overflow'):
         passed=rc in (9,0xc0000409) and 'LINUXHOST_FORTIFY_REJECT' in log and 'FORTIFY_UNEXPECTED_RETURN' not in log
-    elif name in ('strings','network'): passed=rc==0 and 'STRING_ABI_PASS result=0' in log
+    elif name in ('strings','network','stdio','time-utc','time-pacific'): passed=rc==0 and 'STRING_ABI_PASS result=0' in log
     elif name=='inspect': passed=rc in (0,1) and 'unsupported relocations' in log
     else: passed=rc==0 and '0 failure(s)' in log
+    if name=='time-utc': passed=passed and 'TIME_UTC_VALIDATED' in log
+    if name=='time-pacific': passed=passed and 'TIME_PACIFIC_WINTER_SUMMER_VALIDATED' in log
     results[name]={'exitCode':rc,'probePassed':passed,'logSha256':hashlib.sha256(log_path.read_bytes()).hexdigest()}
     if name=='inspect':
         results[name]['unresolvedCounts']=[int(v) for v in re.findall(r'(\d+) unresolved,',log)]

@@ -175,3 +175,43 @@ names**, recorded in [validation-dlopen-2026-11-16.json](validation-dlopen-2026-
 Global destructor registration/teardown, full Linux signals and other upstream
 limitations are not covered by the stack-destructor test. This candidate remains
 isolated and is **not installed in the game**.
+
+
+## Formatted I/O and time conversion, November 16
+
+The isolated candidate adds `sscanf`, `__fprintf_chk`, `localtime_r` and `usleep`.
+These are implementations of general runtime interfaces, not changes to client
+checks or authentication results.
+
+`sscanf` adapts Linux's 64-bit long and System V pointer arguments to the host
+scanner. Real Linux ELF callers verify integer limits, floating/80-bit values,
+register spills, scansets, assignment suppression, EOF and partial matches.
+Unsupported positional, allocation and wide-character forms return EINVAL before
+writing output arguments. This is a narrow C subset, not all glibc extensions.
+`__fprintf_chk` uses the existing checked formatter and actual descriptor writes;
+tests read back 8 KiB without truncation and verify EBADF plus the stream error
+flag after closing its descriptor. Writable-format `%n` is still rejected before
+stream access. This does not add glibc FILE layout or stream locking compatibility.
+
+`localtime_r` translates the host CRT result into Linux's `struct tm`, including
+the UTC offset and zone name. Separate processes must validate UTC and Pacific
+winter/summer results, with explicit branch markers so a missing TZ cannot make
+the test pass silently. TZ is changed only in each test process's environment.
+The Windows CRT date range is a limitation: unsupported negative/out-of-range
+timestamps return EOVERFLOW without changing the caller's result. `usleep` uses
+a real waitable timer; zero delay and a measured 20 ms delay pass. Linux signal
+interruption/EINTR behavior remains outside this host's current support.
+
+All general ABI tests, eight fortify rejection processes, the real GNU C++
+allocation/exception/destructor probe, and six ordinary-dlopen/actual-DLL cases
+pass together. The original client remains inspection-only and has **8 unresolved
+relocations across 7 names**: `system`, `setmntent`, `endmntent`, `getmntent`,
+`sched_getaffinity`, `longjmp`, and `sched_setaffinity`. See
+[validation-stdio-time-2026-11-16.json](validation-stdio-time-2026-11-16.json).
+The candidate is **not installed**, and neither client initialization nor actual
+gameplay has been validated. Resolving these symbols alone will not establish
+that Motorfest works on macOS.
+
+References: [GNU formatted input](https://sourceware.org/glibc/manual/latest/html_node/Formatted-Input-Basics.html),
+[GNU fortification](https://sourceware.org/glibc/manual/latest/html_node/Source-Fortification.html),
+and [Microsoft localtime64 range and TZ behavior](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/localtime-s-localtime32-s-localtime64-s?view=msvc-170).

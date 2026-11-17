@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "elfload.h"
 #include "libc.h"
@@ -231,8 +232,25 @@ SYSV int lx_vsnprintf_chk(char *dst,uint64_t size,int flag,uint64_t object_size,
 
 VARIADIC(lx_snprintf_chk,lx_vsnprintf_chk,5,"%r9");
 extern void lx_snprintf_chk(void);
+extern int linuxhost_stream_write(void *,const void *,size_t);
+SYSV int lx_vfprintf_checked(void *file,int flag,const char *fmt,struct lx_va_list *ap)
+{
+    struct lx_va_list measuring=*ap,writing=*ap;
+    int length=format(NULL,0,flag,fmt,&measuring);
+    if(length<0)return -1;
+    char *buffer=malloc((size_t)length+1);
+    if(!buffer)return format_error(12);
+    int actual=format(buffer,(size_t)length+1,flag,fmt,&writing);
+    if(actual!=length){free(buffer);return format_error(22);}
+    int result=linuxhost_stream_write(file,buffer,(size_t)length);
+    free(buffer);return result<0 ? -1 : length;
+}
+VARIADIC(lx_fprintf_checked,lx_vfprintf_checked,3,"%rcx");
+extern void lx_fprintf_checked(void);
+#include "scanf-extra.inc"
 const struct libc_function linuxhost_cxx_support_functions[]={
     {"ceil",lx_ceil},{"floor",lx_floor},{"frexpl",lx_frexpl},{"get_nprocs",lx_get_nprocs},
     {"__assert_fail",lx_assert_fail},{"__snprintf_chk",lx_snprintf_chk},{"__vsnprintf_chk",lx_vsnprintf_chk},
+    {"__fprintf_chk",lx_fprintf_checked},{"sscanf",lx_sscanf_extra},
     {NULL,NULL}
 };

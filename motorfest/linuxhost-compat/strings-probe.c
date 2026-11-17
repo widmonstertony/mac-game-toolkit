@@ -10,6 +10,7 @@ extern const int **__ctype_toupper_loc(void);
 extern void *__memcpy_chk(void *,const void *,size_t,size_t);
 extern char *__strcpy_chk(char *,const char *,size_t),*__stpcpy_chk(char *,const char *,size_t);
 extern int __snprintf_chk(char *,size_t,int,size_t,const char *,...);
+extern int __fprintf_chk(void*,int,const char*,...);
 extern double ceil(double),floor(double);
 extern long double frexpl(long double,int *);
 extern int get_nprocs(void);
@@ -84,5 +85,6 @@ long compat_overflow(long kind)
     if (kind==4) __fdelt_chk(-1);
     if (kind==5) __snprintf_chk(invalid_destination,8,0,4,"abc");
     if (kind==6) { char format[]="abc%n";int n;char buffer[16]; __snprintf_chk(buffer,16,1,16,format,&n); }
+    if (kind==7) { char format[]="abc%n";int n; __fprintf_chk((void*)1,1,format,&n); }
     return -1;
 }
