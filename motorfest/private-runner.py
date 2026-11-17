@@ -64,6 +64,20 @@ def launch_plan(profile, arguments, original):
         env['WINEDEBUG']='-all,err+all,+seh,+loaddll'
     return [str(engine/'MacOS/wine'),str(entry/'steam/steam.exe'),*arguments[1:]],env
 
+def pending_engine_handoff(profile, verb):
+    """Called only after the exclusive launch lock is acquired."""
+    if verb != 'waitforexitandrun' or not profile.get('wow64WakeRecoveryPendingRestart'):
+        return []
+    data=Path(profile['data']).resolve();private=data/'.motorfest-private-20261117'
+    old=Path(profile['wow64WakeRecoveryPreviousEngine']).resolve()
+    new=Path(profile['engine']).resolve()
+    if data.name != APP_ID or old == new or not old.is_relative_to(private) or not new.is_relative_to(private):
+        raise ValueError('Motorfest engine handoff out of scope')
+    server=old/'MacOS/wineserver'
+    if not server.is_file(): raise ValueError('Previous private wineserver missing')
+    return [[str(server), option] for option in ('-k','-w')]
+
+
 def main():
     profile_path=Path(__file__).with_name('profile.json')
     profile=json.loads(profile_path.read_text())
@@ -77,6 +91,17 @@ def main():
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         with log.open('ab',buffering=0) as f:
             f.write(('\nMOTORFEST_PRIVATE_ENTRY verb='+sys.argv[1]+' engine=FEX/Mullion gameplayVerified=false\n').encode())
+            handoff=pending_engine_handoff(profile,sys.argv[1])
+            if handoff:
+                f.write(b'MOTORFEST_PRIVATE_ENGINE_HANDOFF next-launch-only\n')
+                for action in handoff:
+                    stopped=subprocess.run(action,env=env,stdout=f,stderr=subprocess.STDOUT,timeout=25)
+                    if stopped.returncode not in (0,1): raise RuntimeError('Scoped engine handoff failed')
+                if json.loads(profile_path.read_text()) != profile:
+                    raise RuntimeError('Profile changed during engine handoff')
+                profile['wow64WakeRecoveryPendingRestart']=False
+                staged=profile_path.with_suffix('.new')
+                staged.write_text(json.dumps(profile,indent=2)+'\n');os.replace(staged,profile_path)
             result=subprocess.run(command,env=env,stdout=f,stderr=subprocess.STDOUT)
             f.write(('MOTORFEST_PRIVATE_EXIT verb='+sys.argv[1]+' status='+str(result.returncode)+'\n').encode())
     raise SystemExit(result.returncode)

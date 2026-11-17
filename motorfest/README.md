@@ -1,22 +1,35 @@
 # The Crew Motorfest: compatibility work, gameplay not verified
 
-## Current checkpoint, November 17 11:48
+## Current checkpoint, November 17 12:23
 
-Motorfest now reaches an in-game activity scene according to the user's screenshot.
-The Factory7 null dereference is repaired, and two independently reproduced shader
-compiler defects are fixed in a private library: device/constant pointer selection
-and descriptor set 16 colliding with Metal buffer 1. Real GPU readbacks and robust
-access checks pass. See [Factory7](dxgi-factory7/README.md) and
-[shader repairs](moltenvk-address-space/README.md). The prior process then suffered
-a GPU timeout on a loading screen; the new combined library is installed and being
-verified in a native Steam run. This is not yet a complete gameplay success.
+The user confirmed that the combined private candidate entered a game scene in
+this native Steam run. A live native stack sample also shows Vulkan presentation,
+Metal command submission and game-thread activity. This establishes scene entry,
+not prolonged gameplay stability or an independently verified BattlEye handshake.
 
-A separate 32-bit FEX critical-section contention probe reproduced a roughly
-five-second stall with owner zero and semaphore one. Both msync modes can exhibit
-it; neither mode is installed as a fix. The log text “retrying (60 sec)” describes
+Four compatibility defects have been fixed and installed only for Motorfest:
+Factory7 query/notification support; constant versus device address-space selection;
+descriptor set 16 colliding with Metal buffer 1; and a workgroup `float3` layout
+inflating 968 records from 19,360 to 46,464 bytes, above the 32,768-byte limit.
+The last repair preserves shader precision and values. Independent GPU readback
+regressions pass, and the captured game shader now creates its real Metal pipeline.
+See [Factory7](dxgi-factory7/README.md) and
+[shader repairs](moltenvk-address-space/README.md).
+
+The prior run passed loading and then crashed with an access violation in a private
+executable allocation. Its cause is not yet established. The current 12:02 entry
+has no access violation, GPU timeout or any of the three previous shader errors
+as of the check above; the first-fault recorder remains empty. It must not be
+reported as a proven repair of that separate CPU crash.
+
+A separate 32-bit FEX critical-section contention probe reproduces a roughly
+five-second stall with owner zero, semaphore one, and an already empty address
+wait queue. Both msync modes and a stronger TSO configuration can exhibit it;
+neither setting is installed as a fix. The log text “retrying (60 sec)” describes
 the next retry interval after the initial five-second timeout, not proof of an
-already elapsed 60-second hold. Lost wake causality still needs investigation.
-
+already elapsed 60-second hold. A matching upstream i386 lost-alert recovery passed a paired negative control
+and wait-contract checks. It is staged in an isolated engine for the next launch;
+the current run stays on its original engine. See [the recovery and its limits](wow64-wake/README.md).
 
 ## Native Steam startup repairs, November 17
 

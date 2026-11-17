@@ -1,0 +1,83 @@
+From: Motorfest private compatibility build
+Subject: Recover acknowledged i386 wakes and serialize waiter cleanup
+
+Adapted from maxjivi05's ntdll-i386-recover-lost-wake-on-address.patch in
+Droid-Deck/DroidDeck-Proton. The queue-cleanup serialization follows Wine MR12309.
+Wine source license: LGPL-2.1-or-later.
+Target: metalsharp/MetalSharp-Wine dd1f6c2f9801327d30fd82f2d55071177824fb99.
+
+--- a/dlls/ntdll/sync.c
++++ b/dlls/ntdll/sync.c
+@@ -872,6 +872,46 @@
+     return FALSE;
+ }
+ 
++#ifdef __i386__
++static NTSTATUS wait_for_wake( struct futex_entry *entry, const LARGE_INTEGER *timeout )
++{
++    LARGE_INTEGER end, step, now;
++    LONGLONG slice = 160000;
++    NTSTATUS ret;
++
++    if (timeout && timeout->QuadPart != MAXLONGLONG)
++    {
++        end = *timeout;
++        if (end.QuadPart < 0)
++        {
++            NtQuerySystemTime( &now );
++            end.QuadPart = now.QuadPart - end.QuadPart;
++        }
++    }
++    else timeout = NULL;
++
++    for (;;)
++    {
++        step.QuadPart = -slice;
++        if (timeout)
++        {
++            NtQuerySystemTime( &now );
++            if (end.QuadPart - now.QuadPart <= slice) step = end;
++        }
++        if ((ret = NtWaitForAlertByThreadId( NULL, &step )) != STATUS_TIMEOUT) return ret;
++        if (!ReadPointerAcquire( (void * volatile *)&entry->addr ))
++        {
++            step.QuadPart = -20000;
++            NtWaitForAlertByThreadId( NULL, &step );
++            return STATUS_ALERTED;
++        }
++        if (timeout && step.QuadPart == end.QuadPart) return STATUS_TIMEOUT;
++        if (slice < 2560000) slice *= 2;
++    }
++}
++#endif
++
++
+ /***********************************************************************
+  *           RtlWaitOnAddress   (NTDLL.@)
+  */
+@@ -906,16 +946,16 @@
+ 
+     spin_unlock( &queue->lock );
+ 
++#ifdef __i386__
++    ret = wait_for_wake( &entry, timeout );
++#else
+     ret = NtWaitForAlertByThreadId( NULL, timeout );
+-
+-    /* We may have already been removed by a call to RtlWakeAddressSingle() or RtlWakeAddressAll(). */
+-    if (ReadPointerAcquire( (void * volatile *)&entry.addr ))
+-    {
+-        spin_lock( &queue->lock );
+-        if (entry.addr)
+-            list_remove( &entry.entry );
+-        spin_unlock( &queue->lock );
+-    }
++#endif
++
++    /* Serialize cleanup with wake-all, which may still access this stack entry. */
++    spin_lock( &queue->lock );
++    if (entry.addr) list_remove( &entry.entry );
++    spin_unlock( &queue->lock );
+ 
+     TRACE("returning %#lx\n", ret);
+ 

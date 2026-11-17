@@ -46,6 +46,19 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual(helper['STEAM_COMPAT_APP_ID'],'2698940')
         _,game=runner.launch_plan(self.profile,['waitforexitandrun','game.exe'],self.env)
         self.assertEqual(game['SteamAppId'],'2698940');self.assertEqual(game['SteamGameId'],'2698940')
+    def test_handoff_is_scoped_and_deferred_until_game_launch(self):
+        private=Path(self.profile['data'])/'.motorfest-private-20261117'
+        old=private/'old/Contents';old.joinpath('MacOS').mkdir(parents=True)
+        old.joinpath('MacOS/wineserver').touch()
+        profile=dict(self.profile,engine=str(private/'new/Contents'),
+                     wow64WakeRecoveryPendingRestart=True,wow64WakeRecoveryPreviousEngine=str(old))
+        self.assertEqual(runner.pending_engine_handoff(profile,'run'),[])
+        self.assertEqual(runner.pending_engine_handoff(profile,'getcompatpath'),[])
+        self.assertEqual(runner.pending_engine_handoff(dict(profile,wow64WakeRecoveryPendingRestart=False),'waitforexitandrun'),[])
+        self.assertEqual(runner.pending_engine_handoff(profile,'waitforexitandrun'),
+                         [[str((old/'MacOS/wineserver').resolve()),'-k'],[str((old/'MacOS/wineserver').resolve()),'-w']])
+        with self.assertRaises(ValueError):
+            runner.pending_engine_handoff(dict(profile,wow64WakeRecoveryPreviousEngine='/tmp/other/Contents'),'waitforexitandrun')
     def test_queries_and_unknown_verbs(self):
         self.assertEqual(runner.launch_plan(self.profile,['getcompatpath'],self.env),(None,None))
         with self.assertRaises(ValueError):runner.launch_plan(self.profile,['unknown','game.exe'],self.env)

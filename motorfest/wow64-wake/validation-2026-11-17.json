@@ -1,0 +1,170 @@
+{
+  "sourceCommit": "dd1f6c2f9801327d30fd82f2d55071177824fb99",
+  "sourceArchiveSha256": "ff1b037ff30ccf82cb077ba86d1b63b82c1cd65a6c1694bd1e06393e82bbadd9",
+  "originalSha256": "54ceb30386427877b48873e28941daac6517cf74a5157bf7c0aee371296f2156",
+  "baselineSha256": "df79c4ca1948bbec258e8a022f1fe9418ccf52bf69fd51d3fec499a9e25fed59",
+  "candidateSha256": "5057c717a5f152229cf7dde16034823dd4b1546300918c5087c76aba73e8ac37",
+  "exportsNamesOrdinalsIdentical": true,
+  "exportCount": 1509,
+  "comparison": [
+    {
+      "mode": "baseline",
+      "rc": 1,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=5009",
+        "FAIL"
+      ],
+      "stalls": 18
+    },
+    {
+      "mode": "baseline",
+      "rc": 0,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=51",
+        "PASS"
+      ],
+      "stalls": 0
+    },
+    {
+      "mode": "baseline",
+      "rc": 1,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=5010",
+        "FAIL"
+      ],
+      "stalls": 18
+    },
+    {
+      "mode": "baseline",
+      "rc": 0,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=63",
+        "PASS"
+      ],
+      "stalls": 0
+    },
+    {
+      "mode": "candidate",
+      "rc": 0,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=62",
+        "PASS"
+      ],
+      "stalls": 0
+    },
+    {
+      "mode": "candidate",
+      "rc": 0,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=68",
+        "PASS"
+      ],
+      "stalls": 0
+    },
+    {
+      "mode": "candidate",
+      "rc": 0,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=62",
+        "PASS"
+      ],
+      "stalls": 0
+    },
+    {
+      "mode": "candidate",
+      "rc": 0,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=83",
+        "PASS"
+      ],
+      "stalls": 0
+    },
+    {
+      "mode": "candidate",
+      "rc": 0,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=57",
+        "PASS"
+      ],
+      "stalls": 0
+    },
+    {
+      "mode": "candidate",
+      "rc": 0,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=62",
+        "PASS"
+      ],
+      "stalls": 0
+    },
+    {
+      "mode": "candidate",
+      "rc": 0,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=62",
+        "PASS"
+      ],
+      "stalls": 0
+    },
+    {
+      "mode": "candidate",
+      "rc": 0,
+      "output": [
+        "WAIT_RVA=54360",
+        "contention result=0 total=200000 elapsed=45",
+        "PASS"
+      ],
+      "stalls": 0
+    }
+  ],
+  "contract": [
+    {
+      "mode": "candidate",
+      "rc": 0,
+      "output": [
+        "PASS different-value returns immediately",
+        "PASS unchanged-value relative timeout",
+        "PASS different-value returns immediately",
+        "PASS unchanged-value relative timeout",
+        "PASS different-value returns immediately",
+        "PASS unchanged-value relative timeout",
+        "PASS different-value returns immediately",
+        "PASS unchanged-value relative timeout",
+        "PASS invalid-size rejected",
+        "PASS absolute deadline honored",
+        "PASS infinite wait/single wake",
+        "PASS waiter completed without error",
+        "PASS infinite wait/broadcast wake",
+        "PASS waiter completed without error",
+        "PASS waiter completed without error",
+        "PASS waiter completed without error",
+        "PASS waiter completed without error",
+        "PASS waiter completed without error",
+        "PASS waiter completed without error",
+        "PASS waiter completed without error",
+        "PASS waiter completed without error"
+      ],
+      "stalls": 0
+    }
+  ],
+  "gameplayWithWakeCandidateVerified": false,
+  "installed": true,
+  "underlyingTranslatorCauseProven": false,
+  "activation": "next native Steam game launch; current process unchanged",
+  "installationChangedFiles": [
+    "Contents/lib/wine/i386-windows/ntdll.dll"
+  ],
+  "originalEngineUnchanged": true,
+  "launcherIsolationTests": 10
+}
