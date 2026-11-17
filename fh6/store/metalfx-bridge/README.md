@@ -2,6 +2,27 @@
 
 ## Live FH6 FG trial installed, November 17
 
+### Preserve native carrier identity
+
+The next real game run passes Prepare (2,118 recorded snapshots at the sampled
+checkpoint), but native FG initialization rejects the parameter ABI and still
+has zero midpoint frames. A read-only process map shows both the original
+`libd3dshared.dylib` and a second native image at the installed `nvngx.so` path.
+The initial installer used `copytree(..., symlinks=False)`, dereferencing the
+tested carrier's link into a separate file. Equal bytes do not preserve dlopen
+image identity.
+
+An isolated paired control using that actual installed layout fails with the
+native assertion `Failed to dlopen D3DMetal`. Restoring the carrier link to the
+unchanged original Apple library makes the same installed-path control pass:
+32 ordered composition callbacks, 14 actual native midpoint pairs, no UI or
+original-pixel errors. This establishes a packaging defect; it does not alone
+prove that every live-game ABI rejection or the car ghosting is solved.
+The installer now preserves and checks the link, records the native library
+hash, and repairs the earlier copied layout with a backup. The repair is
+installed; the current game trial was stopped and no agent relaunch follows.
+See `carrier-identity-validation-20261117.json`.
+
 ### Complete OptiScaler Prepare chain, November 17 14:17 report
 
 The user's next game run and screenshot still show the duplicated car. That

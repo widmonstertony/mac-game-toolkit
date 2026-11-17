@@ -38,6 +38,9 @@ def main():
         raise RuntimeError('Unexpected FG path')
     wrapper=runtime/'fh6-store-wine';old_wrapper=wrapper.read_bytes()
     carrier=runtime/'fh6-metalfx-carrier'
+    source_so=a.carrier/'x86_64-unix/nvngx.so'
+    if not source_so.is_symlink() or not source_so.resolve().is_file():
+        raise RuntimeError('Use the validated carrier link to the existing Apple library')
     if carrier.exists() and sha(carrier/'x86_64-windows/nvngx.dll')!=proof['native_carrier_sha256']:
         raise RuntimeError('Existing carrier differs; review before upgrade')
     # The runner regenerates the wrapper on EVERY launch. Install its source
@@ -55,11 +58,20 @@ def main():
     backup=runtime/('metalfx-backup-'+stamp);backup.mkdir()
     paths=[target,observer,wrapper,profile,ini,*generator_files]
     for i,p in enumerate(paths):shutil.copy2(p,backup/(str(i)+'-'+p.name))
-    if not carrier.exists():shutil.copytree(a.carrier,carrier,symlinks=False)
+    if not carrier.exists():shutil.copytree(a.carrier,carrier,symlinks=True)
+    installed_so=carrier/'x86_64-unix/nvngx.so'
+    if sha(installed_so)!=sha(source_so):raise RuntimeError('Native carrier changed')
+    # dlopen identity matters as well as bytes. Dereferencing this link loads a
+    # second libd3dshared image alongside D3DMetal and fails its initialization.
+    if not installed_so.is_symlink() or installed_so.resolve()!=source_so.resolve():
+        shutil.copy2(installed_so,backup/'nvngx-so-before-link-repair')
+        link=installed_so.with_name('.nvngx-link-staged')
+        link.symlink_to(source_so.resolve());os.replace(link,installed_so)
     if sha(carrier/'x86_64-windows/nvngx.dll')!=proof['native_carrier_sha256']:raise RuntimeError('Copied carrier mismatch')
     changes={target:candidate.read_bytes(),observer:(a.artifacts/'fh6-fg-chain.asi').read_bytes(),**generator_files}
     for p,data in changes.items():record['verifiedFiles'][str(p)]=hashlib.sha256(data).hexdigest()
     record['verifiedFiles'][str(carrier/'x86_64-windows/nvngx.dll')]=sha(carrier/'x86_64-windows/nvngx.dll')
+    record['verifiedFiles'][str(installed_so)]=sha(installed_so)
     record['frameGeneration']='MetalFX FG candidate through DLSSG/FFX scheduler, 2x; stock fallback on warmup/unsupported frames; live validation pending'
     record['gameplayVerified']=False
     record['metalFxTrial']=dict(installed=True,fgInstalled=True,srInstalled=False,
@@ -86,6 +98,8 @@ def main():
         if ini.read_bytes()!=old_ini:raise RuntimeError('Game settings changed during install')
     except BaseException:
         for i,p in enumerate(paths):atomic(p,(backup/(str(i)+'-'+p.name)).read_bytes())
+        previous_native=backup/'nvngx-so-before-link-repair'
+        if previous_native.exists():atomic(installed_so,previous_native.read_bytes())
         raise
     (backup/'installation.json').write_text(json.dumps(record['metalFxTrial'],indent=2)+'\n')
     print('Installed FH6-only MetalFX FG trial; existing Steam entry retained. SR is still FSR Quality.')
