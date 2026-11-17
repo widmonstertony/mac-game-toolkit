@@ -97,6 +97,15 @@ assumed to match the Store executable. The
 [whyAm-i patch repository](https://github.com/whyAm-i/Forza-Horizon-4-patches-for-mac)
 also explicitly requires a legitimate Steam copy for its tested configuration.
 
+The public [WinDurango ImmersiveLoader](https://github.com/WinDurango/ImmersiveLoader)
+was also inspected as an alternative UWP entry path. Its current
+[`ImmersiveLoaderCore.cpp`](https://github.com/WinDurango/ImmersiveLoader/blob/main/projects/ImmersiveLoaderCore/src/ImmersiveLoaderCore.cpp)
+only parses the manifest, derives package names and sets an initialization flag;
+its example `main.cpp` constructs that object with a hard-coded manifest path.
+It does not implement CoreApplication.Run, create a CoreWindow, or launch this
+game. Its description alone is not evidence that it fills the observed Wine
+interface gap, so it has not been installed into the owned game.
+
 The PC EAppx bundle has downloaded completely (85,219,173,025 bytes, 79.37 GiB).
 Its full SHA-256 matches Microsoft's FE3 package metadata. See
 `download-receipt.json`. The local destination is

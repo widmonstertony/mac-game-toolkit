@@ -66,6 +66,24 @@ branch has been installed in this prefix. Its Linux host also documents incomple
 signals, shared mappings and TLS support, requiring compatibility review before
 adoption. No game or anti-cheat binary has been patched or disabled.
 
+### Isolated Linux-client dependency check
+
+The next check found a concrete limitation beyond the bridge itself. See
+[the local reproduction and results](diagnostics/2026-11-16-linux-client.md).
+The upstream host's `hello` and `extras` checks both passed under the signed
+MetalSharp Wine 7.0/FEX engine. Parsing the Lutris-distributed BattlEye runtime
+resolved every mandatory import in its Wine bridge, but the actual Linux client
+had **47 unresolved relocations**. This candidate is therefore not ready to
+replace the live Motorfest runtime. No client constructors or anti-cheat checks
+were executed, and no success-returning substitutes were installed.
+
+This is the 2024-05-21 package still listed by Lutris's current runtime API;
+it is not established to match Valve's current Steam depot. The anonymous
+SteamCMD attempt for AppID 1161040 returned `No subscription`, so the
+current official depot was not downloaded. Do not claim the older package's
+failure proves every newer BattlEye build fails, or that a passing bridge test
+establishes an authenticated game session.
+
 GTA V Story Mode is not a substitute test: [Rockstar's FAQ](https://support.rockstargames.com/articles/1nenwhZlVrJY6CTFeSS2Fx/grand-theft-auto-online-battleye-faq)
 distinguishes Story Mode from BattlEye-protected Online. [Valve documents](https://partner.steamgames.com/doc/steamhardware/proton)
 that BattlEye support requires per-title configuration.
