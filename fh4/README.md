@@ -1,5 +1,25 @@
 # Forza Horizon 4: owned Microsoft Store package
 
+## First actual Store executable launch, November 17
+
+Four verified app-local compatibility files are now installed in the owned
+Content directory, with no original executable or package manifest overwritten.
+The isolated package/controller Wine modules run in a FH4-only prefix.
+An app-contained Python entry in Application Support corrects the first launch
+failure: macOS denied opening the separate entry script under Documents.
+The self-authored app was then launched through the computer tool at 13:50.
+
+The actual `ForzaHorizon4.exe` process starts and loads the UWP runtime,
+CoreWindow DXGI bridge, original D3DMetal, app CRT and original game libraries.
+It has not reached a visible menu. The last activation trace requests
+`Windows.Storage.ApplicationData` on a worker while CoreApplication activation
+is outstanding. A native thread sample was captured; its repeated syscall
+return frames alone do not establish a specific held lock or a root cause.
+LLDB attachment did not complete and its debugger processes were stopped.
+Actual Store authentication, cloud saves and gameplay remain unverified.
+No claim is made that the MACxus built-in unsupported-package launch gate is fixed.
+The separate diagnostic entry and installation code live in `launcher/`.
+
 ## Controller registration candidate, November 17
 
 The two remaining owned factory failures below now pass with an isolated

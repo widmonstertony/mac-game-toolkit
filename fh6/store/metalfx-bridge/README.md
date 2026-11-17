@@ -1,7 +1,29 @@
 # Isolated MetalFX frame interpolation bridge
 
-Experimental, **not installed in FH6**. The game still uses its existing FSR
-quality upscaling and 2x generation. The prototype now has temporal SR and FG
+## Live FH6 FG trial installed, November 17
+
+The FH6-only runtime now selects the MetalFX FG candidate through the existing
+native Steam entry. The installed candidate SHA-256 is
+`e9d8257e9d068d4b789d13bfcaf14cfe5de3bac017d9a1bd96c38d142d89977c`.
+The rebuilt candidate passed the production D3D12 shim scheduler GPU check:
+16 base frames, 32 ordered composition callbacks, 14 genuine native midpoint
+pairs after two warmup samples, and zero UI/original-pixel errors. The native
+NGX carrier is copied into the FH6 private support directory; the FH6 wrapper
+selects it with `nvngx=b` and `D3DM_ENABLE_METALFX=1`. The previous provider,
+observer, profile, wrapper and settings have a local backup. The heavy sequence
+recorder is no longer the active FG provider. Installed file hashes and wrapper
+shell syntax were checked after deployment.
+
+**Actual game MetalFX selection, high-speed quality, stutter and crash stability
+remain unverified.** Unsupported contracts and native warmup still use stock
+FG, and `apple_fg_dispatch` reports whether a sample used native interpolation.
+The profile explicitly records this as a trial. Temporal SR is still FSR Quality;
+the standalone MetalFX SR operation has no live-game command-list adapter yet.
+Resolution, quality ratio, Steam entry, audio and network settings are retained.
+`install-live.py` performs this scoped, hash-checked installation.
+
+The earlier experimental checkpoints below describe pre-installation results.
+The prototype has temporal SR and FG
 operations. The separate FFX candidate connects FG to Prepare/Dispatch,
 native UI composition and the existing swapchain scheduler; its isolated
 ordering test is described below. Temporal SR is not yet connected to the
