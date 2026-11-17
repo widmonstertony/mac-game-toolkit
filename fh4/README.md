@@ -1,5 +1,15 @@
 # Forza Horizon 4: owned Microsoft Store package
 
+## Controller registration candidate, November 17
+
+The two remaining owned factory failures below now pass with an isolated
+[controller registration implementation](custom-controllers/README.md).
+All 34 original DLL factory queries succeed. Registration/provider callbacks,
+reentrancy, removal races and reference lifetimes also pass in the actual Wine
+test. This does not establish physical GIP device transport, Xbox sign-in,
+cloud saves, window/input completeness or FH4 gameplay. The candidate remains
+inactive in the game; no other game's runtime or settings were changed.
+
 ## Original Xbox class registrations, November 17
 
 The isolated startup manifest now preserves the owned package's four WinRT

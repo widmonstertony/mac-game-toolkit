@@ -1,0 +1,313 @@
+{
+  "date": "2026-11-17",
+  "build": {
+    "gameplayVerified": false,
+    "installed": false,
+    "sourceSha256": "33957d54e2718bd71b74f16c403d27a9c6392fe30f6edb4b30f3e0d498434627",
+    "exports": {
+      "candidate.dll": [
+        "DllCanUnloadNow",
+        "DllGetActivationFactory",
+        "DllGetClassObject"
+      ],
+      "registry-test.dll": [
+        "DllCanUnloadNow",
+        "DllGetActivationFactory",
+        "DllGetClassObject",
+        "FH4CustomControllerSelfTest"
+      ]
+    },
+    "files": {
+      "candidate.dll": "3da2a95bc5c7869cca4358c10a340accf996e6bf18c0abbfe25018eaac30d115",
+      "registry-test.dll": "18f94c226cb75ee17200b324ae657769b1bd3c3170be5c57c045b7dd51a5088a",
+      "test-runner.exe": "bdaa148c81ee8bd3e456f74f7a11a6213d73a97c6890701837e9048798caa86d"
+    },
+    "inputs": {
+      "custom-factories.inc": "1ba2dee88468c6ce88e700e4465722655adc86ad77ba14efad01d8982738e185",
+      "registry-test.inc": "ffbc2e47cef89bc89a61bb65cb651464e6c5384e50d97e3ca43b33bb6b8d0c87",
+      "apply-source.py": "4653708a6e6d1b0eb90b0ba02c329499115238ced0000ef413b2c2c19eee5348",
+      "test-runner.c": "6cb39fdd99b995f63ff8950afa585f32dc1da4e54e47a4937dee6f6708915eb4"
+    }
+  },
+  "registryTestPassed": true,
+  "registryTestLogSha256": "d1452ca0099b4dbdd7a6b08985199f3bc9331bfa710ccb3a7e5b8444b23c3841",
+  "ownedFactories": {
+    "exitCode": 0,
+    "allFactoriesVerified": true,
+    "gameplayVerified": false,
+    "signInVerified": false,
+    "instancesCreated": 0,
+    "probeSha256": "ee974d1fb25f3544da739c3174f9efefcf950fdbcdc45ff1858db4940d52f66e",
+    "logSha256": "0f90b92202a687ec92d2a524a8dc5dec2ae1f625dd08b40a1a1ec48706374590",
+    "results": [
+      {
+        "name": "GameControllerInfo.GameControllerInfo",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Input.AdvancedGipWheel",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Tournaments.TournamentRequest",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Tournaments.TournamentReference",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Tournaments.TeamRequest",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Tournaments.TournamentTeamResult",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.XboxLiveContextSettings",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Presence.PresenceData",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.ServiceCallLoggingConfig",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.System.XboxLiveServicesSettings",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.System.TitleCallableUI",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.System.XboxLiveUser",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.UserStatistics.RequestedStatistics",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Leaderboard.LeaderboardQuery",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.XboxLiveAppConfiguration",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Privacy.PermissionIdConstants",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Social.Manager.SocialManager",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Social.SocialGroupConstants",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Social.ReputationFeedbackItem",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Multiplayer.MultiplayerSession",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Multiplayer.MultiplayerSessionReference",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Multiplayer.MultiplayerQuerySearchHandleRequest",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Multiplayer.MultiplayerSearchHandleRequest",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Multiplayer.Manager.MultiplayerManager",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Multiplayer.MultiplayerRoleInfo",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Multiplayer.MultiplayerGetSessionsRequest",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Multiplayer.MultiplayerSessionCapabilities",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Multiplayer.MultiplayerQualityOfServiceMeasurements",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Multiplayer.MultiplayerRoleType",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.Statistics.Manager.StatisticManager",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.TitleStorage.TitleStorageBlobMetadata",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.XboxLiveHttpCall",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Microsoft.Xbox.Services.XboxLiveContext",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      },
+      {
+        "name": "Fanatec.Devices.FWheel",
+        "manifest": true,
+        "hresult": "00000000",
+        "factory": true
+      }
+    ],
+    "sourceServers": [
+      {
+        "file": "GameControllerInfo.dll",
+        "sha256": "3c7c16070eb6d77c7f71aeb30edcbe7c1290f54ec590c272579357d58428e956",
+        "classes": [
+          "GameControllerInfo.GameControllerInfo"
+        ]
+      },
+      {
+        "file": "Microsoft.Xbox.Input.AdvancedGipWheel.dll",
+        "sha256": "232c8a0dc9c9d0d102b106918ad6611e1d3c0cfca5ecb153ab3e9782dcdc00ed",
+        "classes": [
+          "Microsoft.Xbox.Input.AdvancedGipWheel"
+        ]
+      },
+      {
+        "file": "Microsoft.Xbox.Services.dll",
+        "sha256": "dada2c30020290508fdd927e2c11933ef1211a45f64f636f9feac0818f3f321d",
+        "classes": [
+          "Microsoft.Xbox.Services.Tournaments.TournamentRequest",
+          "Microsoft.Xbox.Services.Tournaments.TournamentReference",
+          "Microsoft.Xbox.Services.Tournaments.TeamRequest",
+          "Microsoft.Xbox.Services.Tournaments.TournamentTeamResult",
+          "Microsoft.Xbox.Services.XboxLiveContextSettings",
+          "Microsoft.Xbox.Services.Presence.PresenceData",
+          "Microsoft.Xbox.Services.ServiceCallLoggingConfig",
+          "Microsoft.Xbox.Services.System.XboxLiveServicesSettings",
+          "Microsoft.Xbox.Services.System.TitleCallableUI",
+          "Microsoft.Xbox.Services.System.XboxLiveUser",
+          "Microsoft.Xbox.Services.UserStatistics.RequestedStatistics",
+          "Microsoft.Xbox.Services.Leaderboard.LeaderboardQuery",
+          "Microsoft.Xbox.Services.XboxLiveAppConfiguration",
+          "Microsoft.Xbox.Services.Privacy.PermissionIdConstants",
+          "Microsoft.Xbox.Services.Social.Manager.SocialManager",
+          "Microsoft.Xbox.Services.Social.SocialGroupConstants",
+          "Microsoft.Xbox.Services.Social.ReputationFeedbackItem",
+          "Microsoft.Xbox.Services.Multiplayer.MultiplayerSession",
+          "Microsoft.Xbox.Services.Multiplayer.MultiplayerSessionReference",
+          "Microsoft.Xbox.Services.Multiplayer.MultiplayerQuerySearchHandleRequest",
+          "Microsoft.Xbox.Services.Multiplayer.MultiplayerSearchHandleRequest",
+          "Microsoft.Xbox.Services.Multiplayer.Manager.MultiplayerManager",
+          "Microsoft.Xbox.Services.Multiplayer.MultiplayerRoleInfo",
+          "Microsoft.Xbox.Services.Multiplayer.MultiplayerGetSessionsRequest",
+          "Microsoft.Xbox.Services.Multiplayer.MultiplayerSessionCapabilities",
+          "Microsoft.Xbox.Services.Multiplayer.MultiplayerQualityOfServiceMeasurements",
+          "Microsoft.Xbox.Services.Multiplayer.MultiplayerRoleType",
+          "Microsoft.Xbox.Services.Statistics.Manager.StatisticManager",
+          "Microsoft.Xbox.Services.TitleStorage.TitleStorageBlobMetadata",
+          "Microsoft.Xbox.Services.XboxLiveHttpCall",
+          "Microsoft.Xbox.Services.XboxLiveContext"
+        ]
+      },
+      {
+        "file": "Fanatec.Devices.dll",
+        "sha256": "0beb742ab7e409cadc78416c4808df14e1005ae76b27a17747141696c31276e4",
+        "classes": [
+          "Fanatec.Devices.FWheel"
+        ]
+      }
+    ]
+  },
+  "gameplayVerified": false,
+  "physicalGipTransportVerified": false,
+  "installedIntoGame": false,
+  "baselineDllSha256": "110ae7be4870a349371f15b4ed7b1ee613e1c9889080f57cd8f605e3319feee5"
+}
