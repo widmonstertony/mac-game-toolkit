@@ -26,6 +26,12 @@ anchor='static const struct libc_function *const tables[] =\n{\n'
 if text.count(anchor)!=1: raise SystemExit('Unexpected resolver table; source review required')
 text=text.replace(anchor,'extern const struct libc_function linuxhost_string_compat_functions[], linuxhost_cxx_support_functions[];\n'+anchor+'    linuxhost_string_compat_functions, linuxhost_cxx_support_functions,\n')
 glibc.write_text(text)
+net=src/'libc_net.c'; text=net.read_text()
+anchor='const struct libc_function linuxhost_net_functions[] =\n{\n'
+if text.count(anchor)!=1: raise SystemExit('Unexpected network table; source review required')
+text=text.replace(anchor,'#include "libc-network-extra.inc"\n'+anchor+'    { "sendto", lx_sendto }, { "gethostname", lx_gethostname },\n')
+net.write_text(text)
+shutil.copy2(ROOT/'libc-network-extra.inc',src/'libc-network-extra.inc')
 sources=['elfload.c','glibc.c','syscall.c','process.c','libc.c','libc_io.c','fork.c',
          'libc_thread.c','libc_net.c','libc_misc.c','unwind.c']
 cc=str(a.toolchain.absolute()/'bin/x86_64-w64-mingw32-clang')
@@ -40,11 +46,12 @@ clang=str(a.toolchain.absolute()/'bin/clang')
 elf=[clang,'--target=x86_64-unknown-linux-gnu','-O2','-fPIC','-shared','-nostdlib','-fuse-ld=lld',
      '-fno-builtin','-Wl,--hash-style=gnu']
 subprocess.run([*elf,str(ROOT/'strings-probe.c'),'-o',str(out/'strings.so')],check=True)
+subprocess.run([*elf,str(ROOT/'network-probe.c'),'-o',str(out/'network.so')],check=True)
 subprocess.run([*elf,'-fexceptions',str(ROOT/'cxx-probe.cpp'),'-o',str(out/'cxx-probe.so')],check=True)
 subprocess.run([*elf,'-ftls-model=global-dynamic',str(src/'test/hello.c'),'-o',str(out/'hello.so')],check=True)
 subprocess.run([*elf,'-O1','-fexceptions','-Wl,--eh-frame-hdr',str(src/'test/extras.c'),'-o',str(out/'extras.so')],check=True)
 receipt={'upstreamRevision':'b1ceb881dc6443da8772fbae3a906204266e21cc','upstreamFiles':original,
- 'ownSources':{f.name:hashlib.sha256(f.read_bytes()).hexdigest() for f in ROOT.glob('*') if f.suffix in ('.c','.cpp','.py')},
+ 'ownSources':{f.name:hashlib.sha256(f.read_bytes()).hexdigest() for f in ROOT.glob('*') if f.suffix in ('.c','.cpp','.py','.inc')},
  'outputs':{f.name:hashlib.sha256(f.read_bytes()).hexdigest() for f in out.iterdir() if f.suffix in ('.exe','.dll','.so')},
  'installed':False,'gameplayVerified':False}
 (out/'build.json').write_text(json.dumps(receipt,indent=2)+'\n')

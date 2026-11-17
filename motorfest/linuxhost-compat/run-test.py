@@ -27,6 +27,7 @@ for name in ('WINEDLLPATH','WINEDLLPATH_PREPEND','PROTON_LINUX_HOST','PROTON_BAT
              'DYLD_LIBRARY_PATH','DYLD_FALLBACK_LIBRARY_PATH','DYLD_FALLBACK_FRAMEWORK_PATH'):
     env.pop(name,None)
 tests=[('strings','strings-probe.exe',[str(out/'strings.so')]),
+       ('network','strings-probe.exe',[str(out/'network.so')]),
        *[(f'overflow-{i}','strings-probe.exe',[str(out/'strings.so'),str(i)]) for i in range(7)],
        ('hello','hosttest.exe',['hello',str(out/'hello.so')]),
        ('extras','hosttest.exe',['extras',str(out/'extras.so')]),
@@ -42,7 +43,7 @@ for name,exe,args in tests:
     log=log_path.read_text(errors='replace')
     if name.startswith('overflow'):
         passed=rc in (9,0xc0000409) and 'LINUXHOST_FORTIFY_REJECT' in log and 'FORTIFY_UNEXPECTED_RETURN' not in log
-    elif name=='strings': passed=rc==0 and 'STRING_ABI_PASS result=0' in log
+    elif name in ('strings','network'): passed=rc==0 and 'STRING_ABI_PASS result=0' in log
     elif name=='inspect': passed=rc in (0,1) and 'unsupported relocations' in log
     else: passed=rc==0 and '0 failure(s)' in log
     results[name]={'exitCode':rc,'probePassed':passed,'logSha256':hashlib.sha256(log_path.read_bytes()).hexdigest()}

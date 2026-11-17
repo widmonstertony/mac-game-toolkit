@@ -102,6 +102,13 @@ the inspected client still has 16 unresolved relocations. See the
 This is not deployed to the production engine and does not establish a successful
 BattlEye game session.
 
+The subsequent UDP host addition passes actual IPv4/IPv6 loopback send/receive,
+zero-length and connected-datagram tests, alongside the previous ABI and C++
+regressions. The inspected client's unresolved relocations are now 14. This
+still leaves runtime functionality to implement and an actual protected session
+to verify; the existing game's engine has not been changed. Details and receipts
+are in [the UDP experiment](linuxhost-compat/README.md#udp-additions-november-16).
+
 GTA V Story Mode is not a substitute test: [Rockstar's FAQ](https://support.rockstargames.com/articles/1nenwhZlVrJY6CTFeSS2Fx/grand-theft-auto-online-battleye-faq)
 distinguishes Story Mode from BattlEye-protected Online. [Valve documents](https://partner.steamgames.com/doc/steamhardware/proton)
 that BattlEye support requires per-title configuration.

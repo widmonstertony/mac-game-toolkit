@@ -1,0 +1,155 @@
+{
+  "generalAbi": {
+    "tests": {
+      "strings": {
+        "exitCode": 0,
+        "probePassed": true,
+        "logSha256": "dfc835bdcd3114b1939e212ca4904dd7ba4e9da32eb734708191d769bdd11536"
+      },
+      "network": {
+        "exitCode": 0,
+        "probePassed": true,
+        "logSha256": "6d41032cae936e265fd83f50d4c87617ff99c2e799acc8f54e93a16c6928fc02"
+      },
+      "overflow-0": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-1": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-2": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-3": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-4": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-5": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-6": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "bfd1c2573f03209d2772546c70e02be9722ff73017c9ceda490738fca03ade6b"
+      },
+      "hello": {
+        "exitCode": 0,
+        "probePassed": true,
+        "logSha256": "e16e9bf22a0d887dd745e5d4c30cd6fac302ebabd211cc1228e667762d2820b7"
+      },
+      "extras": {
+        "exitCode": 0,
+        "probePassed": true,
+        "logSha256": "d7c1ea5e8a4ac29552d5c6b6f192283caff98c8240977bc08a2c84dce3060846"
+      },
+      "inspect": {
+        "exitCode": 1,
+        "probePassed": true,
+        "logSha256": "b6803f2315a9f1fa37766f9f11d6c762cf2fd310c42be2159cd8ab8dfc89afb2",
+        "unresolvedCounts": [
+          0,
+          33
+        ],
+        "allDependenciesResolved": false
+      }
+    },
+    "generalAbiTestsPassed": true,
+    "runtimeFiles": {
+      "v1/lib64/wine/beclient_x64.dll.so": "6aa86ad273fb5a533d018a9d7d5ca3b7ca31d9cc6f6b5e5f108fff71c2876cdc",
+      "BEClient_x64.so": "c39d4f934d76043ba7183dea0807809bdad3afe6e973a5469f1143c4ca45dd82"
+    },
+    "buildReceiptSha256": "e0d44beb205ffd76226f06bfbc49cea8ab51121696631f068bf95745abde52d1",
+    "clientCodeExecuted": false,
+    "installed": false,
+    "gameplayVerified": false
+  },
+  "gnuCxx": {
+    "tests": {
+      "linked-client": {
+        "exitCode": 1,
+        "modules": [
+          {
+            "name": "libgcc_s.so.1",
+            "imports": 15,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "libstdc++.so.6.0.21",
+            "imports": 123,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "BEClient_x64.so",
+            "imports": 162,
+            "unresolved": 14,
+            "unsupported": 0
+          }
+        ],
+        "logSha256": "cf4d2426518137ea78ffc607849e8b292cb71ccb900a82cd12a39356e3e9255a",
+        "missing": [
+          "system gethostbyname sscanf __fprintf_chk usleep setmntent endmntent getmntent sched_getaffinity longjmp localtime_r sched_setaffinity "
+        ],
+        "allDependenciesResolved": false,
+        "inspectionCompleted": true
+      },
+      "gnu-cxx": {
+        "exitCode": 0,
+        "modules": [
+          {
+            "name": "libgcc_s.so.1",
+            "imports": 15,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "libstdc++.so.6.0.21",
+            "imports": 123,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "cxx-probe.so",
+            "imports": 10,
+            "unresolved": 0,
+            "unsupported": 0
+          }
+        ],
+        "logSha256": "cf3c4be77928c66ac9fa7a0f12b317d47a2bd6f05d2e8f37c6865d96c7d3f32d",
+        "missing": [],
+        "allDependenciesResolved": true,
+        "behaviorPassed": true
+      }
+    },
+    "gnuRuntimeHashes": {
+      "libgcc_s.so.1": "753a1cb28fe20a9a0fb75fe6ee2b9b2a9a36041d4ec41817da9bc9a614c4ab00",
+      "libstdc++.so.6.0.21": "83846996211e93eaa5f945f631aaa2f7dd4ae98bbd967fac78964668118887ed"
+    },
+    "clientSha256": "c39d4f934d76043ba7183dea0807809bdad3afe6e973a5469f1143c4ca45dd82",
+    "buildReceiptSha256": "e0d44beb205ffd76226f06bfbc49cea8ab51121696631f068bf95745abde52d1",
+    "clientCodeExecuted": false,
+    "installed": false,
+    "gameplayVerified": false
+  },
+  "networkScope": "IPv4 127.0.0.1 and IPv6 ::1 loopback only; no game or remote service connection",
+  "limitations": [
+    "MSG_DONTWAIT and other unsupported Linux-only send flags return EOPNOTSUPP; they are not silently ignored",
+    "Client dependencies remain incomplete; client code is not executed",
+    "No installed game or engine modified"
+  ]
+}

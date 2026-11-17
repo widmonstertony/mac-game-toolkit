@@ -111,3 +111,23 @@ Its unresolved relocations are now **16**, across 14 missing names: `system`,
 `localtime_r`, and `sched_setaffinity`. The normal loader still does not automatically
 load these GNU dependencies; this is an explicit test resolver. **Nothing has been
 installed in Motorfest and gameplay is not verified.**
+
+## UDP additions, November 16
+
+`libc-network-extra.inc` is included only in the builder's copied `libc_net.c`.
+It reuses the upstream descriptor/address/errno translation for `sendto` and
+adds `gethostname`. The Linux ELF test sends and receives real loopback packets
+on both IPv4 and IPv6, including zero-length datagrams and connected UDP with no
+explicit destination. It also checks closed descriptors, undersized addresses,
+oversized datagrams (rejected before touching the invalid buffer), hostname
+truncation, and unsupported flags. Hostnames and local addresses are not logged.
+
+`MSG_NOSIGNAL` is supported; `MSG_DONTWAIT` and other unimplemented Linux-only
+send flags explicitly return EOPNOTSUPP instead of becoming blocking calls.
+No global socket-mode changes or fabricated network replies are used.
+The implementation follows the [Winsock sendto contract](https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-sendto).
+
+All ABI, bounds, loopback and GNU C++ behavioral tests pass together. The original
+client is still inspected only, with **14 unresolved relocations across 12 names**
+remaining. See [validation-network-2026-11-16.json](validation-network-2026-11-16.json).
+This does not validate authentication, anti-cheat initialization, or gameplay.
