@@ -7,6 +7,7 @@ capability check. No game is launched and no production file is installed.
 import argparse
 import importlib.util
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -19,9 +20,12 @@ p.add_argument('--output', type=Path, required=True)
 p.add_argument('--game-dir', type=Path, default=Path.home()/'Games/Windows/Xbox/Forza-Horizon-6')
 p.add_argument('--missing-ui', action='store_true')
 p.add_argument('--gap-control', action='store_true')
+p.add_argument('--present-control', action='store_true', help='Exercise the real FFX swapchain and audit composition order/pixels')
 p.add_argument('--production-shim', action='store_true',
                help='Require the installed Store D3D12 shim in the isolated prefix and enable its wrappers')
 a = p.parse_args()
+if a.present_control and (a.gap_control or a.missing_ui):
+    p.error('--present-control is a separate continuous-frame case')
 prefix = a.prefix.resolve(strict=True)
 if prefix == Path.home()/'Library/Application Support/MACxus/bottles/xbox-highball':
     p.error('Use the isolated probe prefix, not the running game bottle')
@@ -57,6 +61,10 @@ if not a.gap_control:
     env.pop('FH6_APPLE_GAP_CONTROL',None)
 env.pop('FH6_APPLE_CREATION_CONTROL',None)
 env.pop('FH6_D3DMETAL_NO_ANTILAG2',None)  # This headless probe does not present a window.
+env.pop('FH6_APPLE_PRESENT_CONTROL',None)
+if a.present_control:
+    env['FH6_APPLE_PRESENT_CONTROL']='1'
+    env['FH6_D3DMETAL_NO_ANTILAG2']='1'
 command = [str(wine),str((a.output/'apple-ffx-probe.exe').resolve()),
            win(original),win(a.output/'framegeneration-apple.dll')]
 if a.missing_ui:
@@ -67,12 +75,15 @@ with (a.output/'probe.log').open('w') as log:
     except subprocess.TimeoutExpired:
         rc = 'timeout'
 contents = (a.output/'probe.log').read_text(errors='replace')
-print('\n'.join(l for l in contents.splitlines() if l.startswith(('PASS','FAIL','native','GPU','REAL','[D3DMetal:'))))
+print('\n'.join(l for l in contents.splitlines() if l.startswith(('PASS','FAIL','native','GPU','REAL','PRESENT','[D3DMetal:'))))
 passed = rc == 0 and 'PASS MetalFX FFX adapter' in contents
 loaded_shim = next((line[len('LOADED D3D12 '):].strip() for line in contents.splitlines()
                     if line.startswith('LOADED D3D12 ')), None)
 # Hashing a file in the prefix alone does not prove the loader used it.
 passed = passed and loaded_shim is not None and loaded_shim.lower() == r'c:\windows\system32\d3d12.dll'
+if a.present_control:
+    passed = passed and 'PASS MetalFX FFX scheduler ordered midpoint/original GPU pixels' in contents
+scheduler_summary = re.search(r'PRESENT summary callbacks=(\d+) dispatches=(\d+) native_pairs=(\d+) errors=(\d+) ui_errors=(\d+) original_errors=(\d+)', contents)
 result = {'exit':rc,'passed':passed,'missing_ui':a.missing_ui,'gap_control':a.gap_control,
           'candidate_sha256':module.sha(candidate),'original_sha256':module.sha(original),
           'native_carrier_sha256':module.sha(a.carrier/'x86_64-windows/nvngx.dll'),
@@ -81,6 +92,10 @@ result = {'exit':rc,'passed':passed,'missing_ui':a.missing_ui,'gap_control':a.ga
           'renderer_shim_sha256':module.sha(prefix/'drive_c/windows/system32/d3d12.dll'),
           'shim_wrappers_enabled':a.production_shim,
           'loaded_d3d12':loaded_shim,
+          'scheduler_present_test':a.present_control,
+          'synthetic_scheduler_verified':bool(a.present_control and passed and scheduler_summary),
+          'scheduler_observation':dict(zip(('callbacks','dispatches','native_pairs','errors','ui_errors','original_errors'),
+                                          map(int,scheduler_summary.groups()))) if scheduler_summary else None,
           'live_presentation_verified':False,'game_quality_verified':False}
 (a.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
 if not passed:

@@ -21,6 +21,9 @@ static const UINT W=128,H=96,Frames=12;
 struct Token:sl::FrameToken{uint32_t id;Token(uint32_t i):id(i){}operator uint32_t()const override{return id;}};
 __attribute__((noinline)) static FARPROC resolve(HMODULE m,const char *name){return GetProcAddress(m,name);}
 #include "probe-gpu.h"
+#ifdef APPLE_FG_TEST
+#include "apple-present-probe.h"
+#endif
 static ChainFrame frame(uint64_t id,Texture &scene,Texture &ui,UINT w=W,UINT h=H){ChainFrame f{};f.frame=id;f.viewport=0;f.tagsMask=12;
  for(int k=2;k<=3;k++){auto &r=f.tags[k];r.native=(uint64_t)(k==2?scene.gpu:ui.gpu);r.lifecycle=1;r.format=DXGI_FORMAT_R8G8B8A8_UNORM;r.width=w;r.height=h;r.state=D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;}
  return f;}
@@ -162,9 +165,16 @@ int wmain(int argc,wchar_t **argv){
  }
 #ifdef APPLE_FG_TEST
  const bool gapControl=GetEnvironmentVariableW(L"FH6_APPLE_GAP_CONTROL",nullptr,0)!=0;
+ const bool presentControl=GetEnvironmentVariableW(L"FH6_APPLE_PRESENT_CONTROL",nullptr,0)!=0;
  auto middleCount=(unsigned(*)())resolve(candidate,"FH6AppleMiddleFrames");
  auto warmupCount=(unsigned(*)())resolve(candidate,"FH6AppleWarmupFrames");CHECK(middleCount&&warmupCount);
  unsigned previousMiddle=0;
+ ApplePresentProbe scheduler;
+ if(presentControl){
+  CHECK(!gapControl&&!missingUi);CHECK(scheduler.init(g.d));
+  scheduler.context=&contexts[2];scheduler.dispatch=candidateDispatch;scheduler.middle=middleCount;
+  ShowWindow(window,SW_SHOWNOACTIVATE);
+ }
 #endif
  for(UINT64 id=0;id<Frames;id++){
   for(UINT y=0;y<H;y++)for(UINT x=0;x<W;x++){
@@ -200,6 +210,11 @@ int wmain(int argc,wchar_t **argv){
 #endif
 #ifdef APPLE_FG_TEST
    if(gapControl&&k==2&&id==6)cfg.allowAsyncWorkloads=true;
+   if(presentControl&&k==2){
+    cfg.flags=0;cfg.swapChain=swapchain;
+    cfg.frameGenerationCallback=ApplePresentProbe::generate;cfg.frameGenerationCallbackUserContext=&scheduler;
+    cfg.presentCallback=ApplePresentProbe::present;cfg.presentCallbackUserContext=&scheduler;
+   }
 #endif
    CHECK((k==2?candidateConfigure:configure)(&contexts[k],&cfg.header)==0);
    ffxDispatchDescFrameGenerationPrepareV2 prep{};prep.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2;prep.frameID=id;prep.commandList=g.l;prep.renderSize={W,H};prep.motionVectorScale={1,1};prep.frameTimeDelta=16.6667f;prep.reset=id==0;prep.cameraNear=.1f;prep.cameraFar=50000;prep.cameraFovAngleVertical=1.05f;prep.viewSpaceToMetersFactor=1;prep.depth=res(depth);prep.motionVectors=res(motion);prep.cameraUp[1]=prep.cameraRight[0]=prep.cameraForward[2]=1;CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&prep.header)==0);
@@ -213,14 +228,38 @@ int wmain(int argc,wchar_t **argv){
    if(gapControl&&k==2&&id==9)p.reset=true;
 #endif
    const auto original=p;
+#ifdef APPLE_FG_TEST
+   if(presentControl&&k==2){
+    ID3D12Resource *backbuffer=nullptr;CHECK(SUCCEEDED(swapchain->GetBuffer(swapchain->GetCurrentBackBufferIndex(),IID_PPV_ARGS(&backbuffer))));
+    present.transition(g.l,D3D12_RESOURCE_STATE_COPY_SOURCE);
+    ApplePresentProbe::barrier(g.l,backbuffer,D3D12_RESOURCE_STATE_PRESENT,D3D12_RESOURCE_STATE_COPY_DEST);
+    g.l->CopyResource(backbuffer,present.gpu);
+    ApplePresentProbe::barrier(g.l,backbuffer,D3D12_RESOURCE_STATE_COPY_DEST,D3D12_RESOURCE_STATE_PRESENT);
+    present.transition(g.l,read);backbuffer->Release();continue;
+   }
+#endif
    CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&p.header)==0);
    CHECK(!memcmp(&original,&p,sizeof(p)));
    if(k==1)compositors[k].record(g.l,binding);
    outputs[k].copyOut(g.l);
   }
-  CHECK(g.end());for(int k=0;k<3;k++)CHECK(outputs[k].read(pixels[k],W*4));
+  CHECK(g.end());
 #ifdef APPLE_FG_TEST
-  if(!missingUi&&middleCount()>previousMiddle){
+  if(presentControl){
+   CHECK(SUCCEEDED(swapchain->Present(0,0)));
+   ffxDispatchDescFrameGenerationSwapChainWaitForPresentsDX12 wait{{FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATIONSWAPCHAIN_WAIT_FOR_PRESENTS_DX12}};
+   CHECK(candidateDispatch(&swapContext,&wait.header)==0);
+   MSG msg;while(PeekMessageW(&msg,nullptr,0,0,PM_REMOVE)){TranslateMessage(&msg);DispatchMessageW(&msg);}
+  }
+#endif
+  for(int k=0;k<3;k++){
+#ifdef APPLE_FG_TEST
+   if(presentControl&&k==2)continue;
+#endif
+   CHECK(outputs[k].read(pixels[k],W*4));
+  }
+#ifdef APPLE_FG_TEST
+  if(!presentControl&&!missingUi&&middleCount()>previousMiddle){
    unsigned area=0;double center=0;
    for(UINT y=36;y<76;y++)for(UINT x=0;x<W;x++)if(pixels[2][(y*W+x)*4]>70){area++;center+=x;}
    if(area)center/=area;const double expected=34.5+2*id;
@@ -244,10 +283,14 @@ int wmain(int argc,wchar_t **argv){
  if(y>=36&&y<76&&abs(int(source[i*4+k])-int(pixels[2][i*4+k]))>2)generatedDifferent++;
   if(y<12&&x<40){const float expected=overlay[i*4+k]+(1-overlay[i*4+3]/255.f)*source[i*4+k];if(fabsf(pixels[2][i*4+k]-expected)>2)uiErrors++;}
  }}
+#ifdef APPLE_FG_TEST
+ if(!presentControl)
+#endif
  printf("GPU contrast: reference_errors=%u non_ui_difference_components=%u generated_differs_from_base_components=%u ui_errors=%u frames=%u contexts=3\n",refErrors,oldDiff,generatedDifferent,uiErrors,Frames);
 #ifdef APPLE_FG_TEST
  printf("native counters middle=%u warmup=%u\n",middleCount(),warmupCount());
- if(missingUi){CHECK(middleCount()==0);CHECK(!memcmp(pixels[0],pixels[2],sizeof(pixels[0])));}
+ if(presentControl){CHECK(scheduler.verify(middleCount()));scheduler.releaseAfterPresents();puts("PASS MetalFX FFX scheduler ordered midpoint/original GPU pixels; game driving unverified");}
+ else if(missingUi){CHECK(middleCount()==0);CHECK(!memcmp(pixels[0],pixels[2],sizeof(pixels[0])));}
  else {CHECK(middleCount()==(gapControl?8u:14u)&&warmupCount()==(gapControl?7u:2u));CHECK(generatedDifferent>0&&uiErrors==0);}
 #elif defined(SEQUENCE_FORWARDING_TEST)
  CHECK(!memcmp(pixels[0],pixels[2],sizeof(pixels[0])));

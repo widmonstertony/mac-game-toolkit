@@ -2,10 +2,11 @@
 
 Experimental, **not installed in FH6**. The game still uses its existing FSR
 quality upscaling and 2x generation. The prototype now has temporal SR and FG
-operations, but does not yet implement the
-game's staging hook, UI composition or ordered swapchain presentation. A separate
-headless D3DMetal test now verifies real D3D12 staging buffers across the bridge.
-Passing these tests does not establish live 2x presentation or solve ghosting.
+operations. The separate FFX candidate connects FG to Prepare/Dispatch,
+native UI composition and the existing swapchain scheduler; its isolated
+ordering test is described below. Temporal SR is not yet connected to the
+game's actual upscaling calls. Passing these tests does not establish live
+game 2x presentation or solve car ghosting.
 
 ## Full FFX candidate, not installed
 
@@ -70,6 +71,28 @@ a new result directory, checks artifact/import hashes and writes a result
 explicitly marking live presentation and game quality unverified.
 Use `--production-shim` only with a separate prefix containing the verified
 production shim. The runner does not copy or replace any prefix DLL itself.
+
+### Actual FFX swapchain ordering, isolated fixture
+
+`--present-control` drives the real FFX swapchain rather than dispatching
+generation directly into a test texture. Its generation callback calls the
+candidate. Its composition callback copies the provided image to the real
+swapchain output and a separate GPU readback, preserving the supplied states.
+Readbacks are inspected only after FFX `WaitForPresents` returns.
+
+On the production shim, 16 base-frame presents produced 32 composition
+callbacks in strict `(generated N, original N)` order. The first two native
+samples warmed up through the existing FSR fallback; the following 14 pairs
+contained actual MetalFX midpoint pixels. All non-UI rows were searched for
+extra object pixels, not just a narrow region near the expected object. The
+original images matched all expected RGB bytes and the translucent UI had no
+errors. Context teardown completed. See `apple-present-results-20261117.json`.
+
+This establishes ordering and pixels through the real scheduler for a
+192×128 synthetic scene. It does **not** establish full-resolution game
+quality, actual display scanout, or pacing with multiple game frames in
+flight: this fixture intentionally waits after each base frame. No production
+provider was installed as a result of this test.
 
 ## Command-list resource lifetime verification
 
