@@ -109,6 +109,23 @@ still leaves runtime functionality to implement and an actual protected session
 to verify; the existing game's engine has not been changed. Details and receipts
 are in [the UDP experiment](linuxhost-compat/README.md#udp-additions-november-16).
 
+The latest candidate integrates the pinned GNU libraries into the ordinary host
+`dlopen` path, instead of relying on the inspection driver's resolver. An
+independent executable loaded the actual candidate DLL and completed the owned
+C++ constructor/exception/destructor test. Invalid dependencies and failed cached
+loads were rejected before executing the test's constructor. Hostname lookup
+translation and thread-local resolver state also pass; the inspected client has
+13 unresolved relocations remaining. See the
+[DLL-entry validation](linuxhost-compat/README.md#ordinary-dlopen-and-actual-dll-entry-november-16).
+No game installation has been changed by these experiments.
+
+Valve's [Proton changelog](https://github.com/ValveSoftware/Proton/wiki/Changelog)
+lists Motorfest as playable beginning with Proton 10.0-3. That confirms a Linux
+route exists; it does not certify the incomplete macOS Linux-host port. The
+[upstream Motorfest issue](https://github.com/ValveSoftware/Proton/issues/9119)
+also records runtime/graphics-specific failures, so successful Ubisoft login
+alone is not a sufficient completion criterion.
+
 GTA V Story Mode is not a substitute test: [Rockstar's FAQ](https://support.rockstargames.com/articles/1nenwhZlVrJY6CTFeSS2Fx/grand-theft-auto-online-battleye-faq)
 distinguishes Story Mode from BattlEye-protected Online. [Valve documents](https://partner.steamgames.com/doc/steamhardware/proton)
 that BattlEye support requires per-title configuration.

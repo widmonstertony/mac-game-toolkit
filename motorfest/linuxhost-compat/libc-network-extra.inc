@@ -42,3 +42,33 @@ static SYSV int lx_gethostname(char *name,lx_size_t len)
     memcpy(name,actual,needed);
     return 0;
 }
+
+/* Winsock hostent uses two 16-bit fields; glibc uses two 32-bit fields.
+ * The pointed-to arrays remain owned by Winsock's per-thread resolver storage. */
+struct lx_hostent { char *name,**aliases; int type,length; char **addresses; };
+static __thread struct lx_hostent hostname_result;
+static __thread int hostname_error;
+static SYSV int *lx_h_errno_location(void) { return &hostname_error; }
+static SYSV struct lx_hostent *lx_gethostbyname(const char *name)
+{
+    init_winsock();
+    struct hostent *h=gethostbyname(name);
+    if(!h)
+    {
+        int error=WSAGetLastError();
+        switch(error)
+        {
+        case WSAHOST_NOT_FOUND:hostname_error=1;break;
+        case WSATRY_AGAIN:hostname_error=2;break;
+        case WSANO_RECOVERY:hostname_error=3;break;
+        case WSANO_DATA:hostname_error=4;break;
+        default:hostname_error=-1;*linuxhost_errno()=errno_from_wsa(error);break;
+        }
+        linuxhost_trace("gethostbyname failed: WSA=%d h_errno=%d\n",error,hostname_error);
+        return NULL;
+    }
+    hostname_result.name=h->h_name;hostname_result.aliases=h->h_aliases;
+    hostname_result.type=family_to_linux(h->h_addrtype);hostname_result.length=h->h_length;
+    hostname_result.addresses=h->h_addr_list;hostname_error=0;
+    return &hostname_result;
+}

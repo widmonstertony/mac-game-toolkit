@@ -1,0 +1,234 @@
+{
+  "generalAbi": {
+    "tests": {
+      "strings": {
+        "exitCode": 0,
+        "probePassed": true,
+        "logSha256": "dfc835bdcd3114b1939e212ca4904dd7ba4e9da32eb734708191d769bdd11536"
+      },
+      "network": {
+        "exitCode": 0,
+        "probePassed": true,
+        "logSha256": "ba685c2a8d18d3c43d349ccd81524d599533b774dc7f7e5fc97fa8110ec4a963"
+      },
+      "overflow-0": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-1": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-2": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-3": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-4": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-5": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-6": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "bfd1c2573f03209d2772546c70e02be9722ff73017c9ceda490738fca03ade6b"
+      },
+      "hello": {
+        "exitCode": 0,
+        "probePassed": true,
+        "logSha256": "0b1a222575b9f7d39198e4dfb00afe316afd1e7d13783e1f933a5d5f41ed754f"
+      },
+      "extras": {
+        "exitCode": 0,
+        "probePassed": true,
+        "logSha256": "842d5ec106aca0f1cadcd1195a9032eadc92a97f4051abf4360e2ded0e7cdd62"
+      },
+      "inspect": {
+        "exitCode": 1,
+        "probePassed": true,
+        "logSha256": "ef48ef488aee0595b7adb715826a2222293aaaeca9f814d4c1281fdec8ef3c0e",
+        "unresolvedCounts": [
+          0,
+          32
+        ],
+        "allDependenciesResolved": false
+      }
+    },
+    "generalAbiTestsPassed": true,
+    "runtimeFiles": {
+      "v1/lib64/wine/beclient_x64.dll.so": "6aa86ad273fb5a533d018a9d7d5ca3b7ca31d9cc6f6b5e5f108fff71c2876cdc",
+      "BEClient_x64.so": "c39d4f934d76043ba7183dea0807809bdad3afe6e973a5469f1143c4ca45dd82"
+    },
+    "buildReceiptSha256": "a3ad2415e22f426b08574ba6b9d8e7bcbd41e4302d07541d6c98b98343bde9f7",
+    "clientCodeExecuted": false,
+    "installed": false,
+    "gameplayVerified": false
+  },
+  "gnuCxx": {
+    "tests": {
+      "linked-client": {
+        "exitCode": 1,
+        "modules": [
+          {
+            "name": "libgcc_s.so.1",
+            "imports": 15,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "libstdc++.so.6.0.21",
+            "imports": 123,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "BEClient_x64.so",
+            "imports": 163,
+            "unresolved": 13,
+            "unsupported": 0
+          }
+        ],
+        "logSha256": "a052633f699954cfcf772b55d88563d9187df859655f5f3bc709fcbda37632f8",
+        "missing": [
+          "system sscanf __fprintf_chk usleep setmntent endmntent getmntent sched_getaffinity longjmp localtime_r sched_setaffinity "
+        ],
+        "allDependenciesResolved": false,
+        "inspectionCompleted": true
+      },
+      "gnu-cxx": {
+        "exitCode": 0,
+        "modules": [
+          {
+            "name": "libgcc_s.so.1",
+            "imports": 15,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "libstdc++.so.6.0.21",
+            "imports": 123,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "cxx-probe.so",
+            "imports": 11,
+            "unresolved": 0,
+            "unsupported": 0
+          }
+        ],
+        "logSha256": "35297f794b0356e5569c7650229b407dd84708a0b5229571d94e4fec8a051109",
+        "missing": [],
+        "allDependenciesResolved": true,
+        "behaviorPassed": true
+      }
+    },
+    "gnuRuntimeHashes": {
+      "libgcc_s.so.1": "753a1cb28fe20a9a0fb75fe6ee2b9b2a9a36041d4ec41817da9bc9a614c4ab00",
+      "libstdc++.so.6.0.21": "83846996211e93eaa5f945f631aaa2f7dd4ae98bbd967fac78964668118887ed"
+    },
+    "clientSha256": "c39d4f934d76043ba7183dea0807809bdad3afe6e973a5469f1143c4ca45dd82",
+    "buildReceiptSha256": "a3ad2415e22f426b08574ba6b9d8e7bcbd41e4302d07541d6c98b98343bde9f7",
+    "clientCodeExecuted": false,
+    "installed": false,
+    "gameplayVerified": false
+  },
+  "runtimeDlopen": {
+    "tests": {
+      "disabled": {
+        "exitCode": 10,
+        "passed": true,
+        "logSha256": "20d0a5c378ef6bd8887f6710499bdc7300ffe22357860b2af79e1b13653c7ebf"
+      },
+      "missing": {
+        "exitCode": 10,
+        "passed": true,
+        "logSha256": "884148171a7416755d12e89631f544de772d22b73741c89468586cfeec7153f1"
+      },
+      "modified": {
+        "exitCode": 10,
+        "passed": true,
+        "logSha256": "7bde81bc2475cc145bfeb7cab9b8646c9d79a6c7052357ed3f387befa8e76faa"
+      },
+      "valid": {
+        "exitCode": 0,
+        "passed": true,
+        "logSha256": "b079abe28ec03441c64de1e00d6a0838b1f840623e8178f0b7c70d48b38d7560"
+      },
+      "dll-valid": {
+        "exitCode": 0,
+        "passed": true,
+        "logSha256": "d4459869a62441e821c299e65dd4381a6bbbe6dcdb4c5d393982fe4d98bfa9d5"
+      },
+      "dll-modified": {
+        "exitCode": 10,
+        "passed": true,
+        "logSha256": "0fb7ee9b1a2ec5a90c5e5e6c65bad604a8517fd76e44526a7e01bf6787e53e23"
+      }
+    },
+    "allPassed": true,
+    "buildReceiptSha256": "a3ad2415e22f426b08574ba6b9d8e7bcbd41e4302d07541d6c98b98343bde9f7",
+    "runnerSha256": "2733f76f084982c431ca8ace168dd9d5db889a2384cea9e6683d12d2251431ba",
+    "clientCodeExecuted": false,
+    "installed": false,
+    "gameplayVerified": false
+  },
+  "upstreamRevision": "b1ceb881dc6443da8772fbae3a906204266e21cc",
+  "ownSources": {
+    "build.py": "4be13a418b40f43d504ee03f9e33851fd94263876ed26910562f2c2585c48bb9",
+    "run-dlopen-test.py": "2733f76f084982c431ca8ace168dd9d5db889a2384cea9e6683d12d2251431ba",
+    "dependency-probe.c": "21e14b2a38fe2972f2e09e8599cde224d34dea18f9847177870f370b81ff9ffa",
+    "gnu-runtime.c": "25c26779dcfea24ee038704fa72b22a9df2ded92a30233acb47e1a0ca626b53d",
+    "libc-strings.c": "3f1b2dab107a417f9ecb8c800c83e3504f0906450a42529ef75309e102ee16e8",
+    "strings-probe.c": "68206a192b2d9cee2e8f3385bd37c2a638ea20060ee3112183395a5212217fc5",
+    "dlopen-probe.c": "5bc9427e39dd600e4cf318547eaa534b0b5ba994f1d5caa73b5550aa497f7ae9",
+    "libc-cxx-support.c": "e6a61a6e6a44b98dd7dd70b7b178ad00e0a86bcaf5369f47c5b5054c94fe33f4",
+    "network-probe.c": "df2f0e581b5ee942824852839b650cf0753cf115e9dd22fe078ed6b80fe2b17c",
+    "run-cxx-test.py": "3fd6937248581ae6d9ca3e28367743929c1559a0be96a3561c10a37d2ef5488d",
+    "libc-network-extra.inc": "59e26a471f893698644a9146a6b64bf8bc786b9b6f8f528bbbddbe57953936d5",
+    "cxx-probe.cpp": "33f8037f53515bb21126d70ec0f06ab5179d7f1d1c0875309f5230e5a90b3779",
+    "dll-probe.c": "3a99a62bb34dc2dfae5aa2fb5363a43ae2d519168ce828ae2dd87600921b0fd1",
+    "probe-driver.c": "a7138c828484cc337f685fc5979dd63764cbb42bdee14b44d6ad0acc92ba1111",
+    "run-test.py": "291c86f463088595e775346e34113ec37e30093b361bea98561a38babb4d69f2"
+  },
+  "outputs": {
+    "dll-probe.exe": "2b9226d6264f17246753c31b07679af3268bf5d754a684296acb1de5f49b916b",
+    "network.so": "7a943deb57bfdcc00f4c5db60e73614f089e08aed52d6ea11ec32c2da9cb12fb",
+    "dependency-probe.exe": "be77edad811efe215982a63f2aa72ad92e12c0d8a78399d1007612c38171901f",
+    "strings.so": "aa0ee6d84e4081bf3e917fadcffa7e88e90bd7643831df20c71c1b160e76119b",
+    "strings-probe.exe": "35d8c59a9bcef5ac12c45dc49ddcdbf288c7839b23614784b0bc331273d42ef0",
+    "hello.so": "8b77876d7a3d05667f403a4c8d6d5c38266556d12cd503e3872cd85e313248ee",
+    "cxx-probe.so": "535d8bc4fe4ed4fd0d2901f8004e15ee540230616218ac00a0e19fe1883be796",
+    "extras.so": "c1304481855fe6ba2e203866c595c65fbb94da9a97d24ad94044562b7c4bedb4",
+    "linuxhost.dll": "e24c9075d433b52d03dedc242a8263c40976951efc7e2a20a4ea04bc0db68805",
+    "dlopen-probe.exe": "8ddf5c5e3be1488cc44d10a8136c4de52c948417963774cebb3d8a4bde3c8816",
+    "hosttest.exe": "dbd1ebd4ee66fd4df1234bc3f4606d0047dff9b488a05b4cfef06847471e38cf"
+  },
+  "scope": "Owned Linux ELF through the real candidate DLL and ordinary host dlopen. No game or anti-cheat client execution.",
+  "remainingNames": [
+    "system",
+    "sscanf",
+    "__fprintf_chk",
+    "usleep",
+    "setmntent",
+    "endmntent",
+    "getmntent",
+    "sched_getaffinity",
+    "longjmp",
+    "localtime_r",
+    "sched_setaffinity"
+  ]
+}

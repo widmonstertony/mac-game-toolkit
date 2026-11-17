@@ -131,3 +131,47 @@ All ABI, bounds, loopback and GNU C++ behavioral tests pass together. The origin
 client is still inspected only, with **14 unresolved relocations across 12 names**
 remaining. See [validation-network-2026-11-16.json](validation-network-2026-11-16.json).
 This does not validate authentication, anti-cheat initialization, or gameplay.
+
+## Ordinary dlopen and actual DLL entry, November 16
+
+The earlier C++ test used a dedicated dependency resolver. `gnu-runtime.c` now
+connects the validated GNU libraries to the host's ordinary `dlopen` path with
+the opt-in `LINUXHOST_GNU_RUNTIME` directory. It checks both exact SHA-256 hashes
+and loads the bytes that were hashed, resolves symbols only from those verified
+module objects, requires complete dependencies/syscall routing, and then runs
+constructors. Initialization is once per process. An absent override preserves
+the non-C++ path; a supplied but invalid runtime reports an error.
+
+The copied host's `dlopen` also rejects unresolved/unsupported imports before
+running constructors. Repeating a failed open cannot return the incomplete
+module that the upstream loader left in its cache. This host does eager linking;
+general glibc lazy-binding semantics are not implemented.
+
+`run-dlopen-test.py` verifies the ordinary path with a C++ constructor, allocation,
+exception and stack destructor. It then runs an independent PE executable that
+links **no host implementation**, uses `LoadLibrary` on the actual candidate
+`linuxhost.dll`, and obtains its resolver with `GetProcAddress`. The same C++ test
+passes through this DLL entry. Missing/modified GNU libraries are rejected before
+the test constructor executes; a failed cached open remains rejected. These are
+six passing cases, not evidence of a protected game session.
+
+```sh
+python3 run-dlopen-test.py --build /tmp/motorfest-libc-test \
+  --engine /path/to/MetalSharp-Wine.app/Contents \
+  --prefix /path/to/isolated/probe-prefix \
+  --gnu-runtime /path/to/pinned/steamrt-libraries
+```
+
+The same build adds `gethostbyname` and `__h_errno_location`, translating Winsock's
+16-bit hostent fields to Linux's 32-bit fields and preserving resolver error
+categories. Local/numeric lookups and two-thread result/error isolation pass.
+No external game endpoint is used. The IPv4-only legacy lookup rejects an IPv6
+literal; the provider may report HOST_NOT_FOUND or NO_DATA. References:
+[Winsock gethostbyname](https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-gethostbyname).
+
+All prior ABI, bounds, IPv4/IPv6 and C++ checks pass in this combined build.
+The inspected original client still has **13 unresolved relocations across 11
+names**, recorded in [validation-dlopen-2026-11-16.json](validation-dlopen-2026-11-16.json).
+Global destructor registration/teardown, full Linux signals and other upstream
+limitations are not covered by the stack-destructor test. This candidate remains
+isolated and is **not installed in the game**.

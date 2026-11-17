@@ -25,23 +25,49 @@ glibc=src/'glibc.c'; text=glibc.read_text()
 anchor='static const struct libc_function *const tables[] =\n{\n'
 if text.count(anchor)!=1: raise SystemExit('Unexpected resolver table; source review required')
 text=text.replace(anchor,'extern const struct libc_function linuxhost_string_compat_functions[], linuxhost_cxx_support_functions[];\n'+anchor+'    linuxhost_string_compat_functions, linuxhost_cxx_support_functions,\n')
+text='extern void *linuxhost_gnu_symbol(const char *);\n'+text
+anchor='static char dl_error[256];'
+text=text.replace(anchor,anchor+'\nextern int linuxhost_gnu_prepare(char *,size_t);')
+anchor='    if (!path) return NULL;\n'
+if text.count(anchor)!=1: raise SystemExit('Unexpected dlopen entry')
+text=text.replace(anchor,anchor+'    if (!linuxhost_gnu_prepare(dl_error,sizeof(dl_error))) return NULL;\n')
+anchor='    if ((module = elf_find( path ))) return module;'
+if text.count(anchor)!=1: raise SystemExit('Unexpected dlopen module cache')
+text=text.replace(anchor,'''    if ((module = elf_find( path )))
+    {
+        const struct elf_stats *s=elf_get_stats(module);
+        if(s->unresolved || s->unsupported)
+        { snprintf(dl_error,sizeof(dl_error),"cached ELF imports incomplete");return NULL; }
+        return module;
+    }''')
+anchor='        const struct elf_stats *stats = elf_get_stats( module );\n'
+if text.count(anchor)!=1: raise SystemExit('Unexpected dlopen statistics')
+text=text.replace(anchor,anchor+'''        if (stats->unresolved || stats->unsupported)
+        {
+            snprintf(dl_error,sizeof(dl_error),"incomplete ELF imports: %u unresolved, %u unsupported",stats->unresolved,stats->unsupported);
+            return NULL;
+        }
+''')
+anchor='void *linuxhost_resolve( const char *name, void *context )\n{\n'
+text=text.replace(anchor,anchor+'    void *gnu=linuxhost_gnu_symbol(name);\n    if(gnu)return gnu;\n')
 glibc.write_text(text)
 net=src/'libc_net.c'; text=net.read_text()
 anchor='const struct libc_function linuxhost_net_functions[] =\n{\n'
 if text.count(anchor)!=1: raise SystemExit('Unexpected network table; source review required')
-text=text.replace(anchor,'#include "libc-network-extra.inc"\n'+anchor+'    { "sendto", lx_sendto }, { "gethostname", lx_gethostname },\n')
+text=text.replace(anchor,'#include "libc-network-extra.inc"\n'+anchor+'    { "sendto", lx_sendto }, { "gethostname", lx_gethostname },\n    { "gethostbyname", lx_gethostbyname }, { "__h_errno_location", lx_h_errno_location },\n')
 net.write_text(text)
 shutil.copy2(ROOT/'libc-network-extra.inc',src/'libc-network-extra.inc')
 sources=['elfload.c','glibc.c','syscall.c','process.c','libc.c','libc_io.c','fork.c',
          'libc_thread.c','libc_net.c','libc_misc.c','unwind.c']
 cc=str(a.toolchain.absolute()/'bin/x86_64-w64-mingw32-clang')
 common=[cc,'-O2','-Wall','-mfsgsbase','-DARRAY_SIZE(a)=(sizeof(a)/sizeof((a)[0]))','-I',str(src),
-        *[str(src/f) for f in sources],str(ROOT/'libc-strings.c'),str(ROOT/'libc-cxx-support.c')]
+        *[str(src/f) for f in sources],str(ROOT/'libc-strings.c'),str(ROOT/'libc-cxx-support.c'),str(ROOT/'gnu-runtime.c')]
 libs=['-lshell32','-lws2_32','-lbcrypt']
 for name,main in [('hosttest.exe',src/'test/hosttest.c'),('strings-probe.exe',ROOT/'probe-driver.c'),
-                  ('dependency-probe.exe',ROOT/'dependency-probe.c')]:
+                  ('dependency-probe.exe',ROOT/'dependency-probe.c'),('dlopen-probe.exe',ROOT/'dlopen-probe.c')]:
     subprocess.run([*common,str(main),*libs,'-o',str(out/name)],check=True)
 subprocess.run([*common,str(src/'dllmain.c'),'-shared',*libs,'-o',str(out/'linuxhost.dll')],check=True)
+subprocess.run([cc,'-O2','-Wall',str(ROOT/'dll-probe.c'),'-o',str(out/'dll-probe.exe')],check=True)
 clang=str(a.toolchain.absolute()/'bin/clang')
 elf=[clang,'--target=x86_64-unknown-linux-gnu','-O2','-fPIC','-shared','-nostdlib','-fuse-ld=lld',
      '-fno-builtin','-Wl,--hash-style=gnu']
