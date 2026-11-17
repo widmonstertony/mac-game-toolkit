@@ -7,6 +7,42 @@ game's staging hook, UI composition or ordered swapchain presentation. A separat
 headless D3DMetal test now verifies real D3D12 staging buffers across the bridge.
 Passing these tests does not establish live 2x presentation or solve ghosting.
 
+## Command-list resource lifetime verification
+
+`apple-command-backend.h` records through the installed, ABI-checked Apple NGX
+provider into the caller's D3D12 command list. It does not submit or close that
+list, or read pixels back to the CPU. `apple-frame-inputs.h` adds a bounded ring
+of GPU copies of the Prepare depth/motion resources. The original resources and
+generated outputs are retained until a completion fence; pointer identity alone
+is not used as proof of lifetime. This code is still an isolated candidate,
+not the installed game provider.
+
+Run the compiled `test-apple-command.cpp` through `run-apple-command.py`
+with `--snapshot-inputs`. In that mode the GPU first copies the real inputs,
+then deliberately zeros the original resources before MetalFX evaluation. It
+reads back both originals and snapshots to prove the overwrite happened and
+that the saved depth/motion stayed byte-exact. Separate upload buffers prevent
+the test from accidentally changing its earlier upload. Duplicate Prepare IDs
+must be rejected. These test-only readbacks and waits are not the proposed
+in-game path.
+
+On this machine, both R32_FLOAT and the game's R32G8X24_TYPELESS depth layout
+passed twelve samples: two startup copies followed by ten middle-position
+outputs, each with the expected 1,024 foreground pixels. The eight saved
+3472×2266 frames 27440–27447, with 2314×1510 depth/motion, also passed exact
+snapshot/zeroed-original checks. All eight generated output files were
+byte-identical to the earlier no-overwrite command-list replay. This proves
+that these input copies preserve that replay, not that its high-speed visual
+quality is solved. Output-vs-current comparisons exclude alpha, because alpha
+normalization alone is not frame synthesis.
+
+The ring's retirement requires the same direct queue and reuse of an output
+whose earlier submission is already queued. The inspected FFX swapchain chooses
+the game queue only with `allowAsyncWorkloads=false`. The game adapter must
+enforce this and preserve UI composition, frame order, resets, skipped frames
+and context destruction before installation. The standalone test serializes
+submissions; it does not establish arbitrary asynchronous queue safety.
+
 The PE/Unix ABI uses fixed-width structures. The native side consumes mapped,
 page-aligned buffers, copies them into private Metal textures, interpolates,
 copies the result back, and retains referenced resources through completion.
