@@ -1,0 +1,34 @@
+{
+  "exitCode": 0,
+  "passed": true,
+  "probeSha256": "997b26478de326282d1d2119ed76b11fda6fd15742a79f97efa7b1669adc6f5b",
+  "sourceSha256": "03795f9e4a84f2290f3d9b3009650d9c0aef08290be38ea79b18af0124f96d27",
+  "runnerSha256": "ef26563f47a77a2cbd9ace122ca8b217cf8d7293724b917e79e9302aa2b4e48a",
+  "logSha256": "7f1ecdbf66a376f880a931846569d65eab46017252e55cec8f41cca16592369c",
+  "candidateManifestSha256": "0e7d18bd55c39eb4c3ef5db635e575ad9e1ba673ca75639caf29dd1371ca466b",
+  "registeredBridgeSha256": "9f57a328db9fe8a2b19c5514899adea9c4d767c137bfc3fe1c109bb57f1738e5",
+  "rendererFiles": {
+    "lib/mullion/LICENSE": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
+    "lib/mullion/VERSION": "2516556324edcf81afb273188707d9feef144013b01c4c5fb955ac654e029a85",
+    "lib/mullion/aarch64-unix/winemetal.so": "f30cc428fa4b8de97b8f97438b60e6a26bfa4c6bcc577f1f4662ac7e050c53b9",
+    "lib/mullion/i386-windows/d3d10core.dll": "b93b8d49409f22f095f96bb81917a088f94434a28a94dc1d4c1c77e5c880cade",
+    "lib/mullion/i386-windows/d3d11.dll": "8856ca4c020e7a05f7cea26498117ed8dd7650f7dbe15b8db6e9a9a20a07383a",
+    "lib/mullion/i386-windows/winemetal.dll": "665ef22351160d23ddb6f9b9eca28670ae57b87d959de1cbaa44d1c3f87d078c",
+    "lib/mullion/i386-windows/dxgi.dll": "e6a9d69cd56dbc8ee1b9beff8d8a97b3b7644dcddb296ae08124bb501a8d0bd2",
+    "lib/mullion/aarch64-windows/d3d10core.dll": "ae0549b0ba1cf029d192bb4d405333efa9feeb417a0ad3d5a4a658b6dffeda1a",
+    "lib/mullion/aarch64-windows/nvngx.dll": "aa5690de57ae75aadbf692877029a354caeeb99e93d2fdb48888c7b7225bc18c",
+    "lib/mullion/aarch64-windows/d3d12core.dll": "f594e57d395d888b56dd399cef4a501a7ecbbbd760e1c71cd2739bc35d5e8787",
+    "lib/mullion/aarch64-windows/d3d11.dll": "d5249af37637c874640a06e876076c6f33f17b75024cdd291e4af4cc6f6b7130",
+    "lib/mullion/aarch64-windows/d3d12.dll": "b579cb326679a4204771a90662bf2a3543f79d02efe349647398cf2d2af4249e",
+    "lib/mullion/aarch64-windows/winemetal.dll": "3c7570eeacb9e65796fa6ea79130414d4a129bd42409a61fdbcf1952c2bb1548",
+    "lib/mullion/aarch64-windows/dxgi.dll": "7c31b508d9a1dbe09fb7f50c5e1da233ea6cf76da67ccab24d736e711abcb2f1"
+  },
+  "vendorInitCalled": false,
+  "visiblePresentationVerified": false,
+  "gameplayVerified": false,
+  "priorFailure": {
+    "exitCode": 2,
+    "reason": "Missing prefix-side registration; DLL absent from separate application directory",
+    "logSha256": "2cbd682805fdfde9acfe001ef20a8bbbb88e4a6227345117968a5ddda548796e"
+  }
+}

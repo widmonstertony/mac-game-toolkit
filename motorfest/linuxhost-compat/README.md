@@ -18,7 +18,10 @@ and its Highball/native Steam launch mapping have **not been switched**.
   It uses a **macOS shell/namespace**, not a Linux `/proc` environment.
 - The pinned, unmodified 2024 Linux client's constructors now run with complete
   imports. An owned PE adapter loads its original legacy ELF bridge and returns
-  the actual `GetVer=250`, including Wine's builtin DLL-name search route.
+  the actual `GetVer=250`, including a same-directory DLL-name search. A subsequent separate-directory
+  check identified the additional prefix-side registration requirement; with
+  that registration in the clone, the bridge and real GPU readback pass in one
+  process. See the combined GPU receipt below.
   **Client `Init`, authentication and Motorfest gameplay have not been verified.**
 - A private native-Steam forwarding overlay has been built. Its session check is
   blocked because native Steam is not running. This is a missing verification,
@@ -34,6 +37,10 @@ serialized child table, async host signals, realtime queues, SA_SIGINFO,
 alternate signal stacks, full AVX exception state and shared-memory semantics.
 The old runtime has not been shown to match the current Steam depot. Successful
 imports/version queries do not establish service acceptance or protected play.
+
+The [combined GPU validation](validation-combined-gpu-2026-11-16.json) exercises
+real bridge loading, a GPU clear, fence completion and pixel readback without
+creating a window. It does not establish authenticated Motorfest startup.
 
 ## Historical implementation record
 

@@ -48,7 +48,8 @@ including stack arguments, and guest thread-state restoration. It is a test
 fixture only and is excluded from deployment payloads.
 
 The actual original bridge returns `GetVer=250` through both an absolute PE load
-and Wine's builtin name lookup. A staging error initially inserted a 17-byte
+and a same-directory DLL-name lookup. That early name-lookup test did not
+exclude application-directory discovery; see the stronger check below. A staging error initially inserted a 17-byte
 Wine marker into a 16-byte slice, shifting PE offsets and causing error 193;
 the builder now writes exactly 17 bytes and asserts unchanged image length.
 That was an adapter packaging bug, not a fault in the vendor DLL.
@@ -99,3 +100,31 @@ build passed ordinary ABI/bounds, IPv4/IPv6, GNU C++ exception/destructor,
 dlopen dependency rejection, logical affinity and nonlocal-jump regressions.
 Raw logs and the cloned prefix stay local; account-bearing files are not
 published. The source additions are AGPL-3.0-only, matching the Linux-host base.
+
+
+## Combined client/graphics check and missing registration
+
+The next offscreen probe runs the real original bridge's GetVer and a D3D12
+clear/copy/fence/readback workload in one process under the candidate engine's
+Mullion backend. It lives in a separate application directory with no adjacent
+bridge DLL. The first corrected probe failed before graphics with error 126:
+WINEDLLPATH alone did not discover the newly introduced bridge. This closes a
+coverage gap in the earlier same-directory name-loading test, which returned
+250 but did not establish the full deployment lookup route.
+
+Registering the hash-verified owned adapter at the **isolated clone's**
+`C:\windows\system32\beclient_x64.dll`, with the private overlay and builtin
+load order, fixed that failure. Existing differing files are never overwritten.
+The original vendor bridge/client remain unmodified. The resulting same-process
+run returned version 250, completed a real GPU fence and read back all 4,096
+RGBA pixels within one quantization step. No window was created and vendor Init
+was not called. This validates component coexistence, not Ubisoft startup,
+visible presentation, authenticated Motorfest or road performance.
+
+[Combined GPU receipt](../linuxhost-compat/validation-combined-gpu-2026-11-16.json)
+records the exact renderer/adapter/probe inputs. `run-gpu-entry-test.py` builds
+the probe statically to avoid the missing libc++/libunwind dependency in the
+first test executable. That earlier exit 53 was a test packaging fault, not a
+Motorfest diagnosis. The production candidate remains inactive; the registration
+step must be carried into the final Motorfest-only installation after its
+remaining native Steam/session and runner checks.
