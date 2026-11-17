@@ -9,6 +9,13 @@ extern int tolower(int),isalnum(int);
 extern const int **__ctype_toupper_loc(void);
 extern void *__memcpy_chk(void *,const void *,size_t,size_t);
 extern char *__strcpy_chk(char *,const char *,size_t),*__stpcpy_chk(char *,const char *,size_t);
+extern int __snprintf_chk(char *,size_t,int,size_t,const char *,...);
+extern double ceil(double),floor(double);
+extern long double frexpl(long double,int *);
+extern int get_nprocs(void);
+extern int strcmp(const char *,const char *);
+extern void *mmap(void *,size_t,int,int,int,long);
+extern int mprotect(void *,size_t,int),munmap(void *,size_t);
 #define CHECK(x) do { if (!(x)) return __LINE__; } while(0)
 
 long compat_test(void)
@@ -41,6 +48,28 @@ long compat_test(void)
     CHECK(__stpcpy_chk(b,"word",5)==b+4 && b[4]==0);
     CHECK(__strcpy_chk(b,"ok",3)==b && b[1]=='k' && b[2]==0);
     CHECK(__fdelt_chk(0)==0 && __fdelt_chk(63)==0 && __fdelt_chk(64)==1 && __fdelt_chk(1023)==15);
+    CHECK(ceil(1.25)==2 && floor(-1.25)==-2);
+    int exponent=0; CHECK(frexpl(123.5L,&exponent)==0.96484375L && exponent==7);
+    CHECK(get_nprocs()>0);
+    char formatted[256];
+    CHECK(__snprintf_chk(formatted,sizeof(formatted),0,sizeof(formatted),"%ld %zu %.2f %s",4294967296L, (size_t)17,1.25,"done")==23);
+    CHECK(!strcmp(formatted,"4294967296 17 1.25 done"));
+    CHECK(__snprintf_chk(formatted,4,0,sizeof(formatted),"%s","abcdef")==6 && !strcmp(formatted,"abc"));
+    CHECK(__snprintf_chk(formatted,sizeof(formatted),0,sizeof(formatted),"[%*.*f]",8,3,1.25)==10 && !strcmp(formatted,"[   1.250]"));
+    CHECK(__snprintf_chk(formatted,sizeof(formatted),0,sizeof(formatted),"%d%d%d%d%d%d%d%d",1,2,3,4,5,6,7,8)==8 && !strcmp(formatted,"12345678"));
+    CHECK(__snprintf_chk(formatted,sizeof(formatted),0,sizeof(formatted),"%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f",1.,2.,3.,4.,5.,6.,7.,8.,9.)==35);
+    CHECK(!strcmp(formatted,"1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0 9.0"));
+    CHECK(__snprintf_chk(formatted,sizeof(formatted),0,sizeof(formatted),"%.5Lf",1.03125L)==7 && !strcmp(formatted,"1.03125"));
+    /* Upstream maps its ELF image RWX. A literal there is physically writable,
+     * so test the fortified readonly contract with an actually protected page. */
+    char *readonly=mmap((void*)0,4096,3,0x22,-1,0);
+    CHECK(readonly!=(void*)-1);
+    __memcpy_chk(readonly,"abc%n!",7,4096);
+    CHECK(mprotect(readonly,4096,1)==0);
+    int count=-1; CHECK(__snprintf_chk(formatted,sizeof(formatted),1,sizeof(formatted),readonly,&count)==4 && count==3);
+    CHECK(munmap(readonly,4096)==0);
+    CHECK(__snprintf_chk(formatted,sizeof(formatted),0,sizeof(formatted),"%2$d",1,2)==-1 && *__errno_location()==22);
+    CHECK(__snprintf_chk((void*)0,0,0,0,"%d",1234)==4);
     return 0;
 }
 
@@ -53,5 +82,7 @@ long compat_overflow(long kind)
     if (kind==2) __strcpy_chk(invalid_destination,"large",5);
     if (kind==3) __fdelt_chk(1024);
     if (kind==4) __fdelt_chk(-1);
+    if (kind==5) __snprintf_chk(invalid_destination,8,0,4,"abc");
+    if (kind==6) { char format[]="abc%n";int n;char buffer[16]; __snprintf_chk(buffer,16,1,16,format,&n); }
     return -1;
 }

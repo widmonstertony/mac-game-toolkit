@@ -13,7 +13,7 @@ The host sources are from [MetalSharp's Linux host at b1ceb881](https://github.c
 under the project's AGPL-3.0 license. This directory's additions use that license
 too. `upstream-files.json` pins the C sources and headers used for the tests.
 The builder verifies them before copying to a new isolated output directory;
-it only adds a resolver table and compiles the added C file. The upstream source
+it adds resolver tables and compiles the added compatibility files. The upstream source
 directory is not edited. No upstream archive or proprietary client is published
 in this directory.
 
@@ -26,7 +26,7 @@ python3 run-test.py --build /tmp/motorfest-libc-test \
   --runtime /path/to/already-downloaded/battleeye_runtime
 ```
 
-## Actual validated subset
+## Initial validated subset
 
 Eleven exports were added: `strtol`, `strspn`, `strcasecmp`, `strncasecmp`,
 `tolower`, `isalnum`, `__ctype_toupper_loc`, `__memcpy_chk`, `__strcpy_chk`,
@@ -63,3 +63,51 @@ runtime is not established to be the current Steam depot.
 
 Contract references: GNU libc's [integer parsing](https://sourceware.org/glibc/manual/latest/html_node/Parsing-of-Integers.html)
 and [source fortification](https://sourceware.org/glibc/manual/latest/html_node/Source-Fortification.html).
+
+## GNU C++ dependency experiment, November 16
+
+`dependency-probe.c` resolves C++ symbols from **unmodified** `libgcc_s.so.1`
+and `libstdc++.so.6.0.21` obtained from Valve's Steam Runtime Scout repository.
+Package URLs, index/package/library hashes and verification scope are recorded
+in [validation-cxx-2026-11-16.json](validation-cxx-2026-11-16.json). HTTPS index
+hashes were checked; no independent GPG verification is claimed. No proprietary
+client or runtime library is redistributed here. The first-name lookup matches
+the required export versions for all 30 applicable imports in these exact three
+files; this is not a general implementation of versioned ELF symbol lookup.
+
+Seven additional host exports supply `ceil`, `floor`, `frexpl`, `get_nprocs`,
+`__assert_fail`, `__snprintf_chk` and `__vsnprintf_chk`. The 80-bit `frexpl` test
+initially failed: on this MinGW target, Clang's `sysv_abi` still returned fp80 via
+a hidden pointer. An explicit assembly adapter now preserves Linux's stack input
+and x87 return convention. The probe verifies the real result and exponent.
+
+Formatting tests exercise Linux 64-bit long, integer and floating register spills,
+80-bit long double, dynamic width/precision, truncation and protected `%n`.
+Seven rejection processes verify bounds and writable-format rejection. Sequential
+narrow C conversions are supported; positional/wide conversions fail with EINVAL.
+This is not a complete glibc printf implementation. In particular, upstream maps
+ELF images writable: a literal in such an image fails the fortified `%n` readonly
+check. The positive test uses a genuinely read-only mapped page; the check is not
+weakened to make the test pass. Pointer formatting flags also need wider coverage.
+
+All general ABI tests and upstream hello/extras regressions pass. The original
+GNU libraries have **zero unresolved imports**. An owned Linux C++ ELF probe
+actually allocates/frees memory, throws and catches an integer, and runs the
+stack object's destructor during unwinding using those libraries. It passes.
+
+```sh
+python3 run-cxx-test.py --build /tmp/motorfest-libc-test \
+  --engine /path/to/MetalSharp-Wine.app/Contents \
+  --prefix /path/to/isolated/probe-prefix \
+  --gnu-runtime /path/to/pinned/steamrt-libraries \
+  --client /path/to/original/BEClient_x64.so
+```
+
+The runner validates build and GNU library hashes. Only the owned C++ probe runs;
+the client remains an inspection target without constructors or code execution.
+Its unresolved relocations are now **16**, across 14 missing names: `system`,
+`sendto`, `gethostbyname`, `sscanf`, `__fprintf_chk`, `usleep`, `setmntent`,
+`endmntent`, `getmntent`, `gethostname`, `sched_getaffinity`, `longjmp`,
+`localtime_r`, and `sched_setaffinity`. The normal loader still does not automatically
+load these GNU dependencies; this is an explicit test resolver. **Nothing has been
+installed in Motorfest and gameplay is not verified.**

@@ -93,6 +93,15 @@ not installed into Motorfest. The remaining dependencies and protected game
 session remain unresolved. Upstream's current 6.5/7.0 change notes explicitly
 say BattlEye has not been tested with a game.
 
+The next isolated experiment supplies unmodified Valve Steam Runtime GNU C++
+libraries through an explicit dependency resolver, and adds seven host math/
+formatting exports. Actual owned ELF allocation, exception catching and destructor
+execution now pass against those libraries. Their unresolved imports are zero;
+the inspected client still has 16 unresolved relocations. See the
+[C++ test evidence and limitations](linuxhost-compat/README.md#gnu-c-dependency-experiment-november-16).
+This is not deployed to the production engine and does not establish a successful
+BattlEye game session.
+
 GTA V Story Mode is not a substitute test: [Rockstar's FAQ](https://support.rockstargames.com/articles/1nenwhZlVrJY6CTFeSS2Fx/grand-theft-auto-online-battleye-faq)
 distinguishes Story Mode from BattlEye-protected Online. [Valve documents](https://partner.steamgames.com/doc/steamhardware/proton)
 that BattlEye support requires per-title configuration.

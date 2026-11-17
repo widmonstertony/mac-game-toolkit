@@ -1,0 +1,546 @@
+{
+  "generalAbi": {
+    "tests": {
+      "strings": {
+        "exitCode": 0,
+        "probePassed": true,
+        "logSha256": "dfc835bdcd3114b1939e212ca4904dd7ba4e9da32eb734708191d769bdd11536"
+      },
+      "overflow-0": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-1": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-2": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-3": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-4": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-5": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "7de291f5208d49b7fd887894bfb0a74b69c45c6fb97915c505e34eaa7fb873f2"
+      },
+      "overflow-6": {
+        "exitCode": 9,
+        "probePassed": true,
+        "logSha256": "bfd1c2573f03209d2772546c70e02be9722ff73017c9ceda490738fca03ade6b"
+      },
+      "hello": {
+        "exitCode": 0,
+        "probePassed": true,
+        "logSha256": "8b48572780c80d8e694a4abcef3df394228ca96c5a351534b258feaf7b3fbbb0"
+      },
+      "extras": {
+        "exitCode": 0,
+        "probePassed": true,
+        "logSha256": "b319e4a55f2e92de2a542d4f1f8261cd2fceee4b948d1afdcf70da5dffd545f4"
+      },
+      "inspect": {
+        "exitCode": 1,
+        "probePassed": true,
+        "logSha256": "edd20e18a3e3eda515d3539a526bf8fb2e513979930360804ab821830d8a126c",
+        "unresolvedCounts": [
+          0,
+          35
+        ],
+        "allDependenciesResolved": false
+      }
+    },
+    "generalAbiTestsPassed": true,
+    "runtimeFiles": {
+      "v1/lib64/wine/beclient_x64.dll.so": "6aa86ad273fb5a533d018a9d7d5ca3b7ca31d9cc6f6b5e5f108fff71c2876cdc",
+      "BEClient_x64.so": "c39d4f934d76043ba7183dea0807809bdad3afe6e973a5469f1143c4ca45dd82"
+    },
+    "buildReceiptSha256": "98a8ad19111af073e8f24518a2348172adf8022819a570f97edcf9e5993d5f90",
+    "clientCodeExecuted": false,
+    "installed": false,
+    "gameplayVerified": false
+  },
+  "gnuCxx": {
+    "tests": {
+      "linked-client": {
+        "exitCode": 1,
+        "modules": [
+          {
+            "name": "libgcc_s.so.1",
+            "imports": 15,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "libstdc++.so.6.0.21",
+            "imports": 123,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "BEClient_x64.so",
+            "imports": 160,
+            "unresolved": 16,
+            "unsupported": 0
+          }
+        ],
+        "logSha256": "24f8def5943963036612202a5b1e1257f7cd507df5d87d2146ab351d25d93119",
+        "missing": [
+          "system sendto gethostbyname sscanf __fprintf_chk usleep setmntent endmntent getmntent gethostname sched_getaffinity longjmp localtime_r sched_setaffinity "
+        ],
+        "allDependenciesResolved": false,
+        "inspectionCompleted": true
+      },
+      "gnu-cxx": {
+        "exitCode": 0,
+        "modules": [
+          {
+            "name": "libgcc_s.so.1",
+            "imports": 15,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "libstdc++.so.6.0.21",
+            "imports": 123,
+            "unresolved": 0,
+            "unsupported": 0
+          },
+          {
+            "name": "cxx-probe.so",
+            "imports": 10,
+            "unresolved": 0,
+            "unsupported": 0
+          }
+        ],
+        "logSha256": "cf3c4be77928c66ac9fa7a0f12b317d47a2bd6f05d2e8f37c6865d96c7d3f32d",
+        "missing": [],
+        "allDependenciesResolved": true,
+        "behaviorPassed": true
+      }
+    },
+    "gnuRuntimeHashes": {
+      "libgcc_s.so.1": "753a1cb28fe20a9a0fb75fe6ee2b9b2a9a36041d4ec41817da9bc9a614c4ab00",
+      "libstdc++.so.6.0.21": "83846996211e93eaa5f945f631aaa2f7dd4ae98bbd967fac78964668118887ed"
+    },
+    "clientSha256": "c39d4f934d76043ba7183dea0807809bdad3afe6e973a5469f1143c4ca45dd82",
+    "buildReceiptSha256": "98a8ad19111af073e8f24518a2348172adf8022819a570f97edcf9e5993d5f90",
+    "clientCodeExecuted": false,
+    "installed": false,
+    "gameplayVerified": false
+  },
+  "sourcePackages": {
+    "indexUrl": "https://repo.steampowered.com/steamrt-scout/dists/scout/main/binary-amd64/Packages.gz",
+    "indexSha256": "152f11bccabfe0ae65353736960ea3ecf60eed37026691d87dc16cf8bbdf27be",
+    "packages": [
+      {
+        "Package": "libgcc1",
+        "Version": "1:5.4.0-7.really.6+steamrt1.2+srt2",
+        "Filename": "pool/main/g/gcc-5/libgcc1_5.4.0-7.really.6+steamrt1.2+srt2_amd64.deb",
+        "SHA256": "5b62d49aa9ec9cd8ca7af2e677cba9714be641cbf6eed9835a48a65fc8cd79fa",
+        "Size": "38772",
+        "url": "https://repo.steampowered.com/steamrt-scout/pool/main/g/gcc-5/libgcc1_5.4.0-7.really.6+steamrt1.2+srt2_amd64.deb"
+      },
+      {
+        "Package": "libstdc++6",
+        "Version": "5.4.0-7.really.6+steamrt1.2+srt2",
+        "Filename": "pool/main/g/gcc-5/libstdc++6_5.4.0-7.really.6+steamrt1.2+srt2_amd64.deb",
+        "SHA256": "ed886139ace433f0922c87defd922ec57e54c495e9a5b54a6aaf7c02762d27e2",
+        "Size": "295442",
+        "url": "https://repo.steampowered.com/steamrt-scout/pool/main/g/gcc-5/libstdc++6_5.4.0-7.really.6+steamrt1.2+srt2_amd64.deb"
+      }
+    ],
+    "verification": "HTTPS Valve index SHA256; no independent GPG verification"
+  },
+  "selectedSymbolVersions": {
+    "files": {
+      "libgcc_s.so.1": "753a1cb28fe20a9a0fb75fe6ee2b9b2a9a36041d4ec41817da9bc9a614c4ab00",
+      "libstdc++.so.6.0.21": "83846996211e93eaa5f945f631aaa2f7dd4ae98bbd967fac78964668118887ed",
+      "BEClient_x64.so": "c39d4f934d76043ba7183dea0807809bdad3afe6e973a5469f1143c4ca45dd82"
+    },
+    "checkedImports": [
+      {
+        "consumer": "libstdc++.so.6",
+        "name": "_Unwind_GetRegionStart",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_3.0",
+        "selected": {
+          "version": "GCC_3.0",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "libstdc++.so.6",
+        "name": "_Unwind_SetGR",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_3.0",
+        "selected": {
+          "version": "GCC_3.0",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "libstdc++.so.6",
+        "name": "_Unwind_GetDataRelBase",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_3.0",
+        "selected": {
+          "version": "GCC_3.0",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "libstdc++.so.6",
+        "name": "_Unwind_DeleteException",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_3.0",
+        "selected": {
+          "version": "GCC_3.0",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "libstdc++.so.6",
+        "name": "_Unwind_GetLanguageSpecificData",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_3.0",
+        "selected": {
+          "version": "GCC_3.0",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "libstdc++.so.6",
+        "name": "_Unwind_Resume_or_Rethrow",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_3.3",
+        "selected": {
+          "version": "GCC_3.3",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "libstdc++.so.6",
+        "name": "_Unwind_RaiseException",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_3.0",
+        "selected": {
+          "version": "GCC_3.0",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "libstdc++.so.6",
+        "name": "_Unwind_GetIPInfo",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_4.2.0",
+        "selected": {
+          "version": "GCC_4.2.0",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "libstdc++.so.6",
+        "name": "_Unwind_GetTextRelBase",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_3.0",
+        "selected": {
+          "version": "GCC_3.0",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "libstdc++.so.6",
+        "name": "_Unwind_Resume",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_3.0",
+        "selected": {
+          "version": "GCC_3.0",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "libstdc++.so.6",
+        "name": "_Unwind_SetIP",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_3.0",
+        "selected": {
+          "version": "GCC_3.0",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZTVN10__cxxabiv117__class_type_infoE",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "CXXABI_1.3",
+        "selected": {
+          "version": "CXXABI_1.3",
+          "type": 1,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZTVN10__cxxabiv120__si_class_type_infoE",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "CXXABI_1.3",
+        "selected": {
+          "version": "CXXABI_1.3",
+          "type": 1,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZNSs4_Rep20_S_empty_rep_storageE",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 1,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "__gxx_personality_v0",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "CXXABI_1.3",
+        "selected": {
+          "version": "CXXABI_1.3",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZNSs6appendEPKcm",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZNSsC1EPKcmRKSaIcE",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_Znam",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZdlPv",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZNSs4_Rep10_M_destroyERKSaIcE",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZNKSs7compareEPKc",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZNSsC1EPKcRKSaIcE",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZSt9terminatev",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZNSs6assignEPKcm",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZNSs6assignERKSs",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZdaPv",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "__cxa_begin_catch",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "CXXABI_1.3",
+        "selected": {
+          "version": "CXXABI_1.3",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_Znwm",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_Unwind_Resume",
+        "provider": "libgcc_s.so.1",
+        "requiredVersion": "GCC_3.0",
+        "selected": {
+          "version": "GCC_3.0",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      },
+      {
+        "consumer": "BEClient_x64.so",
+        "name": "_ZNSs6appendERKSs",
+        "provider": "libstdc++.so.6",
+        "requiredVersion": "GLIBCXX_3.4",
+        "selected": {
+          "version": "GLIBCXX_3.4",
+          "type": 2,
+          "hidden": false
+        },
+        "matches": true
+      }
+    ],
+    "mismatches": [],
+    "allSelectedVersionsMatch": true,
+    "scope": "Exact three input files and first-defined-name lookup; no generic versioned-loader claim"
+  },
+  "runnerSha256": "3fd6937248581ae6d9ca3e28367743929c1559a0be96a3561c10a37d2ef5488d",
+  "limitations": [
+    "Exact pinned GNU libraries only; no generic version-aware loader claim",
+    "ELF image remains writable in upstream host; fortified percent-n rejects writable format strings",
+    "Formatted output supports sequential narrow C conversions, not all glibc printf extensions",
+    "Client inspected only; no protected game session verified"
+  ]
+}
