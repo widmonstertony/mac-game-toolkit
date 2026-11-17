@@ -1,0 +1,220 @@
+{
+  "checkpoint": "2026-11-16",
+  "installed_in_game": false,
+  "natural_scene_quality_verified": false,
+  "native_quality_ratio_test": {
+    "passed": true,
+    "render_size": [
+      128,
+      96
+    ],
+    "output_size": [
+      192,
+      144
+    ],
+    "upscaled_frames": 12,
+    "generated_midpoints": 10,
+    "outside_test_region_pixels": 0,
+    "allowed_edge_fringe_pixels": 2,
+    "gap_reset_matches_fresh_context": true,
+    "duplicate_and_invalid_exposure_rejected": true
+  },
+  "wine_d3dmetal_tests": {
+    "test-d3d12": {
+      "passed": true,
+      "frames": [
+        {
+          "frame": 0,
+          "pixels": 1024,
+          "centroid": 45.5,
+          "expected": 45.5,
+          "fence": 2
+        },
+        {
+          "frame": 1,
+          "pixels": 1024,
+          "centroid": 49.5,
+          "expected": 49.5,
+          "fence": 4
+        },
+        {
+          "frame": 2,
+          "pixels": 1024,
+          "centroid": 51.5,
+          "expected": 51.5,
+          "fence": 6
+        },
+        {
+          "frame": 3,
+          "pixels": 1024,
+          "centroid": 55.5,
+          "expected": 55.5,
+          "fence": 8
+        },
+        {
+          "frame": 4,
+          "pixels": 1024,
+          "centroid": 59.5,
+          "expected": 59.5,
+          "fence": 10
+        },
+        {
+          "frame": 5,
+          "pixels": 1024,
+          "centroid": 63.5,
+          "expected": 63.5,
+          "fence": 12
+        },
+        {
+          "frame": 6,
+          "pixels": 1024,
+          "centroid": 67.5,
+          "expected": 67.5,
+          "fence": 14
+        },
+        {
+          "frame": 7,
+          "pixels": 1024,
+          "centroid": 71.5,
+          "expected": 71.5,
+          "fence": 16
+        },
+        {
+          "frame": 8,
+          "pixels": 1024,
+          "centroid": 75.5,
+          "expected": 75.5,
+          "fence": 18
+        },
+        {
+          "frame": 9,
+          "pixels": 1024,
+          "centroid": 79.5,
+          "expected": 79.5,
+          "fence": 20
+        },
+        {
+          "frame": 10,
+          "pixels": 1024,
+          "centroid": 83.5,
+          "expected": 83.5,
+          "fence": 22
+        },
+        {
+          "frame": 11,
+          "pixels": 1024,
+          "centroid": 87.5,
+          "expected": 87.5,
+          "fence": 24
+        }
+      ],
+      "generated_midpoints": 10,
+      "verified_device_provider": "apd12.dll",
+      "presentation_verified": false
+    },
+    "test-upscale-d3d12": {
+      "passed": true,
+      "frames": [
+        {
+          "frame": 0,
+          "pixels": 1013,
+          "centroid": 45.533,
+          "expected": 45.5,
+          "fence": 3
+        },
+        {
+          "frame": 1,
+          "pixels": 1017,
+          "centroid": 49.447,
+          "expected": 49.5,
+          "fence": 6
+        },
+        {
+          "frame": 2,
+          "pixels": 1021,
+          "centroid": 51.515,
+          "expected": 51.5,
+          "fence": 9
+        },
+        {
+          "frame": 3,
+          "pixels": 1021,
+          "centroid": 55.515,
+          "expected": 55.5,
+          "fence": 12
+        },
+        {
+          "frame": 4,
+          "pixels": 1022,
+          "centroid": 59.5,
+          "expected": 59.5,
+          "fence": 15
+        },
+        {
+          "frame": 5,
+          "pixels": 1022,
+          "centroid": 63.5,
+          "expected": 63.5,
+          "fence": 18
+        },
+        {
+          "frame": 6,
+          "pixels": 1022,
+          "centroid": 67.5,
+          "expected": 67.5,
+          "fence": 21
+        },
+        {
+          "frame": 7,
+          "pixels": 1022,
+          "centroid": 71.5,
+          "expected": 71.5,
+          "fence": 24
+        },
+        {
+          "frame": 8,
+          "pixels": 1022,
+          "centroid": 75.5,
+          "expected": 75.5,
+          "fence": 27
+        },
+        {
+          "frame": 9,
+          "pixels": 1022,
+          "centroid": 79.5,
+          "expected": 79.5,
+          "fence": 30
+        },
+        {
+          "frame": 10,
+          "pixels": 1022,
+          "centroid": 83.5,
+          "expected": 83.5,
+          "fence": 33
+        },
+        {
+          "frame": 11,
+          "pixels": 1022,
+          "centroid": 87.5,
+          "expected": 87.5,
+          "fence": 36
+        }
+      ],
+      "generated_midpoints": 10,
+      "verified_device_provider": "apd12.dll",
+      "presentation_verified": false
+    }
+  },
+  "artifacts": {
+    "x86_64-windows/fh6metalfx.dll": "61c45f65c5394b150feadefd4a7582b8db0d5f5d8171fd0e11b5ce91c4c57e65",
+    "x86_64-unix/fh6metalfx.so": "62c18eee72c2049e47586d2b436c55b00316de30b03e6e03827a1ec74761065c",
+    "test-d3d12.exe": "d7a488249baa69e4d52c781c22a5a30c4bdfb690242b2752d7ec077e5149ce7f",
+    "test-upscale-d3d12.exe": "461b3a02a105cb2a13911e69ac5d4733269f74119dd09a9a2776d958b89c5b16"
+  },
+  "limitations": [
+    "Not installed in game",
+    "Game SR input capture/hook, resource submission split, UI composition and ordered 2x swapchain presentation remain incomplete",
+    "Synthetic fixture only; no performance claim",
+    "Reactive masks and dynamic-resolution SR not supported by this prototype interface"
+  ]
+}

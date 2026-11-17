@@ -1,0 +1,167 @@
+{
+  "passed": true,
+  "installed_in_game": true,
+  "renderer": "D3DMetal apd12.dll",
+  "sequence_frames": 8,
+  "provider_frames_compared": 12,
+  "serialized_pixels_checked": 393216,
+  "manifest_sha256": "898af29938476ef572aa9c3bb8e810c1a420678f7f3182f609a841eb2f6657c2",
+  "private_inputs": {
+    "framegeneration-sequence-inner.dll": "07c8c84bff518426cc0df86175e737704e706d5eae52a20a512ce65dff1ef0cc",
+    "framegeneration-source.dll": "e01596aa0ac754568b94296fd96996526eee3ca4c78bd0adcf1fa1ad8ab1829c",
+    "framegeneration-original.dll": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6",
+    "fh6-fg-chain.asi": "d7dc11c44ae6f92da0c13ccc971ccf766feee0b1b2ace151bce0211257d71669",
+    "sl.interposer.dll": "e8dce67f28124d0ef38af59ae718ba10f47d90af1acdc934abb6d6da6143e2ab"
+  },
+  "artifacts": {
+    "framegeneration-sequence.dll": "5ffd60249a43d8ac8cff9ce66977cabbec38554e35a850ebf0ed8058415b19ab",
+    "test-capture.exe": "f10d0f34fe3d38280943ad1d7c669d4e45251651bfabb5857cf7a1c864e64b6e",
+    "test-provider.exe": "4ea404d9f41871a91d6b63274e5f61ef07ca2c88a92608d3036d74a0102d1ae1"
+  },
+  "quality_verified": false,
+  "checkpoint": "2026-11-16",
+  "deployment": "FH6-only outer recorder upgrade; null FFX HUDLessColor accepted only with validated same-frame DLSSG scene tag; original inner provider bytes retained",
+  "gameplay_verified": false,
+  "fixture_pixels_checked": 491520,
+  "continuous_metalfx_fixture": {
+    "real_frames": 8,
+    "initialization_copies": 2,
+    "generated_frames": 6,
+    "valid_camera_inputs": true,
+    "performance_claim": false,
+    "quality_verified": false
+  },
+  "previous_outer_sha256": "1bcf8119e4ed33e37b48faf20c042d6b4e7eb799ab56e074689fa710a69eb23c",
+  "actual_game_sequences": [
+    {
+      "first_frame": 17205,
+      "last_frame": 17212,
+      "capture_completed": true,
+      "frames": 8,
+      "output_size": [
+        3472,
+        2266
+      ],
+      "depth_motion_size": [
+        2314,
+        1510
+      ],
+      "observed_last_frame_speed_mph": 8,
+      "replay": {
+        "results": [
+          {
+            "frame": 17205,
+            "generated": 0,
+            "gpu_ms": 206.094540990307
+          },
+          {
+            "frame": 17206,
+            "generated": 0,
+            "gpu_ms": 59.0633749961853
+          },
+          {
+            "frame": 17207,
+            "generated": 1,
+            "gpu_ms": 4.995958006475121
+          },
+          {
+            "frame": 17208,
+            "generated": 1,
+            "gpu_ms": 12.230958003783599
+          },
+          {
+            "frame": 17209,
+            "generated": 1,
+            "gpu_ms": 12.722583007416688
+          },
+          {
+            "frame": 17210,
+            "generated": 1,
+            "gpu_ms": 5.45116700232029
+          },
+          {
+            "frame": 17211,
+            "generated": 1,
+            "gpu_ms": 10.704959000577219
+          },
+          {
+            "frame": 17212,
+            "generated": 1,
+            "gpu_ms": 4.733207999379374
+          }
+        ],
+        "warmup_current_copies": 2,
+        "continuous_input_frames": 8,
+        "generated_frames": 6,
+        "quality_verified": false
+      },
+      "high_speed_quality_verified": false
+    },
+    {
+      "first_frame": 27440,
+      "last_frame": 27447,
+      "capture_completed": true,
+      "frames": 8,
+      "output_size": [
+        3472,
+        2266
+      ],
+      "depth_motion_size": [
+        2314,
+        1510
+      ],
+      "observed_last_frame_speed_mph": 15,
+      "replay": {
+        "results": [
+          {
+            "frame": 27440,
+            "generated": 0,
+            "gpu_ms": 14.744500003871508
+          },
+          {
+            "frame": 27441,
+            "generated": 0,
+            "gpu_ms": 5.443083995487541
+          },
+          {
+            "frame": 27442,
+            "generated": 1,
+            "gpu_ms": 12.11275000241585
+          },
+          {
+            "frame": 27443,
+            "generated": 1,
+            "gpu_ms": 3.7702090048696846
+          },
+          {
+            "frame": 27444,
+            "generated": 1,
+            "gpu_ms": 4.608167000696994
+          },
+          {
+            "frame": 27445,
+            "generated": 1,
+            "gpu_ms": 7.019540993496776
+          },
+          {
+            "frame": 27446,
+            "generated": 1,
+            "gpu_ms": 4.136875009862706
+          },
+          {
+            "frame": 27447,
+            "generated": 1,
+            "gpu_ms": 3.7858339928789064
+          }
+        ],
+        "warmup_current_copies": 2,
+        "continuous_input_frames": 8,
+        "generated_frames": 6,
+        "quality_verified": false
+      },
+      "high_speed_quality_verified": false
+    }
+  ],
+  "gameplay_capture_verified": true,
+  "live_metalfx_installed": false
+}

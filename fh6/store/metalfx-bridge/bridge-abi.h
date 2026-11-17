@@ -2,7 +2,8 @@
 #include <stdint.h>
 // PE/x86_64 and Mach-O/x86_64 share these fixed-width POD structures. This
 // prototype uses GPU staging copies; it does NOT expose private D3DMetal ABI.
-enum { FX_CAPS=0, FX_CREATE=1, FX_DISPATCH=2, FX_DESTROY=3, FX_BUFFER_CONTROL=4, FX_DISPATCH_CAMERA=5 };
+enum { FX_CAPS=0, FX_CREATE=1, FX_DISPATCH=2, FX_DESTROY=3, FX_BUFFER_CONTROL=4, FX_DISPATCH_CAMERA=5,
+       FX_UPSCALE_CREATE=6, FX_UPSCALE_DISPATCH=7, FX_UPSCALE_DESTROY=8 };
 struct FxBuffer { uint64_t address, bytes; uint32_t width,height,rowPitch,format; };
 enum { FX_RGBA8=1, FX_RGBA16F=2, FX_R32F=3, FX_RG16F=4 };
 struct FxCreate {
@@ -30,3 +31,14 @@ static_assert(sizeof(FxCreate)==32,"create ABI");
 static_assert(sizeof(FxDispatch)==208,"dispatch ABI");
 static_assert(sizeof(FxCamera)==136,"camera ABI");
 static_assert(sizeof(FxDispatchCamera)==344,"camera dispatch ABI");
+// Temporal SR uses input-grid backward motion; unlike the public FG ABI,
+// these scales convert motion to RENDER pixels. No implicit sign conversion.
+// Create/destroy use FxCreate/FxDestroy, with separate SR context ownership.
+struct FxUpscale {
+    uint64_t context,frameId;
+    FxBuffer color,depth,motion,output;
+    float jitterX,jitterY,motionScaleX,motionScaleY,preExposure,exposure;
+    uint32_t reset,depthReversed;
+    double gpuMilliseconds,wallMilliseconds;
+};
+static_assert(sizeof(FxUpscale)==192,"upscale dispatch ABI");

@@ -1,7 +1,8 @@
 # Isolated MetalFX frame interpolation bridge
 
 Experimental, **not installed in FH6**. The game still uses its existing FSR
-quality upscaling and 2x generation. This prototype does not yet implement the
+quality upscaling and 2x generation. The prototype now has temporal SR and FG
+operations, but does not yet implement the
 game's staging hook, UI composition or ordered swapchain presentation. A separate
 headless D3DMetal test now verifies real D3D12 staging buffers across the bridge.
 Passing these tests does not establish live 2x presentation or solve ghosting.
@@ -216,3 +217,100 @@ quality failure, not a broken test to waive. Measured point data, image hashes
 and fixture outcomes are in `input-audit-results-20261116.json`; raw captures
 remain local. Continuous driving history and precise per-resource GPU epochs
 remain unresolved. This revision is not a production ghosting fix.
+
+## Consecutive-history recorder (November 16)
+
+`sequence/` adds an explicitly armed outer FFX provider. It forwards the
+installed provider unchanged, retaining its exact bytes as
+`framegeneration-sequence-inner.dll`. It records eight consecutive Prepare
+depth/motion inputs, scene colors, generated outputs and native camera records.
+Copy commands restore resource states; readbacks retain source references until
+the verified producer-queue fence completes. Capture is bounded to 1 GiB and
+does not run unless `sequence-request` exists beside the provider. A frame gap,
+reset, unsupported format, asynchronous route or mismatched constants aborts
+the sample instead of silently relabeling it.
+
+The isolated real-D3DMetal tests passed: 491,520 fixture pixels, eight frames
+with reused input/output allocations, partial-abort lifetime checks, twelve
+byte-identical comparisons against the installed provider, and 393,216 pixels
+checked again after serialization. `replay-sequence.mm` consumes the resulting
+eight-frame history without repeating old input to initialize temporal state.
+The first two outputs are initialization copies; the remaining six are actual
+MetalFX-generated outputs. Invalid Streamline `FLT_MAX` camera sentinels are
+rejected rather than accepted merely because they are finite.
+
+The recorder was installed into the FH6-only runtime at 2026-11-16 23:53 UTC,
+with the old DLL and profile backed up. No synthesis or game-quality settings
+were changed. This is diagnostic deployment, **not a ghosting fix or live
+MetalFX integration**. Full-resolution moving-game capture and visual approval
+remain required before replacing the frame-generation backend.
+
+### DLSSG-route capture correction, November 16
+
+The first live recorder rejected the actual DLSSG input route because FFX
+`HUDLessColor` is null even when a same-frame native scene tag is available.
+This was a recording eligibility error, not evidence of the ghosting cause.
+The outer recorder now accepts that case only with a full-size RGBA8 native
+scene, the expected read state/lifetime, and matching native depth/motion
+resources. A non-null explicit FFX scene still must match the native tag.
+
+A real D3DMetal GPU probe alternated explicit and null FFX scene descriptors
+over twelve frames. Direct original-provider and wrapped-provider outputs
+were byte-identical. Eight consecutive fenced readbacks, reuse of three
+outputs, gap-abort handling and serialized pixels also passed. The installer
+now upgrades a proven existing outer recorder without wrapping it again;
+it verifies both active hashes and preserves the exact inner DLL.
+
+The corrected recorder was installed after a normal menu exit at
+2026-11-17 00:24 UTC, then launched through the native Steam shortcut.
+This changes capture eligibility only. It does not claim to fix ghosting,
+stutter, or to install MetalFX in the game. See `sequence-results-20261116.json`.
+
+### Actual continuous game captures
+
+Two eight-frame game sequences now have completed producer fences and complete
+pixel files: 17205–17212 and 27440–27447. Both replayed successfully through
+native MetalFX at 3472×2266, with 2314×1510 depth/motion. Each yielded two startup
+copies followed by six generated outputs. This is offline replay, not live 2×
+presentation. The final captured HUD speeds were only 8 and 15 mph; the second
+sequence was off-road in woodland. Neither establishes high-speed visual quality.
+
+Fine edge breakup is visible in parts of the captured scene as well as the FSR
+generated output. The scene readback is ordered after the inner FG dispatch,
+so this observation alone cannot prove whether the original SR output was clean
+before that dispatch. Do not classify all artifacts as an FG-only defect on this
+evidence. The game was also showing a network-quality warning during capture;
+this work does not establish current network stability.
+
+### Temporal SR native operations
+
+Operations 6/7/8 add temporal upscale create/dispatch/destroy while preserving
+operations 0–5. SR uses a distinct context and explicit exposure/pre-exposure;
+motion scales convert backward vectors into **render pixels**. Color and output
+accept RGBA8 or RGBA16F, while the private MetalFX textures use RGBA16F. This
+avoids forcing HDR intermediate data through 8-bit buffers. Dynamic resolution,
+reactive masks and output-resolution motion inputs are not implemented by this
+new interface; a future game hook must not silently discard those requirements.
+
+`test-upscale-chain.mm` feeds twelve moving analytic images through actual
+MetalFX SR at 128×96 → 192×144, then supplies those SR outputs directly to FG.
+Its pixel oracle checks current-frame SR positions and ten actual midpoint FG
+positions, finite RGB, foreground area and pixels outside a bounded foreground
+region. The region permits a two-pixel reconstruction fringe; this is not an
+assertion of perfect natural-scene edges. Duplicate IDs and invalid exposure
+are rejected. A frame gap produces byte-identical output to a fresh reset SR
+context. The test passes on this Mac, but does not certify the real game's
+high-speed image quality or deploy the feature.
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun clang++ \
+  -std=c++17 -fobjc-arc -O2 -framework Foundation -framework Metal \
+  -framework MetalFX test-upscale-chain.mm -o /tmp/fh6-metalfx-upscale-chain
+/tmp/fh6-metalfx-upscale-chain
+```
+
+`build.py --test-d3d12` also builds `test-upscale-d3d12.exe`. Invoke the isolated
+runner with `--upscale-chain` to test PE → Unix SR → D3D12 intermediate texture
+→ MetalFX FG → D3D12 readback. Both producer and intermediate queues must finish
+before consuming mapped data. This test does not exercise UI composition or
+swapchain presentation.

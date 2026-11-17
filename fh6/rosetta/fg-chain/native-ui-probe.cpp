@@ -45,6 +45,11 @@ int wmain(int argc,wchar_t **argv){
  setvbuf(stdout,nullptr,_IONBF,0);CHECK(argc==3 || (argc==4 && !wcscmp(argv[3],L"--missing-ui")));
  const bool missingUi=argc==4;
  GPU g;CHECK(g.init());CHECK(mathTest(g)==0);CHECK(nativeDepthCopyTest(g)==0);
+#ifdef SEQUENCE_FORWARDING_TEST
+ HMODULE deviceModule{};auto deviceMethod=(*(void***)g.d)[0];
+ CHECK(GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,(char*)deviceMethod,&deviceModule));
+ CHECK(deviceModule==GetModuleHandleW(L"apd12.dll"));puts("PASS actual D3DMetal device apd12.dll");
+#endif
  HMODULE observer=LoadLibraryW(L"fh6-fg-chain.asi");CHECK(observer);
  auto init=(void(*)())GetProcAddress(observer,"InitializeASI");CHECK(init);init();
  HMODULE slFixture=LoadLibraryW(L"sl.interposer.dll");CHECK(slFixture);
@@ -148,13 +153,26 @@ int wmain(int argc,wchar_t **argv){
   CHECK(depth.write(g.l,(BYTE*)z,W*4,read));CHECK(motion.write(g.l,(BYTE*)mv,W*4,read));CHECK(scene.write(g.l,source,W*4,read));CHECK(ui.write(g.l,overlay,W*4,read));CHECK(present.write(g.l,final,W*4,read));
   Token token((uint32_t)id);sl::ViewportHandle viewport(0);sl::Constants constants{};constants.cameraNear=.1f;constants.cameraFar=50000;constants.depthInverted=sl::Boolean::eTrue;constants.cameraMotionIncluded=sl::Boolean::eTrue;constants.motionVectors3D=sl::Boolean::eFalse;constants.reset=id==0?sl::Boolean::eTrue:sl::Boolean::eFalse;
   float identity[16]{};for(int k=0;k<16;k++)identity[k]=k%5==0?1.f:0.f;memcpy(&constants.clipToPrevClip,identity,64);
+#ifdef SEQUENCE_FORWARDING_TEST
+  constants.cameraFOV=1.05f;constants.cameraAspectRatio=float(W)/H;
+  constants.jitterOffset={0,0};constants.cameraPos={0,0,0};
+  constants.mvecScale={1.f/W,1.f/H};constants.cameraRight={1,0,0};constants.cameraUp={0,1,0};constants.cameraFwd={0,0,1};
+  float projection[16]{};projection[0]=1.f/tanf(.525f)/(float(W)/H);projection[5]=1.f/tanf(.525f);projection[10]=.1f/(.1f-50000);projection[11]=1;projection[14]=.1f*50000/(50000-.1f);
+  memcpy(&constants.cameraViewToClip,projection,sizeof(projection));
+#endif
   CHECK(nativeConstants(constants,token,viewport)==sl::Result::eOk);
   sl::Resource sceneTag(sl::ResourceType::eTex2d,scene.gpu,read),uiTag(sl::ResourceType::eTex2d,ui.gpu,read),depthTag(sl::ResourceType::eTex2d,depth.gpu,read),motionTag(sl::ResourceType::eTex2d,motion.gpu,read);
   sl::ResourceTag tags[]={sl::ResourceTag(&sceneTag,sl::kBufferTypeHUDLessColor,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&uiTag,sl::kBufferTypeUIColorAndAlpha,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&depthTag,sl::kBufferTypeDepth,sl::ResourceLifecycle::eValidUntilPresent),sl::ResourceTag(&motionTag,sl::kBufferTypeMotionVectors,sl::ResourceLifecycle::eValidUntilPresent)};
   CHECK(nativeTags(token,viewport,tags+(missingUi?2:0),missingUi?2:4,nullptr)==sl::Result::eOk);
   for(int k=0;k<3;k++){
    CHECK(outputs[k].write(g.l,zero,W*4,D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-   ffxConfigureDescFrameGeneration cfg{};cfg.header.type=FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION;cfg.frameID=id;cfg.frameGenerationEnabled=true;cfg.flags=FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY;if(!missingUi || k==1)cfg.HUDLessColor=res(scene);cfg.generationRect={0,0,W,H};CHECK((k==2?candidateConfigure:configure)(&contexts[k],&cfg.header)==0);
+   ffxConfigureDescFrameGeneration cfg{};cfg.header.type=FFX_API_CONFIGURE_DESC_TYPE_FRAMEGENERATION;cfg.frameID=id;cfg.frameGenerationEnabled=true;cfg.flags=FFX_FRAMEGENERATION_FLAG_NO_SWAPCHAIN_CONTEXT_NOTIFY;if(!missingUi || k==1)cfg.HUDLessColor=res(scene);cfg.generationRect={0,0,W,H};
+#ifdef SEQUENCE_FORWARDING_TEST
+   // Actual FH6 leaves this empty and supplies scene/UI through DLSSG tags.
+   // Exercise both contracts while preserving identical direct/outer inputs.
+   if(k!=1 && id%2)cfg.HUDLessColor={};
+#endif
+   CHECK((k==2?candidateConfigure:configure)(&contexts[k],&cfg.header)==0);
    ffxDispatchDescFrameGenerationPrepareV2 prep{};prep.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2;prep.frameID=id;prep.commandList=g.l;prep.renderSize={W,H};prep.motionVectorScale={1,1};prep.frameTimeDelta=16.6667f;prep.reset=id==0;prep.cameraNear=.1f;prep.cameraFar=50000;prep.cameraFovAngleVertical=1.05f;prep.viewSpaceToMetersFactor=1;prep.depth=res(depth);prep.motionVectors=res(motion);prep.cameraUp[1]=prep.cameraRight[0]=prep.cameraForward[2]=1;CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&prep.header)==0);
    if(missingUi && k==2){CHECK(g.end());CHECK(g.begin());}
    ffxDispatchDescFrameGeneration p{};p.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION;p.commandList=g.l;p.frameID=id;p.numGeneratedFrames=1;p.reset=id==0;p.presentColor=res(k==1?scene:present);p.outputs[0]=ffxApiGetResourceDX12(outputs[k].gpu,FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);p.generationRect={0,0,W,H};p.backbufferTransferFunction=FFX_API_BACKBUFFER_TRANSFER_FUNCTION_SRGB;p.minMaxLuminance[1]=100;
@@ -169,6 +187,13 @@ int wmain(int argc,wchar_t **argv){
    outputs[k].copyOut(g.l);
   }
   CHECK(g.end());for(int k=0;k<3;k++)CHECK(outputs[k].read(pixels[k],W*4));
+#ifdef SEQUENCE_FORWARDING_TEST
+  // Both paths use the exact installed provider; the outer recorder must not
+  // alter even one generated/UI byte on any frame, including history startup.
+  CHECK(!memcmp(pixels[0],pixels[2],sizeof(pixels[0])));
+  char expectedName[80];snprintf(expectedName,sizeof(expectedName),"expected-frame-%llu.rgba",(unsigned long long)id);
+  FILE *expectedFile=fopen(expectedName,"wb");CHECK(expectedFile);CHECK(fwrite(pixels[0],1,sizeof(pixels[0]),expectedFile)==sizeof(pixels[0]));CHECK(fclose(expectedFile)==0);
+#endif
  }
  unsigned refErrors=0,oldDiff=0,generatedDifferent=0,uiErrors=0;
  for(UINT y=0;y<H;y++)for(UINT x=0;x<W;x++){const UINT i=y*W+x;for(UINT k=0;k<3;k++){
@@ -178,14 +203,28 @@ int wmain(int argc,wchar_t **argv){
   if(y<12&&x<40){const float expected=overlay[i*4+k]+(1-overlay[i*4+3]/255.f)*source[i*4+k];if(fabsf(pixels[2][i*4+k]-expected)>2)uiErrors++;}
  }}
  printf("GPU contrast: reference_errors=%u non_ui_difference_components=%u generated_differs_from_base_components=%u ui_errors=%u frames=12 contexts=3\n",refErrors,oldDiff,generatedDifferent,uiErrors);
+#ifdef SEQUENCE_FORWARDING_TEST
+ CHECK(!memcmp(pixels[0],pixels[2],sizeof(pixels[0])));
+#else
  if(missingUi) CHECK(!memcmp(pixels[0],pixels[2],sizeof(pixels[0])));
  else {CHECK(refErrors==0);CHECK(oldDiff>100);CHECK(generatedDifferent>0);CHECK(uiErrors==0);}
+#endif
  for(int k=0;k<3;k++){CHECK((k==2?candidateDestroy:destroy)(&contexts[k],nullptr)==0);compositors[k].release();}
  swapchain->Release();CHECK(candidateDestroy(&swapContext,nullptr)==0);factory->Release();DestroyWindow(window);
- auto activeCaptures=(unsigned(*)())GetProcAddress(candidate,"FH6CaptureActive");CHECK(activeCaptures);
+ auto activeCaptures=(unsigned(*)())GetProcAddress(candidate,
+#ifdef SEQUENCE_FORWARDING_TEST
+ "FH6SequenceActive"
+#else
+ "FH6CaptureActive"
+#endif
+ );CHECK(activeCaptures);
  const auto deadline=GetTickCount64()+10000;while(activeCaptures() && GetTickCount64()<deadline)Sleep(10);CHECK(activeCaptures()==0);
+#ifdef SEQUENCE_FORWARDING_TEST
+ puts("PASS continuous recorder preserves installed provider output byte for byte across 12 frames; no game image-quality claim");
+#else
  if(missingUi) puts("PASS missing HUDless/UI passthrough matches the original provider byte for byte");
  else puts("PASS official FFX generated output + native UI; postprocess difference outside native UI triggers old extraction; candidate matches scene-only reference. This is synthetic GPU evidence, not proof FH6 car ghosting is fixed.");
+#endif
  if(GetEnvironmentVariableW(L"FH6_ASYNC_FG_LOG",nullptr,0)) {
   auto flush=(BOOL (*)())resolve(observer,"FH6ChainFlush");CHECK(flush&&flush());
   puts("PASS nonblocking frame trace drained without loss");

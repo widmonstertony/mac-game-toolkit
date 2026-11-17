@@ -8,7 +8,7 @@ extern "C" __declspec(dllexport) LONG WINAPI MetalFxBridgeCall(unsigned operatio
     auto ntdll=GetModuleHandleW(L"ntdll.dll");
     auto query=(Query)GetProcAddress(ntdll,"NtQueryVirtualMemory");
     auto call=(Call)GetProcAddress(ntdll,"__wine_unix_call");
-    if(!query||!call||operation>5)return (LONG)0xc000007a;
+    if(!query||!call||operation>8)return (LONG)0xc000007a;
     uint64_t handle=0;LONG result=query(GetCurrentProcess(),module,1000,&handle,sizeof(handle),nullptr);
     return result?result:call(handle,operation,args);
 }

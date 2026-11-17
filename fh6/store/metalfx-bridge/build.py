@@ -18,5 +18,6 @@ def main():
     subprocess.run(['xcrun','clang++','-arch','x86_64','-isysroot',sdk,'-std=c++17','-O2','-dynamiclib','-fobjc-arc','-framework','Foundation','-framework','Metal','-framework','MetalFX',str(here/'bridge-native.mm'),'-o',str(out/'x86_64-unix/fh6metalfx.so')],check=True)
     if a.test_d3d12:
         subprocess.run([str(a.cc),'-std=c++17','-O2','-nostdlib','-fno-exceptions','-fno-rtti','-fno-threadsafe-statics','-fno-stack-protector','-Wl,-e,entry',str(here/'test-d3d12.cpp'),'-lkernel32','-ld3d12','-ldxgi','-o',str(out/'test-d3d12.exe')],check=True)
+        subprocess.run([str(a.cc),'-DFX_TEST_UPSCALE_CHAIN','-std=c++17','-O2','-nostdlib','-fno-exceptions','-fno-rtti','-fno-threadsafe-statics','-fno-stack-protector','-Wl,-e,entry',str(here/'test-d3d12.cpp'),'-lkernel32','-ld3d12','-ldxgi','-o',str(out/'test-upscale-d3d12.exe')],check=True)
     print(out)
 if __name__=='__main__':main()

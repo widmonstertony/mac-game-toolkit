@@ -19,5 +19,9 @@
   "integrity": {
     "allBlockHashesVerified": true,
     "allAvailablePlaintextHashesVerified": true
-  }
+  },
+  "macxusImported": true,
+  "macxusInstallState": "imported",
+  "macxusImportMethod": "Built-in Import game UI; selected existing Content folder",
+  "macxusLaunchGate": "Missing .xodus-streaming.msixvc; UWP launch adaptation remains unverified"
 }

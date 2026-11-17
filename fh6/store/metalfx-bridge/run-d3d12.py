@@ -11,12 +11,14 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--build',type=Path,required=True)
     parser.add_argument('--test-prefix',type=Path,required=True)
+    parser.add_argument('--upscale-chain',action='store_true')
     a=parser.parse_args();build=a.build.resolve();prefix=a.test_prefix.resolve()
+    probe='test-upscale-d3d12' if a.upscale_chain else 'test-d3d12'
     data=Path.home()/'Library/Application Support/MACxus'
     if prefix==data/'bottles' or data.joinpath('bottles').resolve() in prefix.parents:
         raise SystemExit('Refusing a live MACxus bottle; select an existing isolated test prefix.')
     if not (prefix/'system.reg').is_file():raise SystemExit('Existing test prefix required.')
-    for relative in ('test-d3d12.exe','x86_64-windows/fh6metalfx.dll','x86_64-unix/fh6metalfx.so'):
+    for relative in (probe+'.exe','x86_64-windows/fh6metalfx.dll','x86_64-unix/fh6metalfx.so'):
         if not (build/relative).is_file():raise SystemExit('Missing build artifact: '+relative)
     cfg=json.loads((data/'local-highball.json').read_text())
     layer=data/'external-highball/fh6-prior-fixes'
@@ -31,9 +33,9 @@ def main():
         DYLD_FALLBACK_FRAMEWORK_PATH=str(frameworks)+':/System/Library/Frameworks',
         WINEMSYNC='1',WINEESYNC='0',CX_D3DMETALPATH=str(renderer/'external'),D3DM_MTL4='0',
         HB_D3D12_REAL=win(shim/'wine/x86_64-windows/apd12.dll'),WINEDEBUG='-all',FH6_D3DMETAL_NO_ANTILAG2='1')
-    log=build/'test-d3d12.log'
+    log=build/(probe+'.log')
     with log.open('w') as stream:
-        try:rc=subprocess.run([str(layer/'engine/bin/wine'),str(build/'test-d3d12.exe')],cwd=build,env=env,stdout=stream,stderr=subprocess.STDOUT,timeout=90).returncode
+        try:rc=subprocess.run([str(layer/'engine/bin/wine'),str(build/(probe+'.exe'))],cwd=build,env=env,stdout=stream,stderr=subprocess.STDOUT,timeout=90).returncode
         except subprocess.TimeoutExpired:rc=124
     lines=log.read_text(errors='replace').splitlines()
     for line in lines:

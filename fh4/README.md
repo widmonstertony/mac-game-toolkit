@@ -9,6 +9,22 @@ Ciphertext block hashes and all available plaintext file hashes passed.
 original verified download is retained. **Runtime installation and playability
 remain unverified**; this is UWP `Forza.App`, not the FH6 GDK/MSIXVC route.
 
+### MACxus library import completed
+
+The existing `Content` folder was selected through MACxus's built-in **Import
+game** dialog. The UI now shows Forza Horizon 4 as **Local installation / Imported**,
+and its persisted entry identifies `ForzaHorizon4.exe`, package
+`Microsoft.SunriseBaseGame`, version `1.478.564.2`. No game files were duplicated
+and the launcher was not patched to pretend the installation is ready.
+
+The remaining launch gate is specific: `inspectGameDirectory` requires an
+existing `.xodus-streaming.msixvc` and an executable for state `ready`;
+`prepareGameLaunch` refuses the `imported` state. This extracted EAppx package
+has no such MSIXVC. Creating an empty file with that name would only falsify
+the check, not implement UWP activation or the backend container format.
+The UI correctly displays that warning. Library import is complete; runtime
+adaptation and gameplay are still pending.
+
 `extract_owned.py` reads the nested payload directly at its bundle offset,
 avoiding an additional 79 GiB intermediate copy. The local CIK remains in the
 private MACxus directory. Output paths are checked, existing files require hash
@@ -34,8 +50,8 @@ At the initial download checkpoint this was package data, not installed content.
 The extraction above does not yet establish a verified-playable game.
 MACxus 0.3.11's install-plan only accepts supported Windows.Desktop MSIXVC
 packages. FH4's selected PC package is EAppx/UWP. Its built-in streaming installer
-therefore did not perform this download and no fake ready-to-play library entry
-was created. MACxus not listing it among installed games is expected at this stage.
+therefore did not perform this download. A subsequent manual import now lists
+the actual extracted files, with their unsupported launch state intact.
 
 The alternative download used Microsoft's public catalog and FE3 APIs, with the
 FE3 workflow informed by [StoreLib](https://github.com/query-store-links/storelib_rs).

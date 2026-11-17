@@ -131,4 +131,5 @@ static int32_t bufferControl(void *raw){@autoreleasepool{
     auto p=(FxBuffer*)raw;if(!p)return -2;auto d=MTLCreateSystemDefaultDevice();auto t=mappedTexture(d,*p);if(!t)return -11;
     auto c=[FH6MetalContext new];c.queue=[d newCommandQueue];auto cb=[c.queue commandBuffer];auto e=[cb blitCommandEncoder];[e fillBuffer:t.buffer range:NSMakeRange(0,p->bytes) value:0x5a];[e endEncoding];return finish(c,cb,@[t])?0:-12;
 }}
-extern "C" __attribute__((visibility("default"))) int32_t (*__wine_unix_call_funcs[])(void*)={caps,create,dispatch,destroy,bufferControl,dispatchCamera};
+#include "upscale-native.h"
+extern "C" __attribute__((visibility("default"))) int32_t (*__wine_unix_call_funcs[])(void*)={caps,create,dispatch,destroy,bufferControl,dispatchCamera,upscaleCreate,upscaleDispatch,upscaleDestroy};
