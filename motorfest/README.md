@@ -163,3 +163,12 @@ identifies the exact build and test scope. The candidate has not replaced the
 installed engine, and no protected game session has been validated. Symbol
 resolution alone is insufficient: process, signal and scheduler semantics still
 need review against actual runtime behavior.
+
+
+The following nonlocal-jump candidate passes actual DLL/ELF register, stack,
+pointer-guard and signed-return tests on three threads. Its inspection-only
+client now has four unresolved relocations across three names. **Saved signal
+masks, signal delivery and other documented runtime semantics remain unsupported**;
+this is not a claim that completing those three symbols makes the game playable.
+See [jump validation and limits](linuxhost-compat/README.md#nonlocal-jump-abi-november-16).
+Nothing has been installed in a game container.

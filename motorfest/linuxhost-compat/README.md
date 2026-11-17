@@ -250,3 +250,45 @@ Contract references: [GNU mtab interface](https://sourceware.org/glibc/manual/la
 and [glibc implementation details](https://github.com/bminor/glibc/blob/master/misc/mntent_r.c).
 The candidate remains isolated; Motorfest gameplay and native Steam launch are
 not verified with these changes, and production game containers are unchanged.
+
+
+## Nonlocal jump ABI, November 16
+
+`libc-jump-extra.c` adds the non-signal-mask path of Linux x86_64 `longjmp`.
+It restores the six callee-saved registers, stack and program counter using the
+glibc buffer layout and its rotated/XORed pointer guard. Zero becomes a return
+value of one; other signed 32-bit values are preserved. It does not pass a Linux
+buffer to the incompatible Windows CRT `longjmp`.
+
+An owned Linux ELF producer constructs that ABI buffer, overwrites all six
+callee-saved registers in a deeper stack frame, and calls the actual candidate
+DLL's export. Restoration passes for zero, one, 42, -7, INT_MAX and INT_MIN.
+The same checks pass on the initial thread and on two separately created threads
+with 100 iterations each. Each thread must have a nonzero actual pointer guard.
+The independent PE driver links no host sources and enters through LoadLibrary,
+the candidate resolver, ordinary dlopen and dlsym.
+
+**This is not full glibc longjmp/signal compatibility.** A buffer with a saved
+signal mask is rejected before restoring its target, using a diagnostic and
+process termination. The negative test supplies invalid target pointers and
+verifies that rejection path. Upstream never delivers Linux signals; this change
+does not add that support. CET shadow-stack handling and glibc pthread cleanup
+unwinding are also not implemented or claimed. A real client that requires any
+of these remains unsupported, even though its symbol now resolves. This must not
+be installed as a purported complete anti-cheat runtime.
+
+```sh
+python3 run-jump-test.py --build /tmp/motorfest-libc-test \
+  --engine /path/to/MetalSharp-Wine.app/Contents \
+  --prefix /path/to/isolated/probe-prefix
+```
+
+The same build passes all earlier ABI, networking, mount reader, GNU C++ and six
+dlopen/DLL regressions. The inspection-only original client has **4 unresolved
+relocations across 3 names**: `system`, `sched_getaffinity`, `sched_setaffinity`.
+[validation-jump-2026-11-16.json](validation-jump-2026-11-16.json) records the exact
+source/output hashes and the unresolved semantic limits. The production engine
+and game prefix remain unchanged; actual Motorfest gameplay is not verified.
+
+ABI references: [glibc buffer offsets](https://github.com/bminor/glibc/blob/master/sysdeps/x86_64/jmpbuf-offsets.h)
+and [glibc buffer producer](https://github.com/bminor/glibc/blob/master/sysdeps/x86_64/setjmp.S).
