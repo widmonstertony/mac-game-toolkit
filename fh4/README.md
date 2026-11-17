@@ -1,5 +1,16 @@
 # Forza Horizon 4: owned Microsoft Store package
 
+## UWP runtime work, November 16
+
+The user owns Steam FH4 too but explicitly wants to retain the Xbox/Store
+edition and its existing save path. Work therefore continues on this package.
+The [isolated UWP component](uwp-runtime/README.md) now passes eight actual
+Highball lifecycle/activation contract cases, including real WinRT factory
+routing through a process-local activation context. This resolves part of the
+observed interface gap in a probe; **it is not installed into the game and does
+not establish FH4 playability or cloud-save access**. Window events, async
+dispatch, graphics interop and the package launch route remain incomplete.
+
 ## Extraction completed, November 16
 
 The owned Store payload has now been unpacked into

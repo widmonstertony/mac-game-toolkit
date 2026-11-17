@@ -1,0 +1,35 @@
+{
+  "passed": true,
+  "exitCode": 0,
+  "testedDllSha256": "26b3ac3a5b5cb5ca0e08e186ab1f40706005c2cf78db870975e80112dd854de5",
+  "testedExeSha256": "b670f3d9b614fdfbc90eb3c19e940b6f989580221613431dae99845b467286dc",
+  "logSha256": "d9ed0a54e65f72eb66e2abdb09ae8a3bf0782e0b89725f701b0e8837b528849c",
+  "gameplayVerified": false,
+  "activationEventSubsetVerified": true,
+  "activationRoutingVerified": true,
+  "schema": 1,
+  "engine": "Highball x64-crossover26.3-r28",
+  "cases": 8,
+  "scope": "Own hidden-window lifecycle and local launch activation, not game deployment",
+  "sourceHashes": {
+    "coreapplication.c": "aea550f3ad44aebdfb8af266892c3d51722d66b34b07a5e0d8a9118c91f63223",
+    "corewindow.c": "c462fa698418d89986286b0e5d3edad42c2df8b305a411ffaf7fdc75536f9273",
+    "dispatcher.c": "885741761d1ff290aeb52fd83bfc795d24fad5a12642d64431a6011c1cce3f67",
+    "manifest.c": "1eb5646c4eb44e1acec2c3ce47eac331906fe6ec3d37e85c061c7866cece522d",
+    "activation.c": "bc2ca50b95551b95fd6f7831ce2a155e8ee101d06bb325845b4d53c900b27f2d",
+    "exports.c": "18ae460ee6b2da612fa74f6a5e133b6d25ce907dc3b900ec2e09a13fb5bba3a3",
+    "private.h": "9f8249fbdae40343201635f939b2de7aaaf163ca6b6bcadbae43061be0237753",
+    "debug.h": "45041d606d71a74e904ef0f952e4149eaee46de169eea5bbb014ff11e3a60dd5",
+    "test-lifecycle.c": "ed3a8fbd3b29a78ac2bc0b6b3c3a8dcf0cd0e9e3ff0665af4a769602aa516afc"
+  },
+  "caseResults": [
+    "case=0 stage=5 cleanup=1 result=00000000 refs=1 OK",
+    "case=1 stage=1 cleanup=0 result=80004004 refs=1 OK",
+    "case=2 stage=2 cleanup=0 result=80004004 refs=1 OK",
+    "case=3 stage=3 cleanup=1 result=80004004 refs=1 OK",
+    "case=4 stage=4 cleanup=1 result=80004004 refs=1 OK",
+    "case=5 stage=5 cleanup=1 result=80004004 refs=1 OK",
+    "case=6 stage=4 cleanup=1 result=80004004 refs=1 OK",
+    "case=7 stage=5 cleanup=1 result=00000000 refs=1 OK"
+  ]
+}
