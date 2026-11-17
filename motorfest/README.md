@@ -84,6 +84,15 @@ current official depot was not downloaded. Do not claim the older package's
 failure proves every newer BattlEye build fails, or that a passing bridge test
 establishes an authenticated game session.
 
+The subsequent [isolated C ABI implementation](linuxhost-compat/README.md)
+adds eleven ordinary string/character/fortification exports and reduces the
+same original client's unresolved relocations from 47 to 36. Its Linux ELF
+behavioral tests, five bounds-rejection processes, and upstream host regressions
+passed. The client itself was only inspected, never executed; the candidate was
+not installed into Motorfest. The remaining dependencies and protected game
+session remain unresolved. Upstream's current 6.5/7.0 change notes explicitly
+say BattlEye has not been tested with a game.
+
 GTA V Story Mode is not a substitute test: [Rockstar's FAQ](https://support.rockstargames.com/articles/1nenwhZlVrJY6CTFeSS2Fx/grand-theft-auto-online-battleye-faq)
 distinguishes Story Mode from BattlEye-protected Online. [Valve documents](https://partner.steamgames.com/doc/steamhardware/proton)
 that BattlEye support requires per-title configuration.

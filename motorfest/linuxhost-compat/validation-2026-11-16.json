@@ -1,0 +1,88 @@
+{
+  "tests": {
+    "strings": {
+      "exitCode": 0,
+      "probePassed": true,
+      "logSha256": "6f486bc3b737426c9950bf529422529879ba593ed2f9b794e6c641c80fff1243"
+    },
+    "overflow-0": {
+      "exitCode": 9,
+      "probePassed": true,
+      "logSha256": "59fe1ac278bd71aa7980c96ed7fbfb6f06f91b38c9820fdf719e7b6522d59029"
+    },
+    "overflow-1": {
+      "exitCode": 9,
+      "probePassed": true,
+      "logSha256": "59fe1ac278bd71aa7980c96ed7fbfb6f06f91b38c9820fdf719e7b6522d59029"
+    },
+    "overflow-2": {
+      "exitCode": 9,
+      "probePassed": true,
+      "logSha256": "59fe1ac278bd71aa7980c96ed7fbfb6f06f91b38c9820fdf719e7b6522d59029"
+    },
+    "overflow-3": {
+      "exitCode": 9,
+      "probePassed": true,
+      "logSha256": "59fe1ac278bd71aa7980c96ed7fbfb6f06f91b38c9820fdf719e7b6522d59029"
+    },
+    "overflow-4": {
+      "exitCode": 9,
+      "probePassed": true,
+      "logSha256": "59fe1ac278bd71aa7980c96ed7fbfb6f06f91b38c9820fdf719e7b6522d59029"
+    },
+    "hello": {
+      "exitCode": 0,
+      "probePassed": true,
+      "logSha256": "8fa9cb5ae9f9373a9f54f4621e349231afdedb88c86905fae34ebb2a8ac92ca8"
+    },
+    "extras": {
+      "exitCode": 0,
+      "probePassed": true,
+      "logSha256": "222aa17abcd96c1cc78a61f96a59da90d24bf3b75aecf77a5a2cbea84937e83c"
+    },
+    "inspect": {
+      "exitCode": 1,
+      "probePassed": true,
+      "logSha256": "a014571c66d8af4b150fc61d15483d8a5e7e24ed118b893d9f0a2c5506ad4d06",
+      "unresolvedCounts": [
+        0,
+        36
+      ],
+      "allDependenciesResolved": false
+    }
+  },
+  "generalAbiTestsPassed": true,
+  "runtimeFiles": {
+    "v1/lib64/wine/beclient_x64.dll.so": "6aa86ad273fb5a533d018a9d7d5ca3b7ca31d9cc6f6b5e5f108fff71c2876cdc",
+    "BEClient_x64.so": "c39d4f934d76043ba7183dea0807809bdad3afe6e973a5469f1143c4ca45dd82"
+  },
+  "buildReceiptSha256": "8c0cd0305a9aab949591ac94ea8c143e6f80ccd2ebc59ebc79379d628764f1b7",
+  "clientCodeExecuted": false,
+  "installed": false,
+  "gameplayVerified": false,
+  "baselineUnresolvedCount": 47,
+  "candidateUnresolvedCount": 36,
+  "upstreamRevision": "b1ceb881dc6443da8772fbae3a906204266e21cc",
+  "outputs": {
+    "strings.so": "d33c4b0d8a059b92076c4214598876c03a4f10bf3d78cafdb6af886ec1ca5dbd",
+    "strings-probe.exe": "48e6b0e7c017a6d9d31d5316ec27d9079ae47ea5e2da2f9c5e240359ffd16bd7",
+    "hello.so": "8b77876d7a3d05667f403a4c8d6d5c38266556d12cd503e3872cd85e313248ee",
+    "extras.so": "c1304481855fe6ba2e203866c595c65fbb94da9a97d24ad94044562b7c4bedb4",
+    "linuxhost.dll": "573cb4d6788c9915c9022aa0a0179114e1f6d9ed4a336bd1cadffe80b4d23063",
+    "hosttest.exe": "4db725b58dda6bf1261b03537cd8aca28fbcfcbf00dbc3edfda43ae90b30233e"
+  },
+  "sourceHashes": {
+    "build.py": "92618cfbb128e660775471ae4c21101653a2bc3ad0df7ae6c6c06ac36984bf45",
+    "libc-strings.c": "3f1b2dab107a417f9ecb8c800c83e3504f0906450a42529ef75309e102ee16e8",
+    "strings-probe.c": "7bc6fd6a1702366d89070f9db91b835f31d425e17e14cdfd82741da48a950c41",
+    "probe-driver.c": "a7138c828484cc337f685fc5979dd63764cbb42bdee14b44d6ad0acc92ba1111"
+  },
+  "scope": "C ABI only; no client initialization, game session or macOS gameplay validation",
+  "baselineControl": {
+    "exitCode": 1,
+    "exeSha256": "0edddd4cda4b6f245a6993c09583ffdf6f40ba170c73b95b2e940fee7aab69fe",
+    "clientSha256": "c39d4f934d76043ba7183dea0807809bdad3afe6e973a5469f1143c4ca45dd82",
+    "logSha256": "8557acd231e6df4851a6a0ba5406114c1352426cf7ead9ce2bca14583b1e82e5",
+    "unresolvedCount": 47
+  }
+}
