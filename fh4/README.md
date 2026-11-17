@@ -2,6 +2,16 @@
 
 ## First actual Store executable launch, November 17
 
+Follow-up actual launches at 14:01 and 14:03 reproduce the activation stall.
+Unbuffered adapter entry markers are absent despite the DLL mapping trace;
+the process has not reached its DllMain/factory boundary. A pure-C direct
+DllMain entry (bypassing MinGW module startup) passes all eight isolated
+lifecycle cases but **does not change the real-game stall**. This rules out
+that candidate as a demonstrated repair; the held lock/loader callback remains
+unidentified. The diagnostic process was stopped to avoid contention with FH6.
+Future game launches are left to the user as requested. FH4 remains unplayable
+at this checkpoint; no menu/cloud-save success is claimed.
+
 Four verified app-local compatibility files are now installed in the owned
 Content directory, with no original executable or package manifest overwritten.
 The isolated package/controller Wine modules run in a FH4-only prefix.

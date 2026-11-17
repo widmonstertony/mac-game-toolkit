@@ -21,11 +21,14 @@ p.add_argument('--game-dir', type=Path, default=Path.home()/'Games/Windows/Xbox/
 p.add_argument('--missing-ui', action='store_true')
 p.add_argument('--gap-control', action='store_true')
 p.add_argument('--present-control', action='store_true', help='Exercise the real FFX swapchain and audit composition order/pixels')
+p.add_argument('--queued-presents', action='store_true', help='With --present-control, wait for all presents only after the last base frame')
 p.add_argument('--production-shim', action='store_true',
                help='Require the installed Store D3D12 shim in the isolated prefix and enable its wrappers')
 a = p.parse_args()
 if a.present_control and (a.gap_control or a.missing_ui):
     p.error('--present-control is a separate continuous-frame case')
+if a.queued_presents and not a.present_control:
+    p.error('--queued-presents requires --present-control')
 prefix = a.prefix.resolve(strict=True)
 if prefix == Path.home()/'Library/Application Support/MACxus/bottles/xbox-highball':
     p.error('Use the isolated probe prefix, not the running game bottle')
@@ -62,9 +65,12 @@ if not a.gap_control:
 env.pop('FH6_APPLE_CREATION_CONTROL',None)
 env.pop('FH6_D3DMETAL_NO_ANTILAG2',None)  # This headless probe does not present a window.
 env.pop('FH6_APPLE_PRESENT_CONTROL',None)
+env.pop('FH6_APPLE_QUEUED_PRESENTS',None)
 if a.present_control:
     env['FH6_APPLE_PRESENT_CONTROL']='1'
     env['FH6_D3DMETAL_NO_ANTILAG2']='1'
+    if a.queued_presents:
+        env['FH6_APPLE_QUEUED_PRESENTS']='1'
 command = [str(wine),str((a.output/'apple-ffx-probe.exe').resolve()),
            win(original),win(a.output/'framegeneration-apple.dll')]
 if a.missing_ui:
@@ -93,6 +99,7 @@ result = {'exit':rc,'passed':passed,'missing_ui':a.missing_ui,'gap_control':a.ga
           'shim_wrappers_enabled':a.production_shim,
           'loaded_d3d12':loaded_shim,
           'scheduler_present_test':a.present_control,
+          'queued_presents':a.queued_presents,
           'synthetic_scheduler_verified':bool(a.present_control and passed and scheduler_summary),
           'scheduler_observation':dict(zip(('callbacks','dispatches','native_pairs','errors','ui_errors','original_errors'),
                                           map(int,scheduler_summary.groups()))) if scheduler_summary else None,

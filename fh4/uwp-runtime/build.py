@@ -14,12 +14,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--cc', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--minimal-entry', action='store_true', help='Use the pure-C adapter DllMain directly; no module CRT/TLS startup')
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
     # llvm-mingw selects its target from argv[0]; preserve the compiler symlink.
     common = [str(args.cc.absolute()), '-O2', '-g', '-I', str(ROOT)]
-    subprocess.run(common + ['-shared', *[str(ROOT / s) for s in SOURCES],
+    entry = ['-nostartfiles', '-Wl,-e,DllMain'] if args.minimal_entry else []
+    subprocess.run(common + ['-shared', *entry, *[str(ROOT / s) for s in SOURCES],
                    '-o', str(out / 'fh4-uwp-runtime.dll'), '-lruntimeobject', '-lole32',
                    '-luser32', '-lshlwapi', '-lxmllite', '-luuid'], check=True)
     subprocess.run(common + [str(ROOT / 'test-lifecycle.c'), '-o', str(out / 'lifecycle.exe'),

@@ -65,7 +65,7 @@ struct ApplePresentProbe {
             for(UINT y=0;y<H;y++)for(UINT x=0;x<W;x++){
                 const bool car=x>=20+e.id*2&&x<52+e.id*2&&y>=40&&y<72;
                 const BYTE base[3]={BYTE(car?100:25),BYTE(car?30:40),BYTE(car?20:60)};
-                const BYTE alpha=(y<12&&x<40)?128:0,overlay[3]={BYTE(alpha/2),BYTE(alpha/4),BYTE(alpha/8)};
+                const BYTE alpha=(y<12&&x<40)?128:0,overlay[3]={BYTE(alpha?32+e.id*3:0),BYTE(alpha?96-e.id*3:0),BYTE(alpha/8)};
                 for(UINT k=0;k<3;k++){
                     const BYTE expected=BYTE(overlay[k]+(1-alpha/255.f)*base[k]*(car?1.2f:1.f)+.5f);
                     if(!e.generated&&pixels[(y*W+x)*4+k]!=expected)originalErrors++;

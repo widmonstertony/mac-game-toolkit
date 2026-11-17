@@ -166,6 +166,8 @@ int wmain(int argc,wchar_t **argv){
 #ifdef APPLE_FG_TEST
  const bool gapControl=GetEnvironmentVariableW(L"FH6_APPLE_GAP_CONTROL",nullptr,0)!=0;
  const bool presentControl=GetEnvironmentVariableW(L"FH6_APPLE_PRESENT_CONTROL",nullptr,0)!=0;
+ const bool queuedPresents=GetEnvironmentVariableW(L"FH6_APPLE_QUEUED_PRESENTS",nullptr,0)!=0;
+ CHECK(!queuedPresents||presentControl);
  auto middleCount=(unsigned(*)())resolve(candidate,"FH6AppleMiddleFrames");
  auto warmupCount=(unsigned(*)())resolve(candidate,"FH6AppleWarmupFrames");CHECK(middleCount&&warmupCount);
  unsigned previousMiddle=0;
@@ -182,6 +184,9 @@ int wmain(int argc,wchar_t **argv){
    source[i*4]=car?100:25;source[i*4+1]=car?30:40;source[i*4+2]=car?20:60;source[i*4+3]=255;
    z[i]=car?.8f:.2f;mv[i*2]=car?0xc000:0;mv[i*2+1]=0;
    const BYTE alpha=(y<12&&x<40)?128:0;overlay[i*4]=alpha/2;overlay[i*4+1]=alpha/4;overlay[i*4+2]=alpha/8;overlay[i*4+3]=alpha;
+#ifdef APPLE_FG_TEST
+   if(presentControl&&alpha){overlay[i*4]=BYTE(32+id*3);overlay[i*4+1]=BYTE(96-id*3);}
+#endif
    for(UINT k=0;k<3;k++){const float value=source[i*4+k]*(car?1.2f:1.f);final[i*4+k]=(BYTE)(overlay[i*4+k]+(1-alpha/255.f)*value+.5f);}final[i*4+3]=255;
   }
   CHECK(g.begin());const auto read=D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
@@ -217,7 +222,18 @@ int wmain(int argc,wchar_t **argv){
    }
 #endif
    CHECK((k==2?candidateConfigure:configure)(&contexts[k],&cfg.header)==0);
-   ffxDispatchDescFrameGenerationPrepareV2 prep{};prep.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2;prep.frameID=id;prep.commandList=g.l;prep.renderSize={W,H};prep.motionVectorScale={1,1};prep.frameTimeDelta=16.6667f;prep.reset=id==0;prep.cameraNear=.1f;prep.cameraFar=50000;prep.cameraFovAngleVertical=1.05f;prep.viewSpaceToMetersFactor=1;prep.depth=res(depth);prep.motionVectors=res(motion);prep.cameraUp[1]=prep.cameraRight[0]=prep.cameraForward[2]=1;CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&prep.header)==0);
+   ffxDispatchDescFrameGenerationPrepareV2 prep{};prep.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2;prep.frameID=id;prep.commandList=g.l;prep.renderSize={W,H};prep.motionVectorScale={1,1};prep.frameTimeDelta=16.6667f;prep.reset=id==0;prep.cameraNear=.1f;prep.cameraFar=50000;prep.cameraFovAngleVertical=1.05f;prep.viewSpaceToMetersFactor=1;prep.depth=res(depth);prep.motionVectors=res(motion);prep.cameraUp[1]=prep.cameraRight[0]=prep.cameraForward[2]=1;
+#ifdef APPLE_FG_TEST
+   if(id%2){
+    ffxDispatchDescFrameGenerationPrepare old{};
+    memcpy((char*)&old+sizeof(old.header),(char*)&prep+sizeof(prep.header),sizeof(old)-sizeof(old.header));
+    old.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE;
+    ffxDispatchDescFrameGenerationPrepareCameraInfo camera{};camera.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_CAMERAINFO;
+    camera.cameraUp[1]=camera.cameraRight[0]=camera.cameraForward[2]=1;old.header.pNext=&camera.header;
+    CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&old.header)==0);
+   }else
+#endif
+   CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&prep.header)==0);
    if(missingUi && k==2){CHECK(g.end());CHECK(g.begin());}
    ffxDispatchDescFrameGeneration p{};p.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION;p.commandList=g.l;p.frameID=id;p.numGeneratedFrames=1;p.reset=id==0;p.presentColor=res(k==1?scene:present);p.outputs[0]=ffxApiGetResourceDX12(outputs[k].gpu,FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);p.generationRect={0,0,W,H};p.backbufferTransferFunction=FFX_API_BACKBUFFER_TRANSFER_FUNCTION_SRGB;p.minMaxLuminance[1]=100;
    auto f=frame(id,scene,ui);NativeUiCompositor::Binding *binding=nullptr;
@@ -248,7 +264,7 @@ int wmain(int argc,wchar_t **argv){
   if(presentControl){
    CHECK(SUCCEEDED(swapchain->Present(0,0)));
    ffxDispatchDescFrameGenerationSwapChainWaitForPresentsDX12 wait{{FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATIONSWAPCHAIN_WAIT_FOR_PRESENTS_DX12}};
-   CHECK(candidateDispatch(&swapContext,&wait.header)==0);
+   if(!queuedPresents||id+1==Frames)CHECK(candidateDispatch(&swapContext,&wait.header)==0);
    MSG msg;while(PeekMessageW(&msg,nullptr,0,0,PM_REMOVE)){TranslateMessage(&msg);DispatchMessageW(&msg);}
   }
 #endif
@@ -289,7 +305,7 @@ int wmain(int argc,wchar_t **argv){
  printf("GPU contrast: reference_errors=%u non_ui_difference_components=%u generated_differs_from_base_components=%u ui_errors=%u frames=%u contexts=3\n",refErrors,oldDiff,generatedDifferent,uiErrors,Frames);
 #ifdef APPLE_FG_TEST
  printf("native counters middle=%u warmup=%u\n",middleCount(),warmupCount());
- if(presentControl){CHECK(scheduler.verify(middleCount()));scheduler.releaseAfterPresents();puts("PASS MetalFX FFX scheduler ordered midpoint/original GPU pixels; game driving unverified");}
+ if(presentControl){CHECK(scheduler.verify(middleCount()));scheduler.releaseAfterPresents();printf("PRESENT explicit_waits=%u changing_ui=1\n",queuedPresents?1:Frames);puts("PASS MetalFX FFX scheduler ordered midpoint/original GPU pixels; game driving unverified");}
  else if(missingUi){CHECK(middleCount()==0);CHECK(!memcmp(pixels[0],pixels[2],sizeof(pixels[0])));}
  else {CHECK(middleCount()==(gapControl?8u:14u)&&warmupCount()==(gapControl?7u:2u));CHECK(generatedDifferent>0&&uiErrors==0);}
 #elif defined(SEQUENCE_FORWARDING_TEST)

@@ -14,7 +14,19 @@ struct AppleFfxStage {
     bool prepare(ID3D12Device *device,ID3D12CommandQueue *queue,
                  const ChainFrame &f,const Prepare &p,bool reset) {
         const auto rw=p.renderSize.width,rh=p.renderSize.height;
-        if(p.header.pNext||f.frame!=p.frameID||!AppleCommandFg::constants(f)||
+        if(p.header.pNext){
+            auto camera=(const ffxDispatchDescFrameGenerationPrepareCameraInfo*)p.header.pNext;
+            if(p.header.type!=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE||
+               camera->header.type!=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_CAMERAINFO||camera->header.pNext){
+                reason="unsupported Prepare extension";return false;
+            }
+            const float *vectors[]={camera->cameraPosition,camera->cameraUp,camera->cameraRight,camera->cameraForward};
+            for(unsigned a=0;a<4;++a)for(unsigned b=0;b<3;++b){
+                const float v=vectors[a][b],native=f.cameraBasis[a*3+b];
+                if(!std::isfinite(v)||fabsf(v-native)>0.0001f*fmaxf(1.f,fabsf(native))){reason="Prepare camera extension differs";return false;}
+            }
+        }
+        if(f.frame!=p.frameID||!AppleCommandFg::constants(f)||
            f.tags[0].native!=(uint64_t)p.depth.resource||f.tags[1].native!=(uint64_t)p.motionVectors.resource||
            f.tags[0].lifecycle!=1||f.tags[1].lifecycle!=1||
            f.tags[0].left||f.tags[0].top||f.tags[1].left||f.tags[1].top||
@@ -39,12 +51,14 @@ struct AppleFfxStage {
     bool record(ID3D12Device *device,const ChainFrame &f,
                 const ffxDispatchDescFrameGeneration &p,ID3D12Resource *scene) {
         auto slot=inputs.find(p.frameID);
-        if(!slot||slot->frame.constantsSequence!=f.constantsSequence||
-           slot->frame.tags[0].native!=f.tags[0].native||slot->frame.tags[1].native!=f.tags[1].native||
-           p.header.pNext||p.numGeneratedFrames!=1||
-           p.backbufferTransferFunction!=FFX_API_BACKBUFFER_TRANSFER_FUNCTION_SRGB) {
-            reason="missing same-frame inputs or unsupported output";++declined;return false;
-        }
+        // Keep Prepare's actual failure: the combined message hid whether the
+        // live game lacked a snapshot or merely used a different transfer mode.
+        if(!slot){if(!copied && !strcmp(reason,"unused"))reason="Prepare was not reached";++declined;return false;}
+        if(slot->frame.constantsSequence!=f.constantsSequence){reason="constants changed after Prepare";++declined;return false;}
+        if(slot->frame.tags[0].native!=f.tags[0].native||slot->frame.tags[1].native!=f.tags[1].native){reason="depth/motion changed after Prepare";++declined;return false;}
+        if(p.header.pNext){reason="unsupported dispatch extension";++declined;return false;}
+        if(p.numGeneratedFrames!=1){reason="unsupported interpolation count";++declined;return false;}
+        if(p.backbufferTransferFunction!=FFX_API_BACKBUFFER_TRANSFER_FUNCTION_SRGB){reason="unsupported transfer function";++declined;return false;}
         const auto d=scene->GetDesc(),z=slot->depth->GetDesc();
         if(!backend.initialize(device,UINT(d.Width),d.Height,UINT(z.Width),z.Height)) {
             reason=backend.reason;++declined;return false;

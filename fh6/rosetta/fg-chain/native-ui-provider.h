@@ -106,13 +106,20 @@ template<typename Prepare> static void nativePrepared(ffxContext context,const P
         data.jitter[0]=p.jitterOffset.x;data.jitter[1]=p.jitterOffset.y;
         const auto &cfg=c.config[p.frameID%8];
 #ifdef APPLE_FG_CANDIDATE
+        bool appleAttempted=false;ChainFrame appleFrame{};
         if(c.queue&&cfg.valid&&cfg.frame==p.frameID&&cfg.enabled&&!cfg.async&&getFrame){
             ChainFrame frame{};
             if(getFrame(p.frameID,&frame)&&NativeUiCompositor::full(frame.tags[2],c.display.width,c.display.height)&&
                NativeUiCompositor::full(frame.tags[3],c.display.width,c.display.height)&&
-               (!cfg.hudless.resource||cfg.hudless.resource==(void*)frame.tags[2].native))
+               (!cfg.hudless.resource||cfg.hudless.resource==(void*)frame.tags[2].native)) {
+                appleAttempted=true;appleFrame=frame;
                 c.apple.prepare(c.device,c.queue,frame,p,reset);
+            }
         }
+        if(report&&p.frameID%60==0){char line[520];snprintf(line,sizeof(line),
+            "{\"event\":\"apple_fg_prepare\",\"frame\":%llu,\"attempted\":%s,\"queue\":%s,\"configValid\":%s,\"configFrame\":%llu,\"copied\":%llu,\"reason\":\"%s\",\"extension\":%s}",
+            (unsigned long long)p.frameID,appleAttempted?"true":"false",c.queue?"true":"false",cfg.valid?"true":"false",
+            (unsigned long long)cfg.frame,(unsigned long long)c.apple.copied,c.apple.reason,p.header.pNext?"true":"false");report(line);}
 #endif
         if(!reset && c.queue && cfg.valid && cfg.frame==p.frameID && cfg.enabled && !cfg.async && !cfg.hudless.resource && getFrame) {
             ChainFrame frame{};
@@ -212,9 +219,9 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
             if(!result)c->apple.lastWasNative=false;
         }
         if(report&&(c->applied<8||p.frameID%60==0)){char line[300];snprintf(line,sizeof(line),
-            "{\"event\":\"apple_fg_dispatch\",\"frame\":%llu,\"native\":%s,\"middle\":%llu,\"warmup\":%llu,\"reason\":\"%s\"}",
+            "{\"event\":\"apple_fg_dispatch\",\"frame\":%llu,\"native\":%s,\"middle\":%llu,\"warmup\":%llu,\"reason\":\"%s\",\"transfer\":%u}",
             (unsigned long long)p.frameID,c->apple.lastWasNative?"true":"false",(unsigned long long)c->apple.middle,
-            (unsigned long long)c->apple.warmup,c->apple.reason);report(line);}
+            (unsigned long long)c->apple.warmup,c->apple.reason,(unsigned)p.backbufferTransferFunction);report(line);}
 #else
         result=dispatch?dispatch(context,&sceneOnly.header):FFX_API_RETURN_NO_PROVIDER;
 #endif

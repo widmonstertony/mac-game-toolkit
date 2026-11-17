@@ -37,14 +37,13 @@ def main():
     if b'FfxDx12FGPath = C:\\highball\\fg-native-ui' not in old_ini:
         raise RuntimeError('Unexpected FG path')
     wrapper=runtime/'fh6-store-wine';old_wrapper=wrapper.read_bytes()
-    anchor=b'export WINEDLLPATH_PREPEND="$WINEDLLPATH"\n'
-    if old_wrapper.count(anchor)!=1:raise RuntimeError('Unknown Wine wrapper')
     carrier=runtime/'fh6-metalfx-carrier'
-    extra=(f'export WINEDLLPATH="{carrier}:$WINEDLLPATH"\n'
-           'export WINEDLLPATH_PREPEND="$WINEDLLPATH"\n'
-           'export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES;}nvngx=b"\n'
-           'export D3DM_ENABLE_METALFX=1\n').encode()
-    new_wrapper=old_wrapper.replace(anchor,anchor+extra)
+    if carrier.exists() and sha(carrier/'x86_64-windows/nvngx.dll')!=proof['native_carrier_sha256']:
+        raise RuntimeError('Existing carrier differs; review before upgrade')
+    # The runner regenerates the wrapper on EVERY launch. Install its source
+    # policy too; editing only the generated file makes integrity checks fail.
+    source=Path(__file__).resolve().parents[1]
+    generator_files={runtime/n:(source/n).read_bytes() for n in ('local-highball.js','runner.mjs')}
     # This is an FG trial: SR remains explicitly labelled FSR until its live
     # command-list adapter exists. Unsupported FG frames retain the stock path.
     print(json.dumps(dict(operation='FH6 live MetalFX FG trial',upscaler=record['upscaler'],
@@ -54,12 +53,11 @@ def main():
     if 'forzahorizon6.exe' in processes:raise RuntimeError('FH6 is running; stop its process before installation')
     stamp=datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
     backup=runtime/('metalfx-backup-'+stamp);backup.mkdir()
-    paths=[target,observer,wrapper,profile,ini]
+    paths=[target,observer,wrapper,profile,ini,*generator_files]
     for i,p in enumerate(paths):shutil.copy2(p,backup/(str(i)+'-'+p.name))
-    if carrier.exists():raise RuntimeError('Carrier already exists; review before reinstall')
-    shutil.copytree(a.carrier,carrier,symlinks=False)
+    if not carrier.exists():shutil.copytree(a.carrier,carrier,symlinks=False)
     if sha(carrier/'x86_64-windows/nvngx.dll')!=proof['native_carrier_sha256']:raise RuntimeError('Copied carrier mismatch')
-    changes={target:candidate.read_bytes(),observer:(a.artifacts/'fh6-fg-chain.asi').read_bytes(),wrapper:new_wrapper}
+    changes={target:candidate.read_bytes(),observer:(a.artifacts/'fh6-fg-chain.asi').read_bytes(),**generator_files}
     for p,data in changes.items():record['verifiedFiles'][str(p)]=hashlib.sha256(data).hexdigest()
     record['verifiedFiles'][str(carrier/'x86_64-windows/nvngx.dll')]=sha(carrier/'x86_64-windows/nvngx.dll')
     record['frameGeneration']='MetalFX FG candidate through DLSSG/FFX scheduler, 2x; stock fallback on warmup/unsupported frames; live validation pending'
@@ -70,6 +68,19 @@ def main():
     changes[profile]=(json.dumps(record,indent=2)+'\n').encode()
     try:
         for p,data in changes.items():atomic(p,data)
+        # 'check' performs the identical runner generation and validation, but
+        # never starts Xodus, account authentication, Wine or the game image.
+        node=Path.home()/'.nvm-arm64/versions/node/v26.12.1/bin/node'
+        first=subprocess.run([str(node),str(runtime/'runner.mjs'),'check'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        if first.returncode and b'component changed; reconfigure before launch: fh6-store-wine' not in first.stdout:
+            raise RuntimeError('Entry generation failed: '+first.stdout.decode(errors='replace')[-800:])
+        generated=wrapper.read_bytes()
+        if not all(x in generated for x in (str(carrier).encode(),b'nvngx=b',b'D3DM_ENABLE_METALFX=1')):
+            raise RuntimeError('Generated runner omitted MetalFX policy')
+        record['verifiedFiles'][str(wrapper)]=hashlib.sha256(generated).hexdigest()
+        changes[profile]=(json.dumps(record,indent=2)+'\n').encode()
+        atomic(profile,changes[profile])
+        subprocess.run([str(node),str(runtime/'runner.mjs'),'check'],stdout=subprocess.DEVNULL,check=True)
         for p,data in changes.items():
             if p.read_bytes()!=data:raise RuntimeError('Post-install mismatch')
         if ini.read_bytes()!=old_ini:raise RuntimeError('Game settings changed during install')

@@ -46,7 +46,15 @@ if (existsSync(repairManifest)) {
 
 // All environment changes are confined to this standalone CLI and its children.
 Object.assign(process.env, localBootEnvironment(config.engineRoot));
-const runner = await prepareLocalHighball(config,{dataRoot, modulesRoot, log: s=>console.error(s)},
+const launchConfig = {...config};
+if (profile?.metalFxTrial?.installed && profile.metalFxTrial.fgInstalled) {
+  const carrier = path.join(root, 'fh6-metalfx-carrier');
+  const file = path.join(carrier, 'x86_64-windows/nvngx.dll');
+  if (hashFile(file) !== profile.verifiedFiles?.[file])
+    throw Error('FH6 MetalFX carrier changed; revalidate before launch');
+  launchConfig.metalFxCarrier = carrier;
+}
+const runner = await prepareLocalHighball(launchConfig,{dataRoot, modulesRoot, log: s=>console.error(s)},
   path.join(dataRoot,'bottles'),{dir:runtimeDllDir,overrideDir:nexusRepair ?? runtimeOverrides,bundledDir},
   {ROSETTA_ADVERTISE_AVX:'0', HB_D3D12_TSSHIM:'1', D3DM_MTL4:'0',
     D3DM_VENDOR_ID:'0x10de',D3DM_DEVICE_ID:'0x2786',D3DM_DEVICE_DESCRIPTION:'NVIDIA GeForce RTX 4070'});

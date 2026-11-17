@@ -35,12 +35,16 @@ function checkedLayer(dataRoot, prefix) {
 export function applyStoreLauncherPolicy(script, layer, config, shellQuote) {
   const marker = '\nlaunch_status=0\n';
   if (script.split(marker).length !== 2) throw Error('Upstream Wine runner changed; review its game launch');
-  const paths = [path.join(config.shimRoot,'wine'), path.join(config.rendererRoot,'wine'),
-    path.join(layer.layer,'engine/lib/wine')].join(':');
+  const paths = [config.metalFxCarrier, path.join(config.shimRoot,'wine'), path.join(config.rendererRoot,'wine'),
+    path.join(layer.layer,'engine/lib/wine')].filter(Boolean).join(':');
   const policy = [
     `export WINEDLLPATH=${shellQuote(paths)}`,
     'export WINEDLLPATH_PREPEND="$WINEDLLPATH"',
     'export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES;}d3d12,d3d12core,dxgi=n,b;winhttp=n,b"',
+    ...(config.metalFxCarrier ? [
+      'export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES;}nvngx=b"',
+      'export D3DM_ENABLE_METALFX=1',
+    ] : []),
     'export WINE_UTF8_DIALOGS=1',
     'export FH6_D3DMETAL_NO_ANTILAG2=1',
     'export WINE_SOFTWARE_EXCEPTION_CHAIN=0',

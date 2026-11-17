@@ -2,6 +2,34 @@
 
 ## Live FH6 FG trial installed, November 17
 
+### Launch regression and first actual-game result
+
+The first trial failed before game startup because the native entry regenerates
+`fh6-store-wine` on every launch. Installing only a modified generated script
+lost the carrier policy and then failed the profile's integrity check.
+The generator and runner now carry the verified FH6-only MetalFX selection;
+two consecutive complete `check` runs preserve its exact hash. The game then
+started through the same Xbox app used by Steam, and the user confirmed reaching
+the menu/scene. Integrity checks remain enabled.
+
+That live run **did not produce any native MetalFX middle frames**: sampled
+`apple_fg_dispatch` records report `native:false`, with `middle:0`. The supplied
+car screenshot still has a pronounced duplicated rear. The combined decline
+message did not distinguish missing snapshots from an unsupported output.
+Do not report this run as successful MetalFX gameplay.
+
+The bridge also rejected every Prepare extension, including the official V1
+camera-info extension. The next installed candidate
+`0b541b68fc7731f35aa0488292b10a24c327920564c139d16a691678b67e37d5`
+accepts only that known, singly-linked extension and checks its 12 camera values
+against the same native frame. A real GPU scheduler test alternates V1 plus
+camera-info with V2: 32 ordered callbacks, 14 native midpoint pairs, no pixel or
+UI errors. Actual game selection/quality remain pending. Separate Prepare and
+dispatch decline reasons are recorded for the next user run. The agent-started
+trial was stopped when the user asked to launch future tests themselves.
+
+This supersedes the installed candidate hash in the preceding checkpoint below.
+
 The FH6-only runtime now selects the MetalFX FG candidate through the existing
 native Steam entry. The installed candidate SHA-256 is
 `e9d8257e9d068d4b789d13bfcaf14cfe5de3bac017d9a1bd96c38d142d89977c`.
