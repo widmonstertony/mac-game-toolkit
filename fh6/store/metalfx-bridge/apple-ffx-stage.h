@@ -14,16 +14,24 @@ struct AppleFfxStage {
     bool prepare(ID3D12Device *device,ID3D12CommandQueue *queue,
                  const ChainFrame &f,const Prepare &p,bool reset) {
         const auto rw=p.renderSize.width,rh=p.renderSize.height;
-        if(p.header.pNext){
-            auto camera=(const ffxDispatchDescFrameGenerationPrepareCameraInfo*)p.header.pNext;
-            if(p.header.type!=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE||
-               camera->header.type!=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_CAMERAINFO||camera->header.pNext){
-                reason="unsupported Prepare extension";return false;
-            }
-            const float *vectors[]={camera->cameraPosition,camera->cameraUp,camera->cameraRight,camera->cameraForward};
-            for(unsigned a=0;a<4;++a)for(unsigned b=0;b<3;++b){
-                const float v=vectors[a][b],native=f.cameraBasis[a*3+b];
-                if(!std::isfinite(v)||fabsf(v-native)>0.0001f*fmaxf(1.f,fabsf(native))){reason="Prepare camera extension differs";return false;}
+        bool sawCamera=false,sawBackend=false;unsigned extensions=0;
+        for(auto ext=p.header.pNext;ext;ext=ext->pNext){
+            if(++extensions>2){reason="too many Prepare extensions";return false;}
+            if(ext->type==FFX_API_CREATE_CONTEXT_DESC_TYPE_BACKEND_DX12&&!sawBackend){
+                auto backend=(const ffxCreateBackendDX12Desc*)ext;
+                if(backend->device!=device){reason="Prepare backend device differs";return false;}
+                sawBackend=true;
+            }else if(ext->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_CAMERAINFO&&!sawCamera&&
+                     p.header.type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE){
+                auto camera=(const ffxDispatchDescFrameGenerationPrepareCameraInfo*)ext;
+                const float *vectors[]={camera->cameraPosition,camera->cameraUp,camera->cameraRight,camera->cameraForward};
+                for(unsigned a=0;a<4;++a)for(unsigned b=0;b<3;++b){
+                    const float v=vectors[a][b],native=f.cameraBasis[a*3+b];
+                    if(!std::isfinite(v)||fabsf(v-native)>0.0001f*fmaxf(1.f,fabsf(native))){reason="Prepare camera extension differs";return false;}
+                }
+                sawCamera=true;
+            }else{
+                reason="unknown or duplicate Prepare extension";return false;
             }
         }
         if(f.frame!=p.frameID||!AppleCommandFg::constants(f)||

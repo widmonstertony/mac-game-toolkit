@@ -2,7 +2,27 @@
 
 ## Live FH6 FG trial installed, November 17
 
-### Launch regression and first actual-game result
+### Complete OptiScaler Prepare chain, November 17 14:17 report
+
+The user's next game run and screenshot still show the duplicated car. That
+process records `unsupported Prepare extension`, with zero copied snapshots
+and zero native midpoint images. Inspection of the local OptiScaler
+`FSRFG_Dx12.cpp` identifies the missing case: Prepare V1 links camera-info to a
+DX12 backend descriptor, or links the backend alone when all camera data is zero.
+The preceding candidate accepted camera-info only when it was the last link.
+
+The new candidate accepts at most two known, non-duplicate links. Camera values
+must match the authoritative native frame; the backend device must match the
+context. Unknown, duplicate, cyclic/overlong and foreign-device chains remain
+rejected. The scheduler GPU fixture now alternates V2, V1 with camera/backend,
+and V1 with backend only. All 32 ordered callbacks and 14 native midpoint pairs
+pass without UI/original-pixel errors. Installed candidate SHA-256:
+`6e869cebf46b56d8efa35e7c5caf7cf7b7b3e05c63cccf681308384cfe00a34c`.
+The installation retains FSR quality SR and all prior game settings. No agent
+game launch follows installation; live selection and ghosting remain pending
+the user's next run. See `backend-chain-validation-20261117.json`.
+
+### Earlier launch regression and first actual-game result
 
 The first trial failed before game startup because the native entry regenerates
 `fh6-store-wine` on every launch. Installing only a modified generated script

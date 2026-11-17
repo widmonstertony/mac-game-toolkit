@@ -229,7 +229,10 @@ int wmain(int argc,wchar_t **argv){
     memcpy((char*)&old+sizeof(old.header),(char*)&prep+sizeof(prep.header),sizeof(old)-sizeof(old.header));
     old.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE;
     ffxDispatchDescFrameGenerationPrepareCameraInfo camera{};camera.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_CAMERAINFO;
-    camera.cameraUp[1]=camera.cameraRight[0]=camera.cameraForward[2]=1;old.header.pNext=&camera.header;
+    camera.cameraUp[1]=camera.cameraRight[0]=camera.cameraForward[2]=1;
+    ffxCreateBackendDX12Desc backend{};backend.header.type=FFX_API_CREATE_CONTEXT_DESC_TYPE_BACKEND_DX12;backend.device=g.d;
+    camera.header.pNext=&backend.header;
+    old.header.pNext=id%4==3?&backend.header:&camera.header;
     CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&old.header)==0);
    }else
 #endif
