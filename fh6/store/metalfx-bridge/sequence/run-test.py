@@ -17,7 +17,7 @@ def verify_sequence(folder,build):
         native=(root/'native-frame.bin').read_bytes()
         if len(native)!=608 or struct.unpack_from('<Q',native)[0]!=frame or meta['frame']!=frame or not meta['gpu_fence_completed'] or not meta['pixel_files_complete']:raise RuntimeError('Frame/fence mismatch')
         images={i['name']:i for i in meta['images']}
-        if set(images)!={'prepare-current-depth','prepare-current-motion','scene','generated-after-ui'}:raise RuntimeError('Image set mismatch')
+        if set(images)!={'prepare-current-depth','prepare-current-motion','scene','generated-after-ui','scene-before-fg'}:raise RuntimeError('Image set mismatch')
         for name,info in images.items():
             raw=(root/(name+'.bin')).read_bytes()
             w,h,pitch=info['width'],info['height'],info['row_pitch']
@@ -29,7 +29,7 @@ def verify_sequence(folder,build):
             for y in range(h):
                 for x in range(w):
                     car=20+frame*2<=x<52+frame*2 and 40<=y<72;off=4*(y*w+x)
-                    if name=='scene':expected=bytes((100,30,20,255) if car else (25,40,60,255))
+                    if name in ('scene','scene-before-fg'):expected=bytes((100,30,20,255) if car else (25,40,60,255))
                     elif name=='prepare-current-depth':expected=struct.pack('<f',.8 if car else .2)
                     else:expected=struct.pack('<HH',0xc000 if car else 0,0)
                     if tight[off:off+4]!=expected:raise RuntimeError(f'Wrong epoch/pixel: frame={frame} image={name} x={x} y={y}')

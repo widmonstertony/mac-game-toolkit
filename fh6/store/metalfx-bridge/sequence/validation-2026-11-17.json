@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "installed_in_game": false,
+  "renderer": "D3DMetal apd12.dll",
+  "sequence_frames": 8,
+  "provider_frames_compared": 12,
+  "serialized_pixels_checked": 491520,
+  "manifest_sha256": "0ab8f73c6ac0d48320fc3febc43d31f8862bff1dcb01e2f6df60d7d2d6a46f2e",
+  "private_inputs": {
+    "framegeneration-sequence-inner.dll": "07c8c84bff518426cc0df86175e737704e706d5eae52a20a512ce65dff1ef0cc",
+    "framegeneration-source.dll": "e01596aa0ac754568b94296fd96996526eee3ca4c78bd0adcf1fa1ad8ab1829c",
+    "framegeneration-original.dll": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6",
+    "fh6-fg-chain.asi": "d7dc11c44ae6f92da0c13ccc971ccf766feee0b1b2ace151bce0211257d71669",
+    "sl.interposer.dll": "e8dce67f28124d0ef38af59ae718ba10f47d90af1acdc934abb6d6da6143e2ab"
+  },
+  "artifacts": {
+    "framegeneration-sequence.dll": "201a0166ea1dd4f169920cfd5c00eed3fbfb1cc335f974558df112ca864f3724",
+    "test-capture.exe": "305ef7b1559653216f31aa98208e539462a2c1ddb5eebd2aad028a19bb76e361",
+    "test-provider.exe": "57cc1710be4d51090e9c8ee4970971f15092ee146eb7d3a1694407969a2b7cb2"
+  },
+  "quality_verified": false,
+  "installation": {
+    "outerInstalledAndHashVerified": true,
+    "innerUnchanged": true,
+    "gameQualityVerified": false,
+    "newGameplayCaptureAvailable": false
+  }
+}

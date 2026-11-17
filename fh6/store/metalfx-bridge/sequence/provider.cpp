@@ -48,15 +48,15 @@ static bool save(const wchar_t *folder,const wchar_t *name,const void *bytes,UIN
 }
 static DWORD WINAPI writer(void *ptr){
  auto c=(Capture*)ptr;bool ok=!c->aborted&&c->count==SequenceCapture::Capacity;
- const wchar_t *names[]={L"prepare-current-depth.bin",L"prepare-current-motion.bin",L"scene.bin",L"generated-after-ui.bin"};
- const char *labels[]={"prepare-current-depth","prepare-current-motion","scene","generated-after-ui"};
+ const wchar_t *names[]={L"prepare-current-depth.bin",L"prepare-current-motion.bin",L"scene.bin",L"generated-after-ui.bin",L"scene-before-fg.bin"};
+ const char *labels[]={"prepare-current-depth","prepare-current-motion","scene","generated-after-ui","scene-before-fg"};
  for(unsigned index=0;ok&&index<c->count;++index){auto &f=c->frames[index];
   wchar_t folder[32768];swprintf(folder,32768,L"%ls\\frame-%llu",c->folder,(unsigned long long)f.id);
   ok=CreateDirectoryW(folder,nullptr)!=0;if(!ok)break;
   BYTE *pixels=nullptr;D3D12_RANGE range{0,SIZE_T(f.bytes)};ok=SUCCEEDED(f.readback->Map(0,&range,(void**)&pixels));
   if(!ok)break;for(unsigned k=0;k<SequenceCapture::Images;++k)ok=save(folder,names[k],pixels+f.image[k].footprint.Offset,f.image[k].bytes)&&ok;
   D3D12_RANGE none{};f.readback->Unmap(0,&none);ok=save(folder,L"native-frame.bin",&f.native,sizeof(f.native))&&ok;
-  char json[4096];int n=snprintf(json,sizeof(json),"{\"schema\":\"fh6-consecutive-v1\",\"frame\":%llu,\"gpu_fence_completed\":true,\"pixel_files_complete\":%s,\"prepare\":{\"known\":true,\"frame\":%llu,\"milliseconds\":%.9g},\"images\":[",(unsigned long long)f.id,ok?"true":"false",(unsigned long long)f.id,f.milliseconds);
+  char json[4096];int n=snprintf(json,sizeof(json),"{\"schema\":\"fh6-consecutive-v2\",\"frame\":%llu,\"gpu_fence_completed\":true,\"pixel_files_complete\":%s,\"prepare\":{\"known\":true,\"frame\":%llu,\"milliseconds\":%.9g},\"images\":[",(unsigned long long)f.id,ok?"true":"false",(unsigned long long)f.id,f.milliseconds);
   for(unsigned k=0;k<SequenceCapture::Images&&n>0&&n<int(sizeof(json));++k){auto &i=f.image[k];n+=snprintf(json+n,sizeof(json)-n,"%s{\"name\":\"%s\",\"source_frame\":%llu,\"width\":%u,\"height\":%u,\"copy_format\":%u,\"row_pitch\":%u,\"row_bytes\":%llu,\"bytes\":%llu}",k?",":"",labels[k],(unsigned long long)f.id,i.footprint.Footprint.Width,i.footprint.Footprint.Height,UINT(i.footprint.Footprint.Format),i.footprint.Footprint.RowPitch,(unsigned long long)i.rowBytes,(unsigned long long)i.bytes);}
   if(n<=0||n+3>=int(sizeof(json)))ok=false;else {memcpy(json+n,"]}\n",3);ok=save(folder,L"capture.json",json,n+3)&&ok;}
  }
@@ -127,7 +127,12 @@ extern "C" __declspec(dllexport) ffxReturnCode_t ffxQuery(ffxContext *ctx,ffxQue
 extern "C" __declspec(dllexport) ffxReturnCode_t ffxDispatch(ffxContext *ctx,const ffxDispatchDescHeader *desc){
  InitOnceExecuteOnce(&once,initialize,nullptr,nullptr);
  const bool fg=desc&&desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION;
- if(fg){auto &p=*(ffxDispatchDescFrameGeneration*)desc;AcquireSRWLockExclusive(&lock);if(auto c=find(ctx))if(c->capture&&c->queue){auto &cfg=c->config[p.frameID%16];if(cfg.frame==p.frameID&&cfg.eligible)c->capture->retire(c->queue,(ID3D12Resource*)p.outputs[0].resource,p.frameID);collect(*c);}ReleaseSRWLockExclusive(&lock);}
+ if(fg){auto &p=*(ffxDispatchDescFrameGeneration*)desc;AcquireSRWLockExclusive(&lock);if(auto c=find(ctx))if(c->capture&&c->queue){auto &cfg=c->config[p.frameID%16];if(cfg.frame==p.frameID&&cfg.eligible)c->capture->retire(c->queue,(ID3D12Resource*)p.outputs[0].resource,p.frameID);collect(*c);
+   if(c->capture){ChainFrame f{};
+    if(!p.reset&&p.numGeneratedFrames==1&&!p.header.pNext&&getFrame&&getFrame(p.frameID,&f)&&fullScene(f.tags[2],c->w,c->h))
+     c->capture->recordBefore((ID3D12GraphicsCommandList*)p.commandList,f,(ID3D12Resource*)f.tags[2].native,D3D12_RESOURCE_STATES(f.tags[2].state));
+    else c->capture->abort();}
+  }ReleaseSRWLockExclusive(&lock);}
  auto result=dispatch?dispatch(ctx,desc):FFX_API_RETURN_NO_PROVIDER;
  if(!result&&desc){if(desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE)prepared(ctx,*(ffxDispatchDescFrameGenerationPrepare*)desc,false);
   else if(desc->type==FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION_PREPARE_V2){auto &p=*(ffxDispatchDescFrameGenerationPrepareV2*)desc;prepared(ctx,p,p.reset);}

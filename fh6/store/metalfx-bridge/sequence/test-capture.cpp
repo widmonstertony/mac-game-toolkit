@@ -30,7 +30,14 @@ int main(){
   ChainFrame f{};f.frame=id;f.hasConstants=1;f.inverted=f.cameraMotionIncluded=1;f.scale[0]=.5f;f.scale[1]=-.5f;f.fov=1.05f;
   auto captured=recorder.prepare(g.d,g.l,f,16.667f,depth.gpu,motion.gpu,Read,Read,W,H);
   CHECK(bool(captured)==(n<8));
-  CHECK(scene.write(g.l,c,W*4,Read));CHECK(out.write(g.l,c,W*4,D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+  CHECK(scene.write(g.l,c,W*4,Read));CHECK(g.end());CHECK(g.begin());
+  CHECK(recorder.recordBefore(g.l,f,scene.gpu,Read)==(n<8));
+  // Deliberate GPU-side overwrite between the two taps. A second upload
+  // buffer avoids accidentally changing the earlier upload's CPU contents.
+  for(unsigned i=0;i<W*H;++i)c[i*4]=BYTE(n+80);
+  CHECK(out.write(g.l,c,W*4,D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+  out.transition(g.l,D3D12_RESOURCE_STATE_COPY_SOURCE);scene.transition(g.l,D3D12_RESOURCE_STATE_COPY_DEST);
+  g.l->CopyResource(scene.gpu,out.gpu);scene.transition(g.l,Read);out.transition(g.l,D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
   CHECK(recorder.record(g.l,f,scene.gpu,out.gpu,Read,D3D12_RESOURCE_STATE_UNORDERED_ACCESS)==(n<8));
   if(n==0){CHECK(!recorder.pollComplete());CHECK(!recorder.clearCompleted());}
   CHECK(g.end());
@@ -40,12 +47,12 @@ int main(){
  for(unsigned n=0;n<8;++n){
   auto &f=recorder.frames[n];CHECK(f.id==100+n&&f.stage==SequenceCapture::Complete);
   BYTE *data=nullptr;D3D12_RANGE range{0,(SIZE_T)f.bytes};CHECK(SUCCEEDED(f.readback->Map(0,&range,(void**)&data)));
-  for(unsigned k=0;k<4;++k){auto &im=f.image[k];
+  for(unsigned k=0;k<SequenceCapture::Images;++k){auto &im=f.image[k];
    for(unsigned y=0;y<im.rows;++y)for(unsigned x=0;x<im.footprint.Footprint.Width;++x){
     auto pixel=data+im.footprint.Offset+y*im.footprint.Footprint.RowPitch+x*4;
     if(k==0){float d;memcpy(&d,pixel,4);CHECK(d==float(n+1)/16);}
     else if(k==1){uint16_t v[2];memcpy(v,pixel,4);CHECK(v[0]==0x3c00+n&&v[1]==0xbc00+n);}
-    else {unsigned i=y*W+x;CHECK(pixel[0]==n+10&&pixel[1]==i%251&&pixel[2]==n*3&&pixel[3]==255);}
+    else {unsigned i=y*W+x;CHECK(pixel[0]==n+(k==4?10:80)&&pixel[1]==i%251&&pixel[2]==n*3&&pixel[3]==255);}
     ++checked;
    }
   }

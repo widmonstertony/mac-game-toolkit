@@ -1,5 +1,30 @@
 # Forza Horizon 4: owned Microsoft Store package
 
+## Package catalogue preparation, November 17
+
+The owned executable imports LoadPackagedLibrary, GetPackagePath and
+PackageIdFromFullName. The installed Highball source implements package-family
+and package-path lookup from its per-prefix PackageRepository, but
+LoadPackagedLibrary still unconditionally reports APPMODEL_ERROR_NO_PACKAGE.
+Having the app-specific CRT DLLs beside the executable is therefore not a full
+package launch implementation.
+
+`prepare-package-catalog.py` now unpacks the hash-verified official VCLibs archive
+into its own directory and prepares registry metadata for it and the actual
+extracted FH4 package. Names/version/publisher identities come from their real
+manifests; publisher IDs are derived from the manifest publisher. It does not
+create an MSIXVC marker, spoof a dependency version, change licensing or mark
+MACxus's imported game ready.
+
+In an isolated Highball prefix, the original PackageIdFromFullName,
+GetPackagePath and GetPackagesByPackageFamily APIs now return both exact package
+identities and paths. Three VCLibs versions coexist in that test prefix, so the
+probe checks that the actual installed version appears exactly once, rather
+than incorrectly requiring a single family member. The catalogue remains
+prepared outside the production game prefix. LoadPackagedLibrary, process
+package identity, UWP window/input and actual Store activation remain gaps.
+See `package-catalog-validation-2026-11-17.json`.
+
 ## UWP runtime work, November 16
 
 The user owns Steam FH4 too but explicitly wants to retain the Xbox/Store

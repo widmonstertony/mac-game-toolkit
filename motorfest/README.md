@@ -1,5 +1,46 @@
 # The Crew Motorfest: compatibility work, gameplay not verified
 
+## Installed candidate, November 17
+
+The native Steam entry for AppID 2698940 now selects a private FEX/Mullion
+runtime in the **existing Motorfest prefix**. This is installed for the next
+user trial; authenticated/protected game startup and gameplay are still
+unverified. Other AppIDs and data paths retain the byte-identical original
+Highball runner body. The installation did not launch the game.
+
+The missing browser integration was reproduced with a real D3D11 workload:
+the old Ubisoft-local Highball DXMT DLL fails shared-texture creation with
+`0x80004005` and a Mach-port registration error under the candidate engine.
+The matching engine D3D11 successfully shares a BGRA texture across two
+processes, transfers keyed-mutex ownership twice and reads back all 4,096 pixels.
+Both controls retain the production cross-process/write-copy environment flags.
+This establishes renderer-sharing compatibility, not a visible Ubisoft login.
+
+The new profile archives those two browser-local DLLs, selects the matching
+builtin renderer for the three Ubisoft executable names, installs the verified
+native Steam bridge and registered original-client adapter, and retains game
+files, account data, resolution/quality/audio settings and caches. It does not
+substitute entitlement or anti-cheat responses. The original vendor Init path
+and current protected game remain unverified.
+
+An APFS clone of the entire previous prefix and the original shared runner are
+stored under the Motorfest data directory's `.motorfest-private-20261117`.
+The signed engine and payload were copied there so deleting workspace build
+inputs does not remove the active runtime. `install-private-profile.py --rollback
+--apply --prepared <original-prepared-directory>` stops only that prefix,
+preserves the post-test prefix separately and restores the previous clone/runner;
+it refuses to overwrite a subsequently changed shared runner.
+
+The final entry also passed a four-second real child-lifetime check through the
+native Steam shim (returned after about 8.9 seconds, child completion already
+present). This is not yet evidence for Ubisoft/game handoff or game-exit behavior.
+See [browser GPU results](linuxhost-compat/validation-browser-2026-11-17.json) and
+[private-entry results](linuxhost-compat/validation-private-entry-2026-11-17.json).
+Installation verification checked payload hashes, registry scope, shell syntax,
+native entry resolution and unchanged routing for three other game IDs.
+
+## Earlier preparation state
+
 **Current state, November 17:** child-wait and synchronous-signal fixes pass in
 an isolated clone of the existing container. The real legacy Linux bridge now
 loads by DLL name and returns its original version; its authentication/Init path
@@ -10,7 +51,8 @@ readback test. The native client path had to point to the directory containing
 These checks do not verify Ubisoft's candidate browser route, anti-cheat
 authentication, or Motorfest gameplay. Computer Use still cannot bind Steam
 because it requests capture of an off-display hidden window. The production
-Highball runner and other games remain unchanged.
+Highball runner and other games remained unchanged at that checkpoint. The
+installed candidate section above supersedes this preparation-only status.
 
 The [current findings and deployment status](diagnostics/2026-11-16-process-signals.md)
 take precedence over the historical progress entries below. An inactive bundle

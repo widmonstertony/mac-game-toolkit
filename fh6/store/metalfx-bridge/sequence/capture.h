@@ -9,7 +9,7 @@
 #include "../../../rosetta/fg-chain/chain.h"
 
 struct SequenceCapture {
-    static constexpr unsigned Capacity=8, Images=4;
+    static constexpr unsigned Capacity=8, Images=5;
     static constexpr uint64_t MaxBytes=1024ull*1024*1024;
     enum Stage { Empty, Prepared, Recorded, Submitted, Complete, Failed };
     struct Image {
@@ -19,7 +19,7 @@ struct SequenceCapture {
         UINT rows{};UINT64 rowBytes{},bytes{};
     };
     struct Frame {
-        Stage stage{};uint64_t id{},bytes{};float milliseconds{};
+        Stage stage{};uint64_t id{},bytes{};float milliseconds{};bool beforeRecorded{};
         ChainFrame native{};Image image[Images]{};
         ID3D12Resource *readback{};ID3D12Fence *fence{};
         // Borrowed identity only, never dereferenced. Source references are
@@ -86,7 +86,7 @@ struct SequenceCapture {
         D3D12_RESOURCE_DESC color=dd;color.Width=width;color.Height=height;
         color.Format=DXGI_FORMAT_R8G8B8A8_UNORM;color.Flags=D3D12_RESOURCE_FLAG_NONE;
         if(!layout(device,f,0,dd)||!layout(device,f,1,md)||!layout(device,f,2,color)||
-           !layout(device,f,3,color)||f.image[0].rowBytes!=dd.Width*4||
+           !layout(device,f,3,color)||!layout(device,f,4,color)||f.image[0].rowBytes!=dd.Width*4||
            allocated+f.bytes>MaxBytes){release(f);abort();return nullptr;}
         D3D12_HEAP_PROPERTIES heap{};heap.Type=D3D12_HEAP_TYPE_READBACK;
         D3D12_RESOURCE_DESC buffer{};buffer.Dimension=D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -101,12 +101,23 @@ struct SequenceCapture {
         if(count==Capacity)armed=false;
         copy(list,f,0);copy(list,f,1);return &f;
     }
+    bool recordBefore(ID3D12GraphicsCommandList *list,const ChainFrame &native,
+                      ID3D12Resource *scene,D3D12_RESOURCE_STATES sceneState){
+        Frame *f=nullptr;for(auto &candidate:frames)if(candidate.stage==Prepared&&candidate.id==native.frame){f=&candidate;break;}
+        if(!f)return false;
+        if(f->beforeRecorded||!scene||!list||list->GetType()!=D3D12_COMMAND_LIST_TYPE_DIRECT||native.reset||
+           !native.hasConstants||memcmp(&f->native.jitter,&native.jitter,offsetof(ChainFrame,tags)-offsetof(ChainFrame,jitter))){abort();return false;}
+        const auto d=scene->GetDesc();const auto &expected=f->image[4].footprint.Footprint;
+        if(!shape(d,DXGI_FORMAT_R8G8B8A8_UNORM)||d.Width!=expected.Width||d.Height!=expected.Height){abort();return false;}
+        f->image[4].source=scene;scene->AddRef();f->image[4].state=sceneState;
+        copy(list,*f,4);f->beforeRecorded=true;return true;
+    }
     bool record(ID3D12GraphicsCommandList *list,const ChainFrame &native,
                 ID3D12Resource *scene,ID3D12Resource *output,
                 D3D12_RESOURCE_STATES sceneState,D3D12_RESOURCE_STATES outputState) {
         Frame *f=nullptr;for(auto &candidate:frames)if(candidate.stage==Prepared&&candidate.id==native.frame){f=&candidate;break;}
         if(!f)return false;
-        if(!list||list->GetType()!=D3D12_COMMAND_LIST_TYPE_DIRECT||!scene||!output||scene==output||
+        if(!f->beforeRecorded||f->image[4].source!=scene||!list||list->GetType()!=D3D12_COMMAND_LIST_TYPE_DIRECT||!scene||!output||scene==output||
            !native.hasConstants||native.reset){abort();return false;}
         const auto sd=scene->GetDesc(),od=output->GetDesc();
         const auto &expected=f->image[2].footprint.Footprint;

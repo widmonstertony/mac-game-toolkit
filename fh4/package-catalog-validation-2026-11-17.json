@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "package": "Microsoft.SunriseBaseGame_1.478.564.2_x64__8wekyb3d8bbwe",
+      "exitCode": 0,
+      "passed": true,
+      "output": "PACKAGE_CATALOG_PASS real_lookup=true exact_path=true family_members=1 exact_package_matches=1"
+    },
+    {
+      "package": "Microsoft.VCLibs.140.00_14.0.33519.0_x64__8wekyb3d8bbwe",
+      "exitCode": 0,
+      "passed": true,
+      "output": "PACKAGE_CATALOG_PASS real_lookup=true exact_path=true family_members=3 exact_package_matches=1"
+    }
+  ],
+  "gameplayVerified": false,
+  "productionPrefixChanged": false,
+  "catalogSha256": "9aa7475b841652e6b3106d3024e76fb95357ab273461f94120f6737f92f4f86b",
+  "probeSha256": "1ba84d5f2517ff3723bee66863e493fae08a6bd2f169434048ddf79f06b7c98d"
+}

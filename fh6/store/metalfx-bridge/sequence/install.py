@@ -12,7 +12,7 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);p.add_argument('--apply',action='store_true');a=p.parse_args();build=a.build.resolve()
     proof=json.loads((build/'verification.json').read_text());manifest=json.loads((build/'build.json').read_text())
     candidate=build/'framegeneration-sequence.dll'
-    if not proof.get('passed') or proof.get('sequence_frames')!=8 or proof.get('provider_frames_compared')!=12 or proof.get('serialized_pixels_checked')!=393216 or proof.get('renderer')!='D3DMetal apd12.dll':raise RuntimeError('Complete real-GPU forwarding/serialization proof required')
+    if not proof.get('passed') or proof.get('sequence_frames')!=8 or proof.get('provider_frames_compared')!=12 or proof.get('serialized_pixels_checked')!=491520 or proof.get('renderer')!='D3DMetal apd12.dll':raise RuntimeError('Complete five-image real-GPU forwarding/serialization proof required')
     if proof['manifest_sha256']!=sha(build/'build.json') or proof['artifacts']!=manifest['artifacts'] or sha(candidate)!=proof['artifacts']['framegeneration-sequence.dll']:raise RuntimeError('Candidate/proof mismatch')
     root=Path.home()/'Library/Application Support/MACxus';runtime=root/'external-highball'
     folder=root/'bottles/xbox-highball/drive_c/highball/fg-native-ui';target=folder/'amd_fidelityfx_framegeneration_dx12.dll';inner=folder/'framegeneration-sequence-inner.dll'
@@ -38,7 +38,7 @@ def main():
     backup=runtime/('sequence-backup-'+stamp);backup.mkdir(exist_ok=False)
     shutil.copy2(target,backup/target.name);shutil.copy2(profile,backup/profile.name)
     record['verifiedFiles'][str(inner)]=inner_digest;record['verifiedFiles'][str(target)]=new
-    record['sequenceCapture']={'schema':1,'purpose':'eight consecutive GPU-fenced frames; not a ghosting fix','innerSha256':inner_digest,'outerSha256':new,'gameplayVerified':False}
+    record['sequenceCapture']={'schema':2,'purpose':'eight consecutive GPU-fenced frames including scene before FG; not a ghosting fix','innerSha256':inner_digest,'outerSha256':new,'gameplayVerified':False}
     with tempfile.TemporaryDirectory(dir=runtime) as tmp:
         staged=Path(tmp)/'profile.json';staged.write_text(json.dumps(record,indent=2)+'\n')
         if profile.read_bytes()!=profile_bytes or sha(target)!=old:raise RuntimeError('Profile changed during staging')

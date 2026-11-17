@@ -1,0 +1,40 @@
+{
+  "combined": {
+    "exitCode": 0,
+    "passed": true,
+    "nativeSteamShimChildVerified": true,
+    "probeSha256": "f4afe303616ed9fec0a7a3e566ad81c6551cc397853b03abec9e7bcf94c5ee57",
+    "sourceSha256": "6649b846e745270ab0b30a2848232f5d88d63ce60025bff816abfa8bc7214e63",
+    "runnerSha256": "9d65e6b4eb6eaa7efe95fa13b525234d4d1f0cac9de7982688618b451c17e270",
+    "logSha256": "c68c5a65d9fafba2295f9139ce5ac575052af657399920de2df14a3c741cb7d8",
+    "candidateManifestSha256": "e1ad0f6ea97182d737266ac8ac274e3fa5d69b44b82eb1ffe9c85cd0f2e0a907",
+    "registeredBridgeSha256": "9f57a328db9fe8a2b19c5514899adea9c4d767c137bfc3fe1c109bb57f1738e5",
+    "rendererFiles": {
+      "lib/mullion/LICENSE": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
+      "lib/mullion/VERSION": "2516556324edcf81afb273188707d9feef144013b01c4c5fb955ac654e029a85",
+      "lib/mullion/aarch64-unix/winemetal.so": "f30cc428fa4b8de97b8f97438b60e6a26bfa4c6bcc577f1f4662ac7e050c53b9",
+      "lib/mullion/i386-windows/d3d10core.dll": "b93b8d49409f22f095f96bb81917a088f94434a28a94dc1d4c1c77e5c880cade",
+      "lib/mullion/i386-windows/d3d11.dll": "8856ca4c020e7a05f7cea26498117ed8dd7650f7dbe15b8db6e9a9a20a07383a",
+      "lib/mullion/i386-windows/winemetal.dll": "665ef22351160d23ddb6f9b9eca28670ae57b87d959de1cbaa44d1c3f87d078c",
+      "lib/mullion/i386-windows/dxgi.dll": "e6a9d69cd56dbc8ee1b9beff8d8a97b3b7644dcddb296ae08124bb501a8d0bd2",
+      "lib/mullion/aarch64-windows/d3d10core.dll": "ae0549b0ba1cf029d192bb4d405333efa9feeb417a0ad3d5a4a658b6dffeda1a",
+      "lib/mullion/aarch64-windows/nvngx.dll": "aa5690de57ae75aadbf692877029a354caeeb99e93d2fdb48888c7b7225bc18c",
+      "lib/mullion/aarch64-windows/d3d12core.dll": "f594e57d395d888b56dd399cef4a501a7ecbbbd760e1c71cd2739bc35d5e8787",
+      "lib/mullion/aarch64-windows/d3d11.dll": "d5249af37637c874640a06e876076c6f33f17b75024cdd291e4af4cc6f6b7130",
+      "lib/mullion/aarch64-windows/d3d12.dll": "b579cb326679a4204771a90662bf2a3543f79d02efe349647398cf2d2af4249e",
+      "lib/mullion/aarch64-windows/winemetal.dll": "3c7570eeacb9e65796fa6ea79130414d4a129bd42409a61fdbcf1952c2bb1548",
+      "lib/mullion/aarch64-windows/dxgi.dll": "7c31b508d9a1dbe09fb7f50c5e1da233ea6cf76da67ccab24d736e711abcb2f1"
+    },
+    "vendorInitCalled": false,
+    "visiblePresentationVerified": false,
+    "gameplayVerified": false
+  },
+  "lifetime": {
+    "exitCode": 0,
+    "elapsedSeconds": 8.924243708999711,
+    "childDoneBeforeReturn": true,
+    "launcherSha256": "d0aba048359a76334032738604bb078ffa59752747cb4f23015654f99916d727"
+  },
+  "otherAppRoutingBytePreserved": true,
+  "gameplayVerified": false
+}
