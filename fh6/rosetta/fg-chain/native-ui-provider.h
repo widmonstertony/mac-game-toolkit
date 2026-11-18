@@ -212,13 +212,17 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
 #ifdef APPLE_FG_CANDIDATE
         FgGpuCapture::Job *nativeJob=nullptr;
         if(auto slot=c->apple.inputs.find(p.frameID)){
+            const auto &backend=c->apple.backend;
+            const bool nativeContinues=c->apple.lastWasNative&&p.frameID>0&&
+                backend.lastFrame==p.frameID-1&&!slot->frame.reset;
             nativeJob=c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p,
-                slot->depth,slot->motion,slot->frame.frame);
+                slot->depth,slot->motion,slot->frame.frame,nativeContinues);
             if(nativeJob){
-                for(unsigned k=0;k<5;++k)nativeJob->image[k].stage="before-native-evaluate";
+                for(unsigned k=0;k<2;++k)nativeJob->image[k].stage="before-native-evaluate";
+                for(unsigned k=2;k<5;++k)nativeJob->image[k].stage="after-fg-evaluate-before-ui";
                 nativeJob->image[5].stage="after-fg-evaluate-before-ui";
                 nativeJob->image[6].stage="after-ui";
-                FgGpuCapture::copies((ID3D12GraphicsCommandList*)p.commandList,nativeJob,0,5);
+                FgGpuCapture::copies((ID3D12GraphicsCommandList*)p.commandList,nativeJob,0,2);
                 FgGpuCapture::copies((ID3D12GraphicsCommandList*)p.commandList,nativeJob,7,10);
                 nativeJob->inputCopiesRecorded=true;
             }
@@ -250,7 +254,7 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
             auto list=(ID3D12GraphicsCommandList*)p.commandList;
 #ifdef APPLE_FG_CANDIDATE
             auto job=nativeJob?nativeJob:c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p);
-            if(job)FgGpuCapture::copies(list,job,nativeJob?5:0,6);
+            if(job)FgGpuCapture::copies(list,job,nativeJob?2:0,6);
 #else
             auto job=c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p);
             if(job)FgGpuCapture::copies(list,job,0,6);

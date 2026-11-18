@@ -5,6 +5,7 @@
 #include <d3d12.h>
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 #include <framegeneration/include/ffx_framegeneration.h>
 #include "chain.h"
 
@@ -12,6 +13,32 @@ struct CapturePrepare {
     uint64_t frame{};bool known{};float milliseconds{},scale[2]{},jitter[2]{};
     UINT render[2]{};
 };
+
+// The capture request is satisfied on the first continuously interpolated
+// driving pair. Camera translation is used only as a capture trigger.
+struct MovingCaptureGate {
+    uint64_t lastFrame{};
+    float lastPosition[3]{};
+    bool valid{};
+    bool update(const ChainFrame &frame,float milliseconds,bool nativeContinues) {
+        const bool consecutive=valid&&frame.frame>0&&lastFrame==frame.frame-1;
+        bool finite=true;
+        double distanceSquared=0;
+        for(unsigned i=0;i<3;++i){
+            const float position=frame.cameraBasis[i];
+            finite=finite&&std::isfinite(position);
+            const double delta=double(position)-lastPosition[i];
+            distanceSquared+=delta*delta;
+            lastPosition[i]=position;
+        }
+        lastFrame=frame.frame;
+        valid=finite&&nativeContinues;
+        if(!consecutive||!valid||!(milliseconds>=5&&milliseconds<=100))return false;
+        const double lower=milliseconds*.015,upper=milliseconds*.10;
+        return distanceSquared>=lower*lower&&distanceSquared<=upper*upper;
+    }
+};
+
 struct FgGpuCapture {
     enum {ImageCount=10,JobCount=2};
     struct Image {
@@ -27,15 +54,19 @@ struct FgGpuCapture {
         UINT transfer{};bool recorded{},nativeUi{},preparedInputs{},skip{};
         bool inputCopiesRecorded{},nativeMiddleSelected{};
     };
-    Job *pending[JobCount]{};unsigned remaining{},poll{};HMODULE module{};ChainReport report{};
+    Job *pending[JobCount]{};unsigned remaining{},poll{},movingPoll{};HMODULE module{};ChainReport report{};
+    MovingCaptureGate movingGate;
+    bool movingRequestActive{};
     volatile LONG activeJobs{};
-    wchar_t root[32768]{},request[32768]{};
+    wchar_t root[32768]{},request[32768]{},movingRequest[32768]{};
     void setup(HMODULE m,ChainReport r) {
         if(module)return;module=m;report=r;
         DWORD n=GetModuleFileNameW(m,root,32768);if(!n || n>=32768){root[0]=0;return;}
         auto slash=wcsrchr(root,L'\\');if(!slash){root[0]=0;return;}slash[1]=0;
         if(wcslen(root)>32600){root[0]=0;return;}
-        wcscpy(request,root);wcscat(request,L"capture-request");wcscat(root,L"captures");
+        wcscpy(request,root);wcscat(request,L"capture-request");
+        wcscpy(movingRequest,root);wcscat(movingRequest,L"capture-native-moving-request");
+        wcscat(root,L"captures");
     }
     static void cleanup(Job *j) {
         for(auto &i:j->image)if(i.source)i.source->Release();
@@ -118,10 +149,21 @@ struct FgGpuCapture {
         // Context teardown already drained the original SDK's queue here.
         for(auto &j:pending)if(j && (j->recorded || j->preparedInputs || j->inputCopiesRecorded))if(schedule(j,queue))j=nullptr;
     }
-    bool armed() {
+    bool armed(bool moving=false) {
         if(!module || !root[0] || InterlockedCompareExchange(&activeJobs,0,0)>=JobCount)return false;
-        if(!remaining && (++poll%120==1) && !pending[0] && !pending[1] && GetFileAttributesW(request)!=INVALID_FILE_ATTRIBUTES) {
-            if(DeleteFileW(request)){remaining=JobCount;CreateDirectoryW(root,nullptr);if(report)report("{\"event\":\"gpu_capture_armed\",\"frames\":2}");}
+        if(remaining)return !movingRequestActive||moving;
+        const wchar_t *marker=nullptr;
+        if(!pending[0]&&!pending[1]){
+            if(moving&&++movingPoll%8==1&&GetFileAttributesW(movingRequest)!=INVALID_FILE_ATTRIBUTES)marker=movingRequest;
+            else if(++poll%120==1&&GetFileAttributesW(request)!=INVALID_FILE_ATTRIBUTES)marker=request;
+        }
+        if(marker&&DeleteFileW(marker)){
+            movingRequestActive=marker==movingRequest;
+            remaining=JobCount;
+            CreateDirectoryW(root,nullptr);
+            if(report)report(movingRequestActive?
+                "{\"event\":\"gpu_capture_armed\",\"frames\":2,\"moving_native\":true}":
+                "{\"event\":\"gpu_capture_armed\",\"frames\":2}");
         }
         return remaining!=0;
     }
@@ -158,8 +200,10 @@ struct FgGpuCapture {
         cleanup(j);return nullptr;
     }
     Job *begin(ID3D12Device *device,const ChainFrame &f,const CapturePrepare &prep,const ffxDispatchDescFrameGeneration &p,
-               ID3D12Resource *consumedDepth=nullptr,ID3D12Resource *consumedMotion=nullptr,uint64_t consumedFrame=0) {
-        if(p.reset || !prep.known || prep.frame!=p.frameID || !armed())return nullptr;
+               ID3D12Resource *consumedDepth=nullptr,ID3D12Resource *consumedMotion=nullptr,uint64_t consumedFrame=0,
+               bool nativeContinues=false) {
+        const bool moving=consumedDepth&&movingGate.update(f,prep.milliseconds,nativeContinues&&!p.reset);
+        if(p.reset || !prep.known || prep.frame!=p.frameID || !armed(moving))return nullptr;
         auto j=makeJob(device,f,prep,true);if(!j)return nullptr;
         j->transfer=p.backbufferTransferFunction;
         const char *names[]={"depth","motion","scene","ui","present","generated-before-ui","generated-after-ui"};

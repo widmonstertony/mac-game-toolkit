@@ -2,6 +2,7 @@
 """Analyze only GPU-fenced captures; export the actual captured pixels without PIL/NumPy."""
 import argparse
 import ctypes as C
+import hashlib
 import json
 import math
 import mmap
@@ -51,6 +52,17 @@ class Image:
         if self.info['source_format'] not in (19, 41) or self.stride not in (4, 8):
             raise ValueError('Unknown depth plane layout')
         return struct.unpack_from('f', self.data, y * self.pitch + x * self.stride)[0]
+
+    def pixel_digest(self):
+        """Hash actual texels, excluding driver-dependent row padding."""
+        row_bytes = self.info['row_bytes']
+        if self.pitch < row_bytes or len(self.data) != self.height * self.pitch:
+            raise ValueError('Invalid readback pitch: ' + self.info['name'])
+        digest = hashlib.sha256()
+        for y in range(self.height):
+            start = y * self.pitch
+            digest.update(self.data[start:start + row_bytes])
+        return digest.hexdigest()
 
     def png(self, path, opaque=False):
         # Readback row layout comes from GetCopyableFootprints; never infer a
@@ -138,7 +150,24 @@ def analyze(folder, png=False):
             counts['expected_native_ui_mismatch'] += error > 2
             counts['generated_changed_by_ui'] += max(abs(a[k]-b[k]) for k in range(3)) > 3
             counts['generated_differs_from_final'] += max(abs(a[k]-p[k]) for k in range(3)) > 3
+    consumed = {}
     motion, depth = images['motion'], images['depth']
+    if meta.get('native_capture_path'):
+        pairs = (('consumed-prepare-depth', 'depth'),
+                 ('consumed-prepare-motion', 'motion'),
+                 ('scene-before-fg', 'scene'))
+        for captured, comparison in pairs:
+            exact, observed = images[captured], images[comparison]
+            if (exact.info.get('source_frame') != native.frame
+                    or exact.info.get('copy_stage') != 'before-native-evaluate'):
+                raise ValueError('Missing native input capture provenance: ' + captured)
+            if (exact.width, exact.height, exact.info['copy_format'], exact.stride) != (
+                    observed.width, observed.height, observed.info['copy_format'], observed.stride):
+                raise ValueError('Native and tagged resource layouts differ: ' + captured)
+            consumed[captured] = {'matches_observed_pixels': exact.pixel_digest() == observed.pixel_digest(),
+                                  'comparison': comparison}
+        motion = images['consumed-prepare-motion']
+        depth = images['consumed-prepare-depth']
     magnitude, z_values = [], []
     invalid_motion = invalid_depth = 0
     scale = meta['prepare']['scale']
@@ -169,9 +198,13 @@ def analyze(folder, png=False):
             'motion':{'invalid_samples':invalid_motion,'render_pixel_magnitude_p50_p90_p99':[percentile(magnitude,p) for p in (.5,.9,.99)],'probes':probes},
             'depth':{'invalid_samples':invalid_depth,'min':min(z_values) if z_values else None,'max':max(z_values) if z_values else None,'copy_pixel_stride':depth.stride},
             'limits':'Pixel evidence distinguishes input, FG and UI stages. A nonzero difference is not by itself proof of ghosting, wrong MV sign or a displayed-frame pacing fault.'}
+    if consumed:
+        result['native_midpoint_selected'] = meta.get('native_midpoint_selected') is True
+        result['consumed_input_checks'] = consumed
     if png:
-        for name in ('scene','ui','present','generated-before-ui','generated-after-ui'):
-            images[name].png(folder/(name+'.png'))
+        for name in ('scene','scene-before-fg','ui','present','generated-before-ui','generated-after-ui'):
+            if name in images:
+                images[name].png(folder/(name+'.png'), opaque=name!='ui')
     (folder/'pixel-analysis.json').write_text(json.dumps(result,indent=2,allow_nan=False)+'\n')
     return result
 

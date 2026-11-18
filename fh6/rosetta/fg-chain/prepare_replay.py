@@ -20,24 +20,42 @@ def prepare(source, target):
     prep = meta['prepare']
     if not prep['known'] or prep['frame'] != native.frame or not native.inverted or native.jittered:
         raise ValueError('Unsupported or incomplete input convention')
-    images = meta['images']
+    by_name = {image['name']: image for image in meta['images']}
     names = ['depth', 'motion', 'scene', 'ui', 'present', 'generated-before-ui', 'generated-after-ui']
-    composited = [i['name'] for i in images] == ['depth', 'motion', 'present', 'generated-provider-output']
+    exact = meta.get('native_capture_path') is True
+    source_names = dict(zip(names, names))
+    if exact:
+        exact_inputs = ('consumed-prepare-depth', 'consumed-prepare-motion', 'scene-before-fg')
+        if set(by_name) != set(names).union(exact_inputs):
+            raise ValueError('Incomplete native input capture')
+        for canonical, captured in zip(names[:3], exact_inputs):
+            image = by_name[captured]
+            if image.get('source_frame') != native.frame or image.get('copy_stage') != 'before-native-evaluate':
+                raise ValueError('Missing native input capture provenance: ' + captured)
+            source_names[canonical] = captured
+    composited = list(by_name) == ['depth', 'motion', 'present', 'generated-provider-output']
+    if composited:
+        names = list(by_name)
+        source_names = dict(zip(names, names))
+    elif not exact and list(by_name) != names:
+        raise ValueError('Unsupported capture layout')
+    images = [by_name[source_names[name]] for name in names]
     expected_formats = [19, 34, 28, 28] if composited else [19, 34, 28, 28, 28, 28, 28]
     if ((composited and meta.get('native_ui_composited') is not False)
-            or (not composited and [i['name'] for i in images] != names)
             or [i['source_format'] for i in images] != expected_formats):
         raise ValueError('Unsupported texture formats')
     if any(i['row_bytes'] != i['width'] * 4 for i in images):
         raise ValueError('Unsupported packed texture layout')
     target.mkdir(parents=True, exist_ok=False)
     evidence = {}
-    for name in ['native-frame', *(i['name'] for i in images)]:
-        path = source / (name + '.bin')
-        if name != 'native-frame' and path.stat().st_size != next(i['bytes'] for i in images if i['name'] == name):
+    for name in ['native-frame', *names]:
+        captured = source_names.get(name, name)
+        path = source / (captured + '.bin')
+        if name != 'native-frame' and path.stat().st_size != by_name[captured]['bytes']:
             raise ValueError('Truncated input ' + name)
-        (target / path.name).symlink_to(path)
-        evidence[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+        destination = name + '.bin'
+        (target / destination).symlink_to(path)
+        evidence[destination] = hashlib.sha256(path.read_bytes()).hexdigest()
     w, h = images[2]['width'], images[2]['height']
     rw, rh = prep['render']
     if any([i['width'], i['height']] != [rw, rh] for i in images[:2]) or any(
@@ -53,6 +71,7 @@ def prepare(source, target):
     assert len(header) == 96
     (target / 'replay-input.bin').write_bytes(header + raw)
     result = {'source': str(source), 'frame': native.frame, 'sha256': evidence, 'composited_input_required': composited,
+              'source_names': source_names, 'exact_native_inputs': exact,
               'context_flags': 8, 'view_space_to_meters': 0,
               'limitations': ['Four warmup frames reconstruct history; original long history unavailable.',
                              'Full-screen interpolation and SDR match the active route; HDR is rejected.',

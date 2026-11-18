@@ -42,7 +42,7 @@ the existing Prepare-snapshot provenance requirements. No ghosting fix is claime
 Current production hashes/settings remain unchanged. The next causal gap is
 matching the actual consumed Prepare snapshots and color history/visibility.
 
-### Consumed-input capture prepared, not deployed
+### Capture the inputs actually used by MetalFX
 
 The next capture candidate now copies the actual retained depth/MV textures
 passed to MetalFX, plus scene color before evaluation, separately from the
@@ -61,11 +61,21 @@ native midpoint pairs, and zero UI/original-pixel errors. Strict replay can read
 the new consumed-input records without falling back to tagged-original files.
 See `consumed-capture-validation-20261117.json`.
 
-This candidate is **not installed in the running game** and does not repair the
-rear ghost. Installing diagnostics is not visual acceptance. The current game
-was left running; no request for another test/restart was made. The later paused
-menu has cleared scene/UI tags and takes the supported fallback route; its
-non-growing native counter must not be confused with the earlier driving data.
+The revised recorder is installed in the FH6 Xbox container. The normal Steam
+entry validates the provider and runs the existing Quality SR and 2× FG profile.
+The one-shot `capture-native-moving-request` is read only after consecutive
+native midpoints and camera movement consistent with driving. It does not
+trigger during menu fallback. The limit remains two captures. The revised
+GPU fixture recorded 32 ordered callbacks and 14 native midpoint pairs, with
+zero UI/original-pixel errors. Exact pre-evaluate and post-evaluate color
+readbacks were identical in the fixture. The latest loaded graphics candidate
+is identified by SHA-256
+`a33fd2aec614a180aec1473c147d26dd1a0976a9b7220ed8c1ccba81d081dfc5`.
+This changed the recorder only. Rear ghosting remains open.
+
+`analyze_pixels.py` compares original and consumed GPU inputs without counting
+buffer padding. `prepare_replay.py` consumes the retained snapshots and
+pre-evaluate color for captures that carry that provenance.
 
 Additional offline controls on the current captured pair reject full-resolution
 nearest depth/MV and output-grid motion scaling: duplicated rear detail remains
