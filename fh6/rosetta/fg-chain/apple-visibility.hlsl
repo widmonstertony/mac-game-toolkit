@@ -57,6 +57,53 @@ float2 sourceAt(float2 midpoint) {
     return current;
 }
 
+bool cameraPrevious(float2 p, float depth, out float3 projected) {
+    float2 clip = p / displaySize * float2(2, -2) + float2(-1, 1);
+    float4 old = mul(float4(clip, depth, 1), clipToPrevious);
+    projected = 0;
+    if (!(old.z > 0 && old.w > 0)) return false;
+    projected = float3((old.xy / old.w * float2(.5, -.5) + .5) * displaySize, old.z / old.w);
+    return true;
+}
+
+// At the bottom of a fast chase view the correct current road coordinate
+// leaves the image. Reject an unproven extrapolated color. The visible road
+// at the output coordinate is a safe donor when its own camera reprojection
+// is consistent and puts it behind a slow foreground in the older frame.
+bool edgeRoad(float2 midpoint, out float2 prior, out float previousZ, out float2 velocity, out float fade) {
+    prior = 0;
+    previousZ = 0;
+    fade = 0;
+    velocity = 0;
+    if (midpoint.y < displaySize.y - 512.5) return false;
+    velocity = motionAt(midpoint);
+    if (!(velocity.y < -24 && all(abs(velocity) < 1024))) return false;
+    float2 current = midpoint - .5 * velocity;
+    float beyond = current.y - (displaySize.y - .5);
+    if (!(beyond > 0 && beyond < .12 * displaySize.y && current.x >= .5 && current.x < displaySize.x - .5))
+        return false;
+    float z = depthAt(midpoint);
+    float3 projected;
+    if (!(z > 0 && z <= 1) || !cameraPrevious(midpoint, z, projected) ||
+        !inFrame(projected.xy) || length(projected.xy - (midpoint + velocity)) >= 1.75) return false;
+    prior = projected.xy;
+    previousZ = projected.z;
+    fade = smoothstep(0, 22, beyond);
+    return true;
+}
+
+float edgeConfidence(float2 midpoint) {
+    float2 prior, velocity;
+    float expected, fade;
+    if (!edgeRoad(midpoint, prior, expected, velocity, fade)) return 0;
+    int2 pixel = renderPixel(prior);
+    float oldZ = previousDepth.Load(int3(pixel, 0));
+    float2 oldMotion = previousMotion.Load(int3(pixel, 0)) * scale;
+    float speed = length(velocity);
+    if (!(oldZ > 0 && oldZ <= 1 && length(oldMotion) < min(24.0, speed * .25))) return 0;
+    return fade * smoothstep(1.02, 1.10, oldZ / expected);
+}
+
 bool inspect(float2 midpoint, out float2 donor, out float weight) {
     donor = midpoint;
     weight = 0;
@@ -85,11 +132,9 @@ bool inspect(float2 midpoint, out float2 donor, out float weight) {
         if (!(inwardDepth > 0 && abs(inwardDepth - z) < z * .2)) return false;
         z = 2 * z - inwardDepth;
     }
-    float2 clip = current / displaySize * float2(2, -2) + float2(-1, 1);
-    float4 old = mul(float4(clip, z, 1), clipToPrevious);
-    if (!(old.z > 0 && old.w > 0)) return false;
-    float2 projected = (old.xy / old.w * float2(.5, -.5) + .5) * displaySize;
-    float error = length(projected - previous);
+    float3 projected;
+    if (!cameraPrevious(current, z, projected)) return false;
+    float error = length(projected.xy - previous);
     float tolerance = 1.75 + edgeDistance * .05;
     if (!(error < tolerance)) return false;
 
@@ -102,7 +147,7 @@ bool inspect(float2 midpoint, out float2 donor, out float weight) {
 
     float valid = (1 - smoothstep(.6 + edgeDistance * .035, tolerance, error)) *
                   (1 - smoothstep(.84 * maxEdge, maxEdge, edgeDistance));
-    weight = smoothstep(1.01, 1.08, previousZ / (old.z / old.w)) * valid;
+    weight = smoothstep(1.01, 1.08, previousZ / projected.z) * valid;
     donor = current;
     return valid > 0;
 }
@@ -119,8 +164,9 @@ float3 sceneAt(float2 p) {
     return lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y);
 }
 
-float confidenceAt(int2 p) {
-    return confidence[clamp(p, 0, int2(renderSize) - 1)] / 255.0;
+float2 confidenceAt(int2 p) {
+    uint value = confidence[clamp(p, 0, int2(renderSize) - 1)];
+    return float2(value & 255, value >> 8) / 255.0;
 }
 
 [numthreads(8, 8, 1)]
@@ -131,21 +177,38 @@ void main(uint3 id : SV_DispatchThreadID) {
         float2 donor;
         float weight;
         inspect(midpoint, donor, weight);
-        confidence[id.xy] = uint(saturate(weight) * 255 + .5);
+        uint ordinary = uint(saturate(weight) * 255 + .5);
+        uint border = uint(saturate(edgeConfidence(midpoint)) * 255 + .5);
+        confidence[id.xy] = ordinary | (border << 8);
         return;
     }
     if (any(id.xy >= displaySize)) return;
     float2 midpoint = float2(id.xy) + .5;
     int2 tile = renderPixel(midpoint);
-    float feather = 0;
+    float2 feather = 0;
     [unroll] for (int y = -1; y <= 1; ++y) {
         [unroll] for (int x = -1; x <= 1; ++x)
             feather += (2 - abs(x)) * (2 - abs(y)) * confidenceAt(tile + 2 * int2(x, y));
     }
-    if (feather <= .01) return;
+    if (max(feather.x, feather.y) <= .01) return;
+    float edgeWeight = 0;
+    if (feather.y > .01) {
+        float2 prior, v;
+        float expected, fade;
+        if (edgeRoad(midpoint, prior, expected, v, fade))
+            edgeWeight = fade * saturate(feather.y * (1.4 / 16));
+    }
     float2 donor;
     float weight;
-    if (!inspect(midpoint, donor, weight)) return;
+    bool ordinary = feather.x > .01 && inspect(midpoint, donor, weight);
+    if (!ordinary) {
+        if (edgeWeight > 0) {
+            float4 value = generated[id.xy];
+            value.rgb = lerp(value.rgb, sceneAt(midpoint), edgeWeight);
+            generated[id.xy] = value;
+        }
+        return;
+    }
     float2 edge = viewportEdge(donor);
     float2 v = motionAt(edge);
     float speed = length(v);
@@ -155,17 +218,19 @@ void main(uint3 id : SV_DispatchThreadID) {
     float distance = length(donor - edge);
     float border = min(min(edge.x, edge.y), min(displaySize.x - edge.x, displaySize.y - edge.y));
     float surfaceRatio = depthAt(midpoint) / depthAt(edge);
-    if (length(motionAt(midpoint) - v) < speed * .33 &&
-        surfaceRatio > .82 && surfaceRatio < 1.20) {
+    bool sameRoad = length(motionAt(midpoint) - v) < speed * .33 &&
+        surfaceRatio > .82 && surfaceRatio < 1.20;
+    if (sameRoad) {
         corrected = lerp(corrected, local, smoothstep(0, 80, distance + max(0, 80 - border)));
         // Preserve coherent near-vehicle shadows that move differently from the road.
         float luma = dot(corrected, float3(.25, .5, .25));
         float shadow = dot(local, float3(.25, .5, .25));
         corrected *= min(1.0, (shadow + 4.0 / 255) / (luma + 4.0 / 255));
-    } else if (distance > 0) {
+    } else if (distance > 0 && edgeWeight == 0) {
         return;
     }
     float4 value = generated[id.xy];
-    value.rgb = lerp(value.rgb, corrected, saturate(feather * (1.4 / 16)));
+    float visibilityWeight = (distance == 0 || sameRoad) ? saturate(feather.x * (1.4 / 16)) : 0;
+    value.rgb = lerp(lerp(value.rgb, corrected, visibilityWeight), local, edgeWeight);
     generated[id.xy] = value;
 }

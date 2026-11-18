@@ -716,3 +716,32 @@ pairs and two startup fallback pairs. It reported zero original-frame and
 UI pixel errors and verified fenced snapshots after the synthetic game
 overwrote the source textures. The user starts the next retail game session
 to verify driving behavior and frame pacing.
+
+### Residual lower-edge ghosts after the first correction
+
+Frames 25229 and 25230, captured during the user's follow-up run, both used
+a native midpoint. Frame 25230 shows the reported fragmented shadow below the
+bumper in the generated texture before UI. Its original scene is clean there.
+The camera reprojection of the visible current road agreed with the game's
+motion vectors, but the corresponding current midpoint source was outside
+the bottom of the image. In the remaining dark patches, projecting the
+out-of-frame estimate back could land on road and pass the previous depth
+test, whereas projecting the actually visible road pixel put it under
+slow-moving foreground with a reverse-Z value over 30% greater. The earlier
+correction could leave the generated result untouched in this case.
+
+The new branch requires an offscreen current estimate, agreement between its
+visible road donor's motion and camera reprojection, and historical foreground
+occlusion at the donor's reprojected coordinate. It feathers that same-surface
+donor in, alongside the existing reprojected correction, without imposing a
+fixed crop or mixing pixels from the original HUD. The original engine,
+frame scheduler and original-frame path are retained.
+
+The real GPU replay altered 88,300 pixels in sample 25230, with unchanged
+alpha. The affected lower-road crop (175,480 pixels) went from a mean
+1.49 blue code values away from its visible current road to an exact match.
+The earlier turn replay is byte-identical to the first correction. The earlier
+high-speed crop no longer shows the block interrupting the lower lane stripe.
+The production renderer fixture still presents 14 MetalFX midpoint/original
+pairs in order, with two startup fallback pairs and zero original or UI
+pixel errors. See commit history for the shader and the replay probe.
