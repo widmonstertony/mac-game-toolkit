@@ -3,7 +3,6 @@
 #include "test-buffer.h"
 #include <cstdio>
 #include "replay-common.h"
-static NSDictionary *imageInfo(NSDictionary *meta,NSString *name){for(NSDictionary *i in meta[@"images"])if([i[@"name"] isEqual:name])return i;return nil;}
 int main(int argc,char **argv){@autoreleasepool{
  if(argc!=3){fprintf(stderr,"usage: replay-sequence sequence-folder new-output-folder\n");return 1;}
  NSString *root=[NSString stringWithUTF8String:argv[1]],*out=[NSString stringWithUTF8String:argv[2]];

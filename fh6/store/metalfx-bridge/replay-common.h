@@ -12,6 +12,10 @@ static NSArray *replayInputNames(NSDictionary *meta){
     return hasConsumedInputs(meta)?@[@"scene-before-fg",@"consumed-prepare-depth",@"consumed-prepare-motion"]:
                                   @[@"scene",@"prepare-current-depth",@"prepare-current-motion"];
 }
+static NSDictionary *imageInfo(NSDictionary *meta,NSString *name){
+    for(NSDictionary *image in meta[@"images"])if([image[@"name"] isEqual:name])return image;
+    return nil;
+}
 static NSDictionary *metadata(NSString *folder,bool taggedInputControl=false) {
     NSData *data=read(folder,@"capture.json");if(!data)return nil;
     id object=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];

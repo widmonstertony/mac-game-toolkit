@@ -15,18 +15,32 @@ int main(int argc,char **argv) {@autoreleasepool{
     NSString *older=[NSString stringWithUTF8String:argv[1]],*newer=[NSString stringWithUTF8String:argv[2]];
     NSDictionary *oldMeta=metadata(older,tagged),*newMeta=metadata(newer,tagged);
     if(!oldMeta||!newMeta||[oldMeta[@"frame"] unsignedLongLongValue]+1!=[newMeta[@"frame"] unsignedLongLongValue])return 2;
-    constexpr unsigned w=3472,h=2266,rw=2314,rh=1510;
+    NSArray *newNames=tagged?@[@"scene",@"depth",@"motion"]:replayInputNames(newMeta);
+    NSDictionary *sceneInfo=imageInfo(newMeta,newNames[0]),*depthInfo=imageInfo(newMeta,newNames[1]);
+    const unsigned w=[sceneInfo[@"width"] unsignedIntValue],h=[sceneInfo[@"height"] unsignedIntValue];
+    const unsigned rw=[depthInfo[@"width"] unsignedIntValue],rh=[depthInfo[@"height"] unsignedIntValue];
+    if(!w||!h||!rw||!rh||w>8192||h>8192||rw>w||rh>h)return 2;
     const bool fullres=!strcmp(control,"fullres-nearest-control");
     const unsigned dw=fullres?w:rw,dh=fullres?h:rh;
     FxCreate c{1,dw,dh,w,h,0,0};if(create(&c))return 3;
     OwnedBuffer color(w,h,FX_RGBA8),depth(dw,dh,FX_R32F),motion(dw,dh,FX_RG16F),output(w,h,FX_RGBA8);
     FxDispatchCamera p{};p.frame.context=c.context;p.frame.color=color.b;p.frame.depth=depth.b;
     p.frame.motion=motion.b;p.frame.output=output.b;p.frame.depthReversed=1;
-    p.frame.deltaSeconds=[newMeta[@"prepare"][@"milliseconds"] floatValue]*.001f;
     for(unsigned i=0;i<3;++i) {
         NSString *folder=i==2?newer:older;
-        NSArray *names=tagged?@[@"scene",@"depth",@"motion"]:replayInputNames(i==2?newMeta:oldMeta);
-        if(!copy(color,read(folder,[names[0] stringByAppendingString:@".bin"]),14080,w,h)||!copy(depth,read(folder,[names[1] stringByAppendingString:@".bin"]),9728,rw,rh)||
+        NSDictionary *meta=i==2?newMeta:oldMeta;
+        NSArray *names=tagged?newNames:replayInputNames(meta);
+        auto copyImage=[&](OwnedBuffer &buffer,unsigned index,unsigned width,unsigned height){
+            NSString *name=names[index];
+            NSDictionary *info=imageInfo(meta,name);
+            unsigned format=[info[@"copy_format"] unsignedIntValue];
+            bool supported=index==0?format==28:index==1?(format==39||format==41):format==34;
+            return supported&&[info[@"width"] unsignedIntValue]==width&&[info[@"height"] unsignedIntValue]==height&&
+                [info[@"row_bytes"] unsignedLongLongValue]==width*4&&copy(buffer,read(folder,[name stringByAppendingString:@".bin"]),
+                    [info[@"row_pitch"] unsignedLongLongValue],width,height);
+        };
+        p.frame.deltaSeconds=[meta[@"prepare"][@"milliseconds"] floatValue]*.001f;
+        if(!copyImage(color,0,w,h)||!copyImage(depth,1,rw,rh)||
            !loadCamera(read(folder,@"native-frame.bin"),p))return 4;
         // Diagnostic controls only: do not change the production bridge ABI
         // or silently pick the apparently cleanest output as a validated fix.
@@ -35,7 +49,7 @@ int main(int argc,char **argv) {@autoreleasepool{
         if(!strcmp(control,"jitter-output-grid-control")){p.frame.jitterX*=float(w)/rw;p.frame.jitterY*=float(h)/rh;}
         if(omitCamera)p.camera.flags=0;
         if(!strcmp(control,"opaque-alpha-control"))for(unsigned y=0;y<h;++y)for(unsigned x=0;x<w;++x)color.row<uint8_t>(y)[x*4+3]=255;
-        if(i==2){if(!copy(motion,read(folder,[names[2] stringByAppendingString:@".bin"]),9472,rw,rh))return 4;}
+        if(i==2){if(!copyImage(motion,2,rw,rh))return 4;}
         else memset((void*)motion.b.address,0,motion.b.bytes);
         p.frame.frameId=100+i;p.frame.reset=i==0;
         int result=dispatchCamera(&p);
