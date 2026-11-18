@@ -745,3 +745,29 @@ high-speed crop no longer shows the block interrupting the lower lane stripe.
 The production renderer fixture still presents 14 MetalFX midpoint/original
 pairs in order, with two startup fallback pairs and zero original or UI
 pixel errors. See commit history for the shader and the replay probe.
+
+### Horizontal seam when the current road sample runs out
+
+The follow-up live pair 30808/30809 reproduces a horizontal seam through
+the vehicle shadow before UI. Direct MetalFX replay already shows this
+seam; the installed occlusion correction suppresses the doubled bumper
+while leaving the seam visible. Across the shadow, both calibrated motion
+and camera reprojection identify the same road surface. Current-frame
+sampling passes the bottom of the viewport shortly before the seam. The
+prior test for an occluded previous surface can reject valid road here,
+because shadow motion can differ from the motion of the underlying road.
+
+The repair now projects the last visible scanline to its true midpoint and
+starts the transition before that crossing. A nearby current sample must
+agree with the edge in depth, direction of motion and independent camera
+reprojection to qualify. The rest of the generated image still uses the
+existing native output and foreground occlusion check. There is no fixed
+rectangle or change to the output resolution.
+
+In frame 30809, the mean green-channel change across the formerly broken
+row in the 780-pixel shadow segment went from -3.844 to +0.097 (the same
+as the original). Pixels with an absolute step above four went from 247
+to zero. A further four real input pairs completed the GPU probe. The
+production-shim scheduler still delivered 14 native midpoint/original
+pairs in order with zero original-frame and UI pixel errors. In-game
+motion across the transitioned strip is pending the next retail run.

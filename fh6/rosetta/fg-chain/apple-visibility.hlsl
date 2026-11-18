@@ -66,42 +66,42 @@ bool cameraPrevious(float2 p, float depth, out float3 projected) {
     return true;
 }
 
-// At the bottom of a fast chase view the correct current road coordinate
-// leaves the image. Reject an unproven extrapolated color. The visible road
-// at the output coordinate is a safe donor when its own camera reprojection
-// is consistent and puts it behind a slow foreground in the older frame.
-bool edgeRoad(float2 midpoint, out float2 prior, out float previousZ, out float2 velocity, out float fade) {
-    prior = 0;
-    previousZ = 0;
-    fade = 0;
-    velocity = 0;
-    if (midpoint.y < displaySize.y - 512.5) return false;
-    velocity = motionAt(midpoint);
-    if (!(velocity.y < -24 && all(abs(velocity) < 1024))) return false;
-    float2 current = midpoint - .5 * velocity;
-    float beyond = current.y - (displaySize.y - .5);
-    if (!(beyond > 0 && beyond < .12 * displaySize.y && current.x >= .5 && current.x < displaySize.x - .5))
-        return false;
-    float z = depthAt(midpoint);
-    float3 projected;
-    if (!(z > 0 && z <= 1) || !cameraPrevious(midpoint, z, projected) ||
-        !inFrame(projected.xy) || length(projected.xy - (midpoint + velocity)) >= 1.75) return false;
-    prior = projected.xy;
-    previousZ = projected.z;
-    fade = smoothstep(0, 22, beyond);
-    return true;
-}
-
+// At the bottom of the image, the current-frame sample of a fast moving
+// road can leave the viewport. Solve where the last actual scanline lands
+// at half time, then cross-fade to the contiguous visible road before the
+// native output switches its extrapolation method at that boundary.
 float edgeConfidence(float2 midpoint) {
-    float2 prior, velocity;
-    float expected, fade;
-    if (!edgeRoad(midpoint, prior, expected, velocity, fade)) return 0;
-    int2 pixel = renderPixel(prior);
-    float oldZ = previousDepth.Load(int3(pixel, 0));
-    float2 oldMotion = previousMotion.Load(int3(pixel, 0)) * scale;
-    float speed = length(velocity);
-    if (!(oldZ > 0 && oldZ <= 1 && length(oldMotion) < min(24.0, speed * .25))) return 0;
-    return fade * smoothstep(1.02, 1.10, oldZ / expected);
+    const float y = displaySize.y - 1.5;
+    if (midpoint.y < y - 576) return 0;
+    float2 localMotion = motionAt(midpoint);
+    if (!(localMotion.y < -24 && all(abs(localMotion) < 1024))) return 0;
+
+    float2 edge = float2(midpoint.x, y);
+    [unroll] for (int i = 0; i < 3; ++i) {
+        float2 v = motionAt(edge);
+        if (!(v.y < -24 && all(abs(v) < 1024))) return 0;
+        edge.x = midpoint.x - .5 * v.x;
+        if (!inFrame(edge)) return 0;
+    }
+    float2 edgeMotion = motionAt(edge);
+    if (!(abs(edge.x + .5 * edgeMotion.x - midpoint.x) < 1.5)) return 0;
+    float crossing = y + .5 * edgeMotion.y;
+    float width = clamp(-edgeMotion.y * .18, 30.0, 72.0);
+    float fade = smoothstep(crossing - width, crossing - 8, midpoint.y);
+    if (!(fade > 0)) return 0;
+
+    // The two texture locations must describe a coherent camera-driven
+    // surface. Independent foregrounds never use this continuation.
+    float edgeZ = depthAt(edge), localZ = depthAt(midpoint);
+    float3 edgePrevious, localPrevious;
+    if (!(edgeZ > 0 && edgeZ <= 1 && localZ > edgeZ * .73 && localZ <= edgeZ * 1.14) ||
+        !cameraPrevious(edge, edgeZ, edgePrevious) ||
+        !cameraPrevious(midpoint, localZ, localPrevious) ||
+        !inFrame(edgePrevious.xy) || !inFrame(localPrevious.xy) ||
+        !(length(edgePrevious.xy - (edge + edgeMotion)) < 1.75) ||
+        !(length(localPrevious.xy - (midpoint + localMotion)) < 1.75) ||
+        !(length(localMotion - edgeMotion) < length(edgeMotion) * .43)) return 0;
+    return fade;
 }
 
 bool inspect(float2 midpoint, out float2 donor, out float weight) {
@@ -192,12 +192,8 @@ void main(uint3 id : SV_DispatchThreadID) {
     }
     if (max(feather.x, feather.y) <= .01) return;
     float edgeWeight = 0;
-    if (feather.y > .01) {
-        float2 prior, v;
-        float expected, fade;
-        if (edgeRoad(midpoint, prior, expected, v, fade))
-            edgeWeight = fade * saturate(feather.y * (1.4 / 16));
-    }
+    if (feather.y > .01)
+        edgeWeight = min(edgeConfidence(midpoint), saturate(feather.y * (1.2 / 16)));
     float2 donor;
     float weight;
     bool ordinary = feather.x > .01 && inspect(midpoint, donor, weight);
