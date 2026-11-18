@@ -236,10 +236,11 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
             if(!result)c->apple.lastWasNative=false;
         }
         if(nativeJob)nativeJob->nativeMiddleSelected=c->apple.lastWasNative;
-        if(report&&(c->applied<8||p.frameID%60==0)){char line[300];snprintf(line,sizeof(line),
-            "{\"event\":\"apple_fg_dispatch\",\"frame\":%llu,\"native\":%s,\"middle\":%llu,\"warmup\":%llu,\"reason\":\"%s\",\"transfer\":%u}",
+        if(report&&(c->applied<8||p.frameID%60==0)){char line[480];snprintf(line,sizeof(line),
+            "{\"event\":\"apple_fg_dispatch\",\"frame\":%llu,\"native\":%s,\"middle\":%llu,\"warmup\":%llu,\"reason\":\"%s\",\"transfer\":%u,\"visibilityDispatches\":%llu,\"visibilityStatus\":\"%s\"}",
             (unsigned long long)p.frameID,c->apple.lastWasNative?"true":"false",(unsigned long long)c->apple.middle,
-            (unsigned long long)c->apple.warmup,c->apple.reason,(unsigned)p.backbufferTransferFunction);report(line);}
+            (unsigned long long)c->apple.warmup,c->apple.reason,(unsigned)p.backbufferTransferFunction,
+            (unsigned long long)c->apple.visibility.recorded,c->apple.visibility.reason);report(line);}
 #else
         result=dispatch?dispatch(context,&sceneOnly.header):FFX_API_RETURN_NO_PROVIDER;
 #endif

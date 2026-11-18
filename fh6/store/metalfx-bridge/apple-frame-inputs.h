@@ -12,7 +12,12 @@ struct AppleFrameInputs {
         ID3D12Resource *depth{},*motion{},*sourceDepth{},*sourceMotion{};
         ID3D12Resource *output{}; // Retained, not merely an address comparison.
         ID3D12Fence *fence{};UINT64 value{};
+        ID3D12DescriptorHeap *visibilityHeap{};
+        Slot *previousRead{};
+        unsigned readers{};
+        bool completed{};
     } slots[8];
+    Slot *latest{};
     ID3D12Device *device{};ID3D12CommandQueue *queue{};
     HRESULT status{S_OK};const char *reason="unused";
     bool initialize(ID3D12Device *d,ID3D12CommandQueue *q){
@@ -24,10 +29,17 @@ struct AppleFrameInputs {
     }
     static void unpin(Slot &s){
         if(s.sourceDepth)s.sourceDepth->Release();if(s.sourceMotion)s.sourceMotion->Release();if(s.output)s.output->Release();
-        s.sourceDepth=s.sourceMotion=s.output=nullptr;s.stage=Free;s.frame={};
+        s.sourceDepth=s.sourceMotion=s.output=nullptr;s.stage=Free;s.frame={};s.completed=false;
     }
-    void poll(){for(auto &s:slots)if(s.stage==Retiring&&s.fence){auto completed=s.fence->GetCompletedValue();
-        if(completed!=UINT64_MAX&&completed>=s.value)unpin(s);}}
+    void poll(){
+        for(auto &s:slots)if(s.stage==Retiring&&!s.completed){
+            auto completed=s.fence->GetCompletedValue();
+            if(completed==UINT64_MAX||completed<s.value)continue;
+            s.completed=true;
+            if(s.previousRead){--s.previousRead->readers;s.previousRead=nullptr;}
+        }
+        for(auto &s:slots)if (s.completed && !s.readers && &s != latest) unpin(s);
+    }
     bool retireReusedOutput(ID3D12Resource *output,uint64_t nextFrame){
         if(!queue||!output)return false;
         for(auto &s:slots)if(s.stage==Recorded&&s.output==output&&s.frame.frame<nextFrame){
@@ -75,9 +87,9 @@ struct AppleFrameInputs {
     }
     Slot *find(uint64_t frame){for(auto &s:slots)if(s.stage==Prepared&&s.frame.frame==frame)return &s;return nullptr;}
     bool recorded(Slot *s,ID3D12Resource *output){if(!s||s->stage!=Prepared||!output)return false;
-        s->output=output;output->AddRef();s->stage=Recorded;return true;}
+        s->output=output;output->AddRef();s->stage=Recorded;latest=s;return true;}
     // Must be called after the context has stopped recording AND its owning
     // queue's completion fence retired. Includes orphaned Prepare-only slots.
-    void releaseAfterGpuCompletion(){for(auto &s:slots){unpin(s);if(s.depth)s.depth->Release();if(s.motion)s.motion->Release();if(s.fence)s.fence->Release();s={};}
+    void releaseAfterGpuCompletion(){latest=nullptr;for(auto &s:slots){unpin(s);if(s.depth)s.depth->Release();if(s.motion)s.motion->Release();if(s.fence)s.fence->Release();if(s.visibilityHeap)s.visibilityHeap->Release();s={};}
         if(queue)queue->Release();if(device)device->Release();queue=nullptr;device=nullptr;}
 };

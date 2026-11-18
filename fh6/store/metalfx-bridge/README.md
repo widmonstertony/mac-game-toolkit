@@ -689,3 +689,30 @@ runner with `--upscale-chain` to test PE → Unix SR → D3D12 intermediate text
 → MetalFX FG → D3D12 readback. Both producer and intermediate queues must finish
 before consuming mapped data. This test does not exercise UI composition or
 swapchain presentation.
+
+### Generated-frame visibility correction
+
+MetalFX can retain previous-frame exhaust color where the newly visible road
+projects behind the car. The FH6 provider now checks the current and previous
+Prepare snapshots after a native midpoint, before native UI composition. The
+check uses the game's camera transform and reverse-Z depth to corroborate
+motion, then blends in reprojected current road pixels where the previous
+sample was occluded. At the viewport edge, bounded extrapolation requires
+agreement between the neighboring depth and motion gradients and the camera
+projection. The replacement fades to a visible current-frame sample of the
+same surface. The normal original-frame and UI paths remain independent.
+
+The same GPU dispatch is used by the provider and the visibility replay
+probe. The probe exercised 18 submissions per recording, rotating through
+four outputs and checking the retirement of previous snapshots. At
+3472 × 2266 it modified 63,421 RGB pixels (0.81%) in the captured turn and
+294,492 (3.74%) in the earlier high-speed recording. The duplicated exhaust
+outline disappeared in the turning sample. The broad stale region in the
+fast sample was removed, with some local lane-edge distortion still visible
+near the lower boundary. GPU output alpha matched in both recordings.
+
+The installed-renderer scheduler test presented 14 native midpoint/original
+pairs and two startup fallback pairs. It reported zero original-frame and
+UI pixel errors and verified fenced snapshots after the synthetic game
+overwrote the source textures. The user starts the next retail game session
+to verify driving behavior and frame pacing.

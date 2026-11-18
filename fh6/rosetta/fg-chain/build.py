@@ -32,6 +32,10 @@ def main():
     history_hash = hashlib.sha256((here / 'history-post.hlsl').read_bytes()).hexdigest()
     if 'HLSL SHA256: ' + history_hash not in (here / 'history-post-bytecode.h').read_text():
         raise RuntimeError('Recompile the owned history-post shader after changing its HLSL')
+    if args.apple_only:
+        visibility_hash = hashlib.sha256((here / 'apple-visibility.hlsl').read_bytes()).hexdigest()
+        if 'HLSL SHA256: ' + visibility_hash not in (here / 'apple-visibility-bytecode.h').read_text():
+            raise RuntimeError('Recompile the MetalFX visibility shader after changing its HLSL')
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     deps = args.deps.resolve() if args.deps else out / 'deps'
@@ -71,7 +75,8 @@ def main():
     if args.apple_only:
         jobs = [job for job in jobs if job[1] in ('fh6-fg-chain.asi', 'sl.interposer.dll', 'framegeneration-audit.dll')]
         jobs += [(['-shared', '-DNATIVE_UI_FIX', '-DAPPLE_FG_CANDIDATE', str(here/'provider-audit.cpp'), '-ldxguid'], 'framegeneration-apple.dll'),
-                 (['-municode', '-DAPPLE_FG_TEST', str(here/'native-ui-probe.cpp'), '-ld3d12', '-ldxguid', '-ldxgi'], 'apple-ffx-probe.exe')]
+                 (['-municode', '-DAPPLE_FG_TEST', str(here/'native-ui-probe.cpp'), '-ld3d12', '-ldxguid', '-ldxgi'], 'apple-ffx-probe.exe'),
+                 (['-municode', str(here/'apple-visibility-probe.cpp'), '-ld3d12', '-ldxguid'], 'apple-visibility-probe.exe')]
     for flags, name in jobs:
         subprocess.run(common + flags + ['-o', str(out / name)], check=True)
     receipt = {'purpose': 'audit DLLs are observation only; native-ui candidate changes generated-frame UI composition and requires separate GPU/visual validation',

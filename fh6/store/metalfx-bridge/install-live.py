@@ -15,6 +15,7 @@ def main():
     a=argparse.ArgumentParser(description=__doc__)
     a.add_argument('--artifacts',type=Path,required=True)
     a.add_argument('--carrier',type=Path,required=True)
+    a.add_argument('--keep-observer',action='store_true',help='Preserve the verified native Streamline observer')
     a.add_argument('--apply',action='store_true');a=a.parse_args()
     proof=json.loads((a.artifacts/'present-check/result.json').read_text())
     candidate=a.artifacts/'framegeneration-apple.dll'
@@ -68,7 +69,9 @@ def main():
         link=installed_so.with_name('.nvngx-link-staged')
         link.symlink_to(source_so.resolve());os.replace(link,installed_so)
     if sha(carrier/'x86_64-windows/nvngx.dll')!=proof['native_carrier_sha256']:raise RuntimeError('Copied carrier mismatch')
-    changes={target:candidate.read_bytes(),observer:(a.artifacts/'fh6-fg-chain.asi').read_bytes(),**generator_files}
+    changes={target:candidate.read_bytes(),**generator_files}
+    if not a.keep_observer:
+        changes[observer]=(a.artifacts/'fh6-fg-chain.asi').read_bytes()
     for p,data in changes.items():record['verifiedFiles'][str(p)]=hashlib.sha256(data).hexdigest()
     record['verifiedFiles'][str(carrier/'x86_64-windows/nvngx.dll')]=sha(carrier/'x86_64-windows/nvngx.dll')
     record['verifiedFiles'][str(installed_so)]=sha(installed_so)

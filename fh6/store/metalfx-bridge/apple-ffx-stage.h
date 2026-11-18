@@ -1,11 +1,12 @@
 #pragma once
-#include "apple-frame-inputs.h"
+#include "apple-visibility.h"
 
 // FH6-only adapter. The existing FFX scheduler still owns submission and
 // presentation. This stage records into its list; it never submits or waits.
 struct AppleFfxStage {
     AppleCommandFg backend;
     AppleFrameInputs inputs;
+    AppleVisibility visibility;
     uint64_t copied{}, middle{}, warmup{}, declined{};
     bool lastWasNative{};
     const char *reason="unused";
@@ -76,7 +77,11 @@ struct AppleFfxStage {
         bool ok=backend.record((ID3D12GraphicsCommandList*)p.commandList,saved,scene,
             slot->depth,slot->motion,(ID3D12Resource*)p.outputs[0].resource,generated);
         reason=backend.reason;
-        if(ok&&generated){++middle;lastWasNative=true;return true;}
+        if(ok&&generated){
+            visibility.record(inputs,*slot,(ID3D12GraphicsCommandList*)p.commandList,
+                              scene,(ID3D12Resource*)p.outputs[0].resource);
+            ++middle;lastWasNative=true;return true;
+        }
         if(ok)++warmup;else ++declined;
         // Startup copies are not counted/presented as native interpolation.
         // The caller runs original FSR FG after this work for those samples.
@@ -86,6 +91,7 @@ struct AppleFfxStage {
     void recorded(uint64_t frame,ID3D12Resource *output){if(auto s=inputs.find(frame))inputs.recorded(s,output);}
     bool releaseAfterGpuCompletion(){
         if(!backend.releaseAfterGpuCompletion())return false;
+        visibility.release();
         inputs.releaseAfterGpuCompletion();backend=AppleCommandFg{};
         copied=middle=warmup=declined=0;lastWasNative=false;reason="unused";return true;
     }
