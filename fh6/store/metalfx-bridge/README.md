@@ -98,6 +98,35 @@ That post-pass remains an offline control. The remaining suspect is the
 interpolation behavior around newly visible surfaces, including input
 representation details not covered by the snapshot comparison.
 
+### Locate the duplicated exhaust sample
+
+In the 6920/6921 exact-input replay, a color-only perturbation applied to the
+older exhaust changed at least three blue-channel code values in 939 of 3,335
+pixels in a region below the real exhaust. The identical perturbation applied
+to the newer exhaust changed zero by that amount in the same region. The two
+real exhausts sit at nearly the same screen height. The stale exhaust is roughly
+48 pixels lower in the generated frame, consistent with half of the road's
+roughly 96-pixel motion at that location.
+
+At output coordinate (1760, 1988), the current road sample is near (1759, 2036).
+Its motion points back to (1761, 1940), where the older frame contains the
+exhaust. The recorded camera projects the road to the same place within 0.17
+output pixel. The old depth there is about 1.13 times the projected road depth
+in reversed Z: the old sample is closer than the road and occludes it. The
+perturbation changes only source color; it does not establish which internal
+MetalFX stage selected or weighted that occluded sample.
+
+An offline selective correction keeps the original midpoint wherever the
+old sample is valid. It replaces the stale contribution only where depth
+proves the background was blocked and the old occluder's screen motion
+differs from the road. It uses the current visible background projected to the
+midpoint, with feathering and a local shadow-preservation control. The
+turning sample loses the duplicated exhaust contour and the correction's
+nonzero weights cover 0.88% of the frame. The earlier, faster sample retains
+artifacts around the lower reconstruction boundary. Keep the correction out
+of the installed runtime until the boundary fallback and frame-to-frame
+stability pass on driving captures.
+
 Additional offline controls on the current captured pair reject full-resolution
 nearest depth/MV and output-grid motion scaling: duplicated rear detail remains
 or worsens. Making the zero-alpha source opaque changes no RGB output values.
