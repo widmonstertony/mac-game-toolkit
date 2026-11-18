@@ -13,10 +13,11 @@ struct CapturePrepare {
     UINT render[2]{};
 };
 struct FgGpuCapture {
-    enum {ImageCount=7,JobCount=2};
+    enum {ImageCount=10,JobCount=2};
     struct Image {
         const char *name{};ID3D12Resource *source{};D3D12_RESOURCE_STATES state{};
         D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};UINT width{},height{},format{};UINT64 bytes{},rowBytes{};
+        uint64_t sourceFrame{};const char *stage{};
     };
     struct Job {
         Image image[ImageCount]{};ID3D12Resource *readback{};ID3D12Fence *fence{};
@@ -24,6 +25,7 @@ struct FgGpuCapture {
         HMODULE module{},reporterModule{};ChainReport report{};wchar_t folder[32768]{};
         uint64_t frame{};UINT64 total{};ChainFrame native{};CapturePrepare prepare{};
         UINT transfer{};bool recorded{},nativeUi{},preparedInputs{},skip{};
+        bool inputCopiesRecorded{},nativeMiddleSelected{};
     };
     Job *pending[JobCount]{};unsigned remaining{},poll{};HMODULE module{};ChainReport report{};
     volatile LONG activeJobs{};
@@ -81,13 +83,13 @@ struct FgGpuCapture {
         if(mapped){D3D12_RANGE noWrite{};j->readback->Unmap(0,&noWrite);}
         // A single metadata file, written last, is the completed-capture marker.
         wcscpy(path,j->folder);wcscat(path,L"\\native-frame.bin");ok=save(path,&j->native,sizeof(j->native))&&ok;
-        char meta[6000];int n=snprintf(meta,sizeof(meta),"{\"frame\":%llu,\"gpu_fence_completed\":%s,\"pixel_files_complete\":%s,\"native_ui_composited\":%s,\"transfer\":%u,\"native_frame_size\":%u,\"prepare\":{\"known\":%s,\"frame\":%llu,\"milliseconds\":%.9g,\"render\":[%u,%u],\"scale\":[%.9g,%.9g],\"jitter\":[%.9g,%.9g]},\"images\":[",
-            (unsigned long long)j->frame,complete?"true":"false",ok?"true":"false",j->nativeUi?"true":"false",j->transfer,(unsigned)sizeof(j->native),
+        char meta[6000];int n=snprintf(meta,sizeof(meta),"{\"frame\":%llu,\"gpu_fence_completed\":%s,\"pixel_files_complete\":%s,\"native_ui_composited\":%s,\"transfer\":%u,\"native_frame_size\":%u,\"native_capture_path\":%s,\"native_midpoint_selected\":%s,\"prepare\":{\"known\":%s,\"frame\":%llu,\"milliseconds\":%.9g,\"render\":[%u,%u],\"scale\":[%.9g,%.9g],\"jitter\":[%.9g,%.9g]},\"images\":[",
+            (unsigned long long)j->frame,complete?"true":"false",ok?"true":"false",j->nativeUi?"true":"false",j->transfer,(unsigned)sizeof(j->native),j->inputCopiesRecorded?"true":"false",j->nativeMiddleSelected?"true":"false",
             j->prepare.known?"true":"false",(unsigned long long)j->prepare.frame,j->prepare.milliseconds,j->prepare.render[0],j->prepare.render[1],j->prepare.scale[0],j->prepare.scale[1],j->prepare.jitter[0],j->prepare.jitter[1]);
         bool first=true;
         for(const auto &i:j->image){if(!i.source || n<=0 || n>=(int)sizeof(meta))continue;
-            n+=snprintf(meta+n,sizeof(meta)-n,"%s{\"name\":\"%s\",\"ptr\":\"%llx\",\"source_format\":%u,\"copy_format\":%u,\"width\":%u,\"height\":%u,\"row_pitch\":%u,\"row_bytes\":%llu,\"bytes\":%llu,\"state_restored\":%u}",
-            first?"":",",i.name,(unsigned long long)i.source,i.format,(unsigned)i.footprint.Footprint.Format,i.width,i.height,i.footprint.Footprint.RowPitch,(unsigned long long)i.rowBytes,(unsigned long long)i.bytes,(unsigned)i.state);first=false;}
+            n+=snprintf(meta+n,sizeof(meta)-n,"%s{\"name\":\"%s\",\"ptr\":\"%llx\",\"source_format\":%u,\"copy_format\":%u,\"width\":%u,\"height\":%u,\"row_pitch\":%u,\"row_bytes\":%llu,\"bytes\":%llu,\"state_restored\":%u,\"source_frame\":%llu,\"copy_stage\":\"%s\"}",
+            first?"":",",i.name,(unsigned long long)i.source,i.format,(unsigned)i.footprint.Footprint.Format,i.width,i.height,i.footprint.Footprint.RowPitch,(unsigned long long)i.rowBytes,(unsigned long long)i.bytes,(unsigned)i.state,(unsigned long long)i.sourceFrame,i.stage?i.stage:"legacy-after-evaluate");first=false;}
         if(n>0 && n+3<(int)sizeof(meta)){memcpy(meta+n,"]}\n",3);n+=3;
             wcscpy(path,j->folder);wcscat(path,L"\\capture.json");ok=save(path,meta,n)&&ok;}
         else ok=false;
@@ -114,7 +116,7 @@ struct FgGpuCapture {
     }
     void drained(ID3D12CommandQueue *queue) {
         // Context teardown already drained the original SDK's queue here.
-        for(auto &j:pending)if(j && (j->recorded || j->preparedInputs))if(schedule(j,queue))j=nullptr;
+        for(auto &j:pending)if(j && (j->recorded || j->preparedInputs || j->inputCopiesRecorded))if(schedule(j,queue))j=nullptr;
     }
     bool armed() {
         if(!module || !root[0] || InterlockedCompareExchange(&activeJobs,0,0)>=JobCount)return false;
@@ -155,16 +157,27 @@ struct FgGpuCapture {
         for(auto &slot:pending)if(!slot){slot=j;remaining--;return j;}
         cleanup(j);return nullptr;
     }
-    Job *begin(ID3D12Device *device,const ChainFrame &f,const CapturePrepare &prep,const ffxDispatchDescFrameGeneration &p) {
+    Job *begin(ID3D12Device *device,const ChainFrame &f,const CapturePrepare &prep,const ffxDispatchDescFrameGeneration &p,
+               ID3D12Resource *consumedDepth=nullptr,ID3D12Resource *consumedMotion=nullptr,uint64_t consumedFrame=0) {
         if(p.reset || !prep.known || prep.frame!=p.frameID || !armed())return nullptr;
         auto j=makeJob(device,f,prep,true);if(!j)return nullptr;
         j->transfer=p.backbufferTransferFunction;
         const char *names[]={"depth","motion","scene","ui","present","generated-before-ui","generated-after-ui"};
         const uint64_t ptrs[]={f.tags[0].native,f.tags[1].native,f.tags[2].native,f.tags[3].native,(uint64_t)p.presentColor.resource,(uint64_t)p.outputs[0].resource,(uint64_t)p.outputs[0].resource};
         const D3D12_RESOURCE_STATES states[]={D3D12_RESOURCE_STATES(f.tags[0].state),D3D12_RESOURCE_STATES(f.tags[1].state),D3D12_RESOURCE_STATES(f.tags[2].state),D3D12_RESOURCE_STATES(f.tags[3].state),apiState(p.presentColor.state),apiState(p.outputs[0].state),apiState(p.outputs[0].state)};
-        for(unsigned k=0;k<ImageCount;k++){
+        for(unsigned k=0;k<7;k++){
             auto source=(ID3D12Resource*)ptrs[k];
             if(!source||!addImage(j,k,names[k],source,states[k],source->GetDesc()))return queueJob(j,false);
+        }
+        if(consumedDepth||consumedMotion||consumedFrame){
+            // These are the exact retained textures passed to MetalFX, not
+            // another read of the game's potentially overwritten resources.
+            if(!consumedDepth||!consumedMotion||consumedFrame!=p.frameID)return queueJob(j,false);
+            auto read=D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+            if(!addImage(j,7,"consumed-prepare-depth",consumedDepth,read,consumedDepth->GetDesc())||
+               !addImage(j,8,"consumed-prepare-motion",consumedMotion,read,consumedMotion->GetDesc())||
+               !addImage(j,9,"scene-before-fg",(ID3D12Resource*)ptrs[2],states[2],((ID3D12Resource*)ptrs[2])->GetDesc()))return queueJob(j,false);
+            for(unsigned k=7;k<10;++k){j->image[k].sourceFrame=consumedFrame;j->image[k].stage="before-native-evaluate";}
         }
         return queueJob(j,true);
     }
@@ -221,6 +234,8 @@ struct FgGpuCapture {
             D3D12_TEXTURE_COPY_LOCATION from{},to{};from.pResource=i.source;from.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;from.SubresourceIndex=0;to.pResource=j->readback;to.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;to.PlacedFootprint=i.footprint;
             list->CopyTextureRegion(&to,0,0,0,&from,nullptr);b.Transition.StateBefore=D3D12_RESOURCE_STATE_COPY_SOURCE;b.Transition.StateAfter=i.state;list->ResourceBarrier(1,&b);
         }
-        if(end==ImageCount)j->recorded=true;
+        // The extra input copies run BEFORE evaluation. They must not make an
+        // incomplete output look like a completed generated-frame capture.
+        if(first<=6&&end>=7)j->recorded=true;
     }
 };

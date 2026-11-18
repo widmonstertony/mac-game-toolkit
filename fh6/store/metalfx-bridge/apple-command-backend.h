@@ -99,7 +99,12 @@ struct AppleCommandFg {
         params.set("DLSSG.DepthSubrectBaseX",0u);params.set("DLSSG.DepthSubrectBaseY",0u);
         params.set("DLSSG.MVecsSubrectWidth",rw);params.set("DLSSG.MVecsSubrectHeight",rh);
         params.set("DLSSG.DepthSubrectWidth",rw);params.set("DLSSG.DepthSubrectHeight",rh);
-        params.set("DLSSG.run_lowres_mvec_pass",0);reason="ready";return true;
+#ifdef APPLE_COMMAND_LOWRES_CONTROL
+        params.set("DLSSG.run_lowres_mvec_pass",1);
+#else
+        params.set("DLSSG.run_lowres_mvec_pass",0);
+#endif
+        reason="ready";return true;
     }
     static bool texture(ID3D12Resource *r,UINT width,UINT height,DXGI_FORMAT format,bool uav=false){
         if(!r)return false;auto d=r->GetDesc();return d.Dimension==D3D12_RESOURCE_DIMENSION_TEXTURE2D&&

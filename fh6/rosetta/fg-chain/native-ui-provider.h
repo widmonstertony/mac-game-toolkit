@@ -210,6 +210,19 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
     if(binding) {
         auto sceneOnly=p;sceneOnly.presentColor=hudless;
 #ifdef APPLE_FG_CANDIDATE
+        FgGpuCapture::Job *nativeJob=nullptr;
+        if(auto slot=c->apple.inputs.find(p.frameID)){
+            nativeJob=c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p,
+                slot->depth,slot->motion,slot->frame.frame);
+            if(nativeJob){
+                for(unsigned k=0;k<5;++k)nativeJob->image[k].stage="before-native-evaluate";
+                nativeJob->image[5].stage="after-fg-evaluate-before-ui";
+                nativeJob->image[6].stage="after-ui";
+                FgGpuCapture::copies((ID3D12GraphicsCommandList*)p.commandList,nativeJob,0,5);
+                FgGpuCapture::copies((ID3D12GraphicsCommandList*)p.commandList,nativeJob,7,10);
+                nativeJob->inputCopiesRecorded=true;
+            }
+        }
         if(c->apple.record(c->device,frame,p,binding->scene))result=FFX_API_RETURN_OK;
         else {
             // FSR was not evaluated during native frames: invalidate stale FG
@@ -218,6 +231,7 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
             result=dispatch?dispatch(context,&sceneOnly.header):FFX_API_RETURN_NO_PROVIDER;
             if(!result)c->apple.lastWasNative=false;
         }
+        if(nativeJob)nativeJob->nativeMiddleSelected=c->apple.lastWasNative;
         if(report&&(c->applied<8||p.frameID%60==0)){char line[300];snprintf(line,sizeof(line),
             "{\"event\":\"apple_fg_dispatch\",\"frame\":%llu,\"native\":%s,\"middle\":%llu,\"warmup\":%llu,\"reason\":\"%s\",\"transfer\":%u}",
             (unsigned long long)p.frameID,c->apple.lastWasNative?"true":"false",(unsigned long long)c->apple.middle,
@@ -233,9 +247,14 @@ static ffxReturnCode_t nativeDispatch(ffxContext *context,const ffxDispatchDescH
             c->history.rememberScene(p.frameID,(ID3D12GraphicsCommandList*)p.commandList,binding->scene);
             if(report&&(c->applied<8||p.frameID%600==0)){char line[250];snprintf(line,sizeof(line),"{\"event\":\"history_post\",\"frame\":%llu,\"dispatched\":%s,\"reason\":\"%s\"}",(unsigned long long)p.frameID,historyCorrected?"true":"false",c->history.reason);report(line);}
 #endif
-            auto job=c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p);
             auto list=(ID3D12GraphicsCommandList*)p.commandList;
+#ifdef APPLE_FG_CANDIDATE
+            auto job=nativeJob?nativeJob:c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p);
+            if(job)FgGpuCapture::copies(list,job,nativeJob?5:0,6);
+#else
+            auto job=c->capture.begin(c->device,frame,c->prepared[p.frameID%8],p);
             if(job)FgGpuCapture::copies(list,job,0,6);
+#endif
             c->compositor.record(list,binding);
             if(job)FgGpuCapture::copies(list,job,6,7);
         }

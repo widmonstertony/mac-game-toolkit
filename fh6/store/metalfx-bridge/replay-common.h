@@ -4,7 +4,15 @@
 static NSData *read(NSString *folder,NSString *name) {
     return [NSData dataWithContentsOfFile:[folder stringByAppendingPathComponent:name]];
 }
-static NSDictionary *metadata(NSString *folder) {
+static bool hasConsumedInputs(NSDictionary *meta){
+    for(NSDictionary *i in meta[@"images"])if([i[@"name"] isEqual:@"consumed-prepare-depth"])return true;
+    return false;
+}
+static NSArray *replayInputNames(NSDictionary *meta){
+    return hasConsumedInputs(meta)?@[@"scene-before-fg",@"consumed-prepare-depth",@"consumed-prepare-motion"]:
+                                  @[@"scene",@"prepare-current-depth",@"prepare-current-motion"];
+}
+static NSDictionary *metadata(NSString *folder,bool taggedInputControl=false) {
     NSData *data=read(folder,@"capture.json");if(!data)return nil;
     id object=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
     if(![object isKindOfClass:NSDictionary.class])return nil;
@@ -13,9 +21,12 @@ static NSDictionary *metadata(NSString *folder) {
        ![m[@"prepare"][@"known"] boolValue]||[m[@"prepare"][@"frame"] unsignedLongLongValue]!=frame)return nil;
     NSData *native=read(folder,@"native-frame.bin");if(native.length!=608)return nil;
     uint64_t nativeFrame=0;memcpy(&nativeFrame,native.bytes,8);if(nativeFrame!=frame)return nil;
-    for(NSString *name in @[@"scene",@"prepare-current-depth",@"prepare-current-motion"]) {
+    if(!taggedInputControl&&hasConsumedInputs(m)&&![m[@"native_capture_path"] boolValue])return nil;
+    NSArray *required=taggedInputControl?@[@"scene",@"depth",@"motion"]:replayInputNames(m);
+    for(NSString *name in required) {
         bool found=false;for(NSDictionary *image in m[@"images"])if([image[@"name"] isEqual:name]) {
-            if([image[@"source_frame"] unsignedLongLongValue]!=frame)return nil;
+            if(!taggedInputControl&&[image[@"source_frame"] unsignedLongLongValue]!=frame)return nil;
+            if(!taggedInputControl&&hasConsumedInputs(m)&&![image[@"copy_stage"] isEqual:@"before-native-evaluate"])return nil;
             found=true;break;
         }
         if(!found)return nil;

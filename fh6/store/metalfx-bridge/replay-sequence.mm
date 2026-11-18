@@ -16,7 +16,8 @@ int main(int argc,char **argv){@autoreleasepool{
  for(unsigned n=0;n<count;++n){NSString *folder=[root stringByAppendingPathComponent:[NSString stringWithFormat:@"frame-%llu",(unsigned long long)(first+n)]];
   NSDictionary *meta=metadata(folder);if(!meta||[meta[@"frame"] unsignedLongLongValue]!=first+n)return 3;
   [folders addObject:folder];[metas addObject:meta];}
- NSDictionary *ci=imageInfo(metas[0],@"scene"),*di=imageInfo(metas[0],@"prepare-current-depth");
+ NSArray *firstNames=replayInputNames(metas[0]);
+ NSDictionary *ci=imageInfo(metas[0],firstNames[0]),*di=imageInfo(metas[0],firstNames[1]);
  unsigned w=[ci[@"width"] unsignedIntValue],h=[ci[@"height"] unsignedIntValue],rw=[di[@"width"] unsignedIntValue],rh=[di[@"height"] unsignedIntValue];
  if(!w||!h||!rw||!rh||w>16384||h>16384||rw>w||rh>h)return 3;
  if([[NSFileManager defaultManager] fileExistsAtPath:out]||![[NSFileManager defaultManager] createDirectoryAtPath:out withIntermediateDirectories:NO attributes:nil error:nil])return 4;
@@ -25,7 +26,7 @@ int main(int argc,char **argv){@autoreleasepool{
  FxDispatchCamera p{};p.frame.context=c.context;p.frame.color=color.b;p.frame.depth=depth.b;p.frame.motion=motion.b;p.frame.output=output.b;
  unsigned generated=0;NSMutableArray *results=[NSMutableArray array];
  for(unsigned n=0;n<count;++n){NSDictionary *meta=metas[n];NSString *folder=folders[n];
-  NSArray *names=@[@"scene",@"prepare-current-depth",@"prepare-current-motion"];
+  NSArray *names=replayInputNames(meta);
   OwnedBuffer *buffers[]={&color,&depth,&motion};
   for(unsigned k=0;k<3;++k){NSDictionary *info=imageInfo(meta,names[k]);
    if([info[@"width"] unsignedIntValue]!=buffers[k]->b.width||[info[@"height"] unsignedIntValue]!=buffers[k]->b.height||

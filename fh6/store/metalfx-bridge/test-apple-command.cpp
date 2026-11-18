@@ -23,7 +23,7 @@ extern "C" void entry(){
  if(len){if(len>=sizeof(path))ExitProcess(2);input=CreateFileA(path,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
   unsigned header[6];if(input==INVALID_HANDLE_VALUE||!io(input,header,sizeof(header))||header[0]!=0x31474641)ExitProcess(2);
   w=header[1];h=header[2];rw=header[3];rh=header[4];count=header[5];
-  if(!w||!h||!rw||!rh||rw>w||rh>h||w>8192||h>8192||count!=8)ExitProcess(2);}
+  if(!w||!h||!rw||!rh||rw>w||rh>h||w>8192||h>8192||(count!=8&&count!=3))ExitProcess(2);}
  GPU gpu;if(!gpu.init())ExitProcess(3);AppleCommandFg backend;
  if(!backend.initialize(gpu.d,w,h,rw,rh)){report("FAIL initialize %s status=%x\n",backend.reason,backend.status);ExitProcess(4);}
  Texture color,depth,motion,out;char type[4]{};

@@ -2,6 +2,80 @@
 
 ## Live FH6 FG trial installed, November 17
 
+### First actual MetalFX gameplay with residual ghosting
+
+The user's 15:11 report is the first captured live run with actual native
+midpoint generation: the sampled counter reaches 3,026, with `native:true`.
+This is not the previous fallback failure. A bounded request in the same process
+captures frames 60194/60195; both have completed GPU fences and all seven pixel
+files. The input scene is visibly cleaner below the rear body; the duplicated
+bumper/exhaust detail is present in generated-before-UI and remains after UI
+composition. No game restart or production setting change was made.
+
+The seven-image recorder copies the tagged original depth/motion at interpolation;
+it does **not** capture the private Prepare snapshots actually consumed by this
+backend. It reads scene color after FG dispatch as well. Those limitations remain
+relevant when auditing exact pixel epochs; do not claim the capture proves every
+input was synchronized or untouched before FG.
+
+Explicit offline controls reuse the same captured pair with two frozen startup
+samples, followed by one chronological pair. Both the command-list NGX backend
+and the direct native MetalFX bridge reproduce rear-body artifacts. RGB samples
+in the car region differ by about 0.65 code values on average between those
+two replays; this is a similarity measurement, not a quality approval.
+The following controls are rejected and **not deployed**:
+
+- The NGX low-resolution-vector pass reports an unsupported-feature message and
+  does not remove the repeated rear. `APPLE_COMMAND_LOWRES_CONTROL` is test-only.
+- Omitting optional camera matrices makes the duplicated exhaust more prominent.
+- A 3×3 nearest reversed-Z depth/motion dilation does not remove the artifact.
+
+At selected static road points, raw backward motion and camera-only depth
+reprojection agree within about 0.11 output pixels. Car-body points have roughly
+one-pixel raw flow and a large camera-only residual, consistent with independent
+object motion. Patch matching in blurred road textures is ambiguous and does
+not establish an exact inter-frame color epoch or justify a global MV multiplier.
+
+`tagged-input-control` and `tagged-camera-omitted-control` are explicitly weaker
+replay readers for these interpolation-stage captures; ordinary replay retains
+the existing Prepare-snapshot provenance requirements. No ghosting fix is claimed.
+Current production hashes/settings remain unchanged. The next causal gap is
+matching the actual consumed Prepare snapshots and color history/visibility.
+
+### Consumed-input capture prepared, not deployed
+
+The next capture candidate now copies the actual retained depth/MV textures
+passed to MetalFX, plus scene color before evaluation, separately from the
+original game resources. Per-image metadata records copy stage and snapshot
+frame. It also distinguishes a native midpoint from a warmup/fallback output.
+A GPU input-copy alone cannot mark a generated-output capture as complete.
+The capture remains explicitly armed and bounded to two jobs, with a 256 MiB
+per-job allocation ceiling (about 238 MiB at the current game dimensions).
+
+The real FFX scheduler control deliberately overwrites the tagged originals
+using separate GPU source textures after Prepare; reusing the initial upload
+buffer would invalidate this control before GPU execution. All 245,760 checked
+input/source pixels retain the correct epochs, while the originals contain the
+distinct overwrite pattern. The same trial verifies 32 ordered callbacks, 14
+native midpoint pairs, and zero UI/original-pixel errors. Strict replay can read
+the new consumed-input records without falling back to tagged-original files.
+See `consumed-capture-validation-20261117.json`.
+
+This candidate is **not installed in the running game** and does not repair the
+rear ghost. Installing diagnostics is not visual acceptance. The current game
+was left running; no request for another test/restart was made. The later paused
+menu has cleared scene/UI tags and takes the supported fallback route; its
+non-growing native counter must not be confused with the earlier driving data.
+
+Additional offline controls on the current captured pair reject full-resolution
+nearest depth/MV and output-grid motion scaling: duplicated rear detail remains
+or worsens. Making the zero-alpha source opaque changes no RGB output values.
+The native Vision optical-flow revision-2 control fails its known-translation
+calibration, so it is discarded. Revision 1 passes that calibration, but blurred
+road matching remains ambiguous and is not used to justify a production scale
+change. No claim of an input-epoch root cause or an Apple algorithm defect is
+made without the missing exact-consumed gameplay evidence.
+
 ### Real NGX module versus the OptiScaler input shim
 
 The next user run still records `parameter ABI`, 1,720 Prepare copies and zero

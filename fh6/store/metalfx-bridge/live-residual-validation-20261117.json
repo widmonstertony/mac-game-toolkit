@@ -1,0 +1,37 @@
+{
+  "liveNativeMiddleCounter": 3026,
+  "captures": [
+    {
+      "frame": 60194,
+      "gpuFenceCompleted": true,
+      "pixelFilesComplete": true,
+      "metadataSha256": "88a51ed7acece317d861d4fa01ddb97472f87a4326e37a006f2221ae85d2158b"
+    },
+    {
+      "frame": 60195,
+      "gpuFenceCompleted": true,
+      "pixelFilesComplete": true,
+      "metadataSha256": "9b917ce685552348aad01b8f2f096857ef1bb97d45045c845e17016b07e8a18a"
+    }
+  ],
+  "observation": "rear ghost visible in generated-before-ui, not visibly present at same extent in tagged scene",
+  "limits": [
+    "scene copied after FG dispatch",
+    "tagged original depth/motion, not actual private Prepare snapshots",
+    "offline replay uses frozen startup history"
+  ],
+  "rejectedControls": [
+    "low-res-vector pass",
+    "omitted camera matrices",
+    "3x3 reverse-Z depth/motion dilation",
+    "nearest full-resolution depth/motion",
+    "output-grid motion scale instead of render-grid",
+    "opaque source alpha (RGB exactly unchanged)"
+  ],
+  "productionChanged": false,
+  "gameRestarted": false,
+  "ghostingResolved": false,
+  "next_capture_gpu_validated": true,
+  "next_capture_installed": false,
+  "upstream_fh6_quirk": "DxgiSpoofing=false in OptiScaler/misc/GameConfigs.cpp; no rear-specific correction found there"
+}

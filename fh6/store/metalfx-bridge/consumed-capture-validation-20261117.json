@@ -1,0 +1,49 @@
+{
+  "exit": 0,
+  "passed": true,
+  "missing_ui": false,
+  "gap_control": false,
+  "candidate_sha256": "7176e8b3c758bd04a59faafe0d2e22bc8274878b3c6c255765468e295fc368dc",
+  "original_sha256": "e6843252f58b0341a0d80f6a20bc0d840643ee95bc48c22cac08745344577bb6",
+  "native_carrier_sha256": "2e522873d2dec412c29f73096f1c1dc6bd8016dc40fd76fbeddd2eb7e226d3cb",
+  "game_marker_sha256": "17e00fc66d32f348fa16d387d635ac1b994aa7317b3e6d968867d1ee77af3564",
+  "stock_renderer_shim": false,
+  "renderer_shim_sha256": "823874378d67b02286f8d58419e25f910b8571e8e15dcbeb6426b7981b8dc988",
+  "shim_wrappers_enabled": true,
+  "loaded_d3d12": "C:\\windows\\system32\\d3d12.dll",
+  "scheduler_present_test": true,
+  "public_ngx_redirection_test": true,
+  "queued_presents": false,
+  "consumed_input_capture_control": [
+    {
+      "frame": 1,
+      "images": 10,
+      "consumed_pixels_checked": 122880,
+      "originals_overwritten_after_prepare": true,
+      "scene_unchanged_by_evaluate": true
+    },
+    {
+      "frame": 2,
+      "images": 10,
+      "consumed_pixels_checked": 122880,
+      "originals_overwritten_after_prepare": true,
+      "scene_unchanged_by_evaluate": true
+    }
+  ],
+  "synthetic_scheduler_verified": true,
+  "scheduler_observation": {
+    "callbacks": 32,
+    "dispatches": 16,
+    "native_pairs": 14,
+    "errors": 0,
+    "ui_errors": 0,
+    "original_errors": 0
+  },
+  "live_presentation_verified": false,
+  "game_quality_verified": false,
+  "installed_in_game": false,
+  "purpose": "Verify bounded capture of the actual consumed Prepare textures and pre-evaluate scene; not a ghosting fix",
+  "ghosting_resolved": false,
+  "strict_replay_metadata_verified": true,
+  "native_warmup_vs_middle_metadata_verified": true
+}

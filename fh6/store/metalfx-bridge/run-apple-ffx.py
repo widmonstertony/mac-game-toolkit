@@ -8,6 +8,7 @@ import argparse
 import importlib.util
 import json
 import re
+import struct
 from pathlib import Path
 import shutil
 import subprocess
@@ -25,6 +26,7 @@ p.add_argument('--queued-presents', action='store_true', help='With --present-co
 p.add_argument('--production-shim', action='store_true',
                help='Require the installed Store D3D12 shim in the isolated prefix and enable its wrappers')
 p.add_argument('--public-ngx-redirect', action='store_true', help='Reproduce public NGX loader/export redirection inside the test candidate')
+p.add_argument('--capture-input-control', action='store_true', help='Overwrite tagged inputs after Prepare; verify the actual consumed snapshots and pre-evaluate color on GPU')
 a = p.parse_args()
 if a.present_control and (a.gap_control or a.missing_ui):
     p.error('--present-control is a separate continuous-frame case')
@@ -68,6 +70,10 @@ env.pop('FH6_D3DMETAL_NO_ANTILAG2',None)  # This headless probe does not present
 env.pop('FH6_APPLE_PRESENT_CONTROL',None)
 env.pop('FH6_APPLE_QUEUED_PRESENTS',None)
 env.pop('FH6_APPLE_PUBLIC_NGX_REDIRECT',None)
+env.pop('FH6_APPLE_CAPTURE_INPUT_CONTROL',None)
+if a.capture_input_control:
+    env['FH6_APPLE_CAPTURE_INPUT_CONTROL']='1'
+    (a.output/'capture-request').write_text('isolated consumed-input overwrite control\n')
 if a.public_ngx_redirect:env['FH6_APPLE_PUBLIC_NGX_REDIRECT']='1'
 if a.present_control:
     env['FH6_APPLE_PRESENT_CONTROL']='1'
@@ -94,6 +100,47 @@ loaded_shim = next((line[len('LOADED D3D12 '):].strip() for line in contents.spl
 passed = passed and loaded_shim is not None and loaded_shim.lower() == r'c:\windows\system32\d3d12.dll'
 if a.present_control:
     passed = passed and 'PASS MetalFX FFX scheduler ordered midpoint/original GPU pixels' in contents
+capture_observation=[]
+if a.capture_input_control and passed:
+    captures=sorted((a.output/'captures').glob('*/capture.json'))
+    if len(captures)!=2:raise RuntimeError('Require exactly two fence-completed consumed-input captures')
+    for receipt in captures:
+        m=json.loads(receipt.read_text());images={i['name']:i for i in m['images']}
+        expected={'depth','motion','scene','ui','present','generated-before-ui','generated-after-ui',
+                  'consumed-prepare-depth','consumed-prepare-motion','scene-before-fg'}
+        if set(images)!=expected or not m['gpu_fence_completed'] or not m['pixel_files_complete']:
+            raise RuntimeError('Incomplete consumed-input capture')
+        frame=m['frame'];pixels={n:(receipt.parent/(n+'.bin')).read_bytes() for n in expected}
+        for name,i in images.items():
+            if len(pixels[name])!=i['bytes'] or i['bytes']!=i['height']*i['row_pitch']:
+                raise RuntimeError('Capture layout mismatch: '+name)
+        for name in ('consumed-prepare-depth','consumed-prepare-motion','scene-before-fg'):
+            i=images[name]
+            if i['source_frame']!=frame or i['copy_stage']!='before-native-evaluate':
+                raise RuntimeError('Missing consumed-input provenance: '+name)
+        for original_name,snapshot in (('depth','consumed-prepare-depth'),('motion','consumed-prepare-motion')):
+            if images[original_name]['ptr']==images[snapshot]['ptr']:
+                raise RuntimeError('Consumed snapshot aliases the overwritten original')
+        width,height=images['scene']['width'],images['scene']['height']
+        if (width,height)!=(192,128):raise RuntimeError('Unexpected synthetic fixture dimensions')
+        for y in range(height):
+            for x in range(width):
+                car=20+frame*2<=x<52+frame*2 and 40<=y<72
+                values={'depth':struct.pack('<f',.99),'motion':struct.pack('<HH',0x3c00,0x3c00),
+                        'consumed-prepare-depth':struct.pack('<f',.8 if car else .2),
+                        'consumed-prepare-motion':struct.pack('<HH',0xc000 if car else 0,0),
+                        'scene-before-fg':bytes((100,30,20,255) if car else (25,40,60,255))}
+                for name,value in values.items():
+                    off=y*images[name]['row_pitch']+x*4
+                    if pixels[name][off:off+4]!=value:
+                        raise RuntimeError(f'Wrong consumed epoch: frame={frame} image={name} pixel={x},{y}')
+        for y in range(height):
+            before=y*images['scene-before-fg']['row_pitch'];after=y*images['scene']['row_pitch']
+            if pixels['scene-before-fg'][before:before+width*4]!=pixels['scene'][after:after+width*4]:
+                raise RuntimeError('Native evaluation altered its source color')
+        capture_observation.append({'frame':frame,'images':len(images),'consumed_pixels_checked':width*height*5,
+                                    'originals_overwritten_after_prepare':True,'scene_unchanged_by_evaluate':True})
+    print('PASS exact consumed snapshots versus overwritten original GPU pixels',capture_observation)
 scheduler_summary = re.search(r'PRESENT summary callbacks=(\d+) dispatches=(\d+) native_pairs=(\d+) errors=(\d+) ui_errors=(\d+) original_errors=(\d+)', contents)
 result = {'exit':rc,'passed':passed,'missing_ui':a.missing_ui,'gap_control':a.gap_control,
           'candidate_sha256':module.sha(candidate),'original_sha256':module.sha(original),
@@ -106,6 +153,7 @@ result = {'exit':rc,'passed':passed,'missing_ui':a.missing_ui,'gap_control':a.ga
           'scheduler_present_test':a.present_control,
           'public_ngx_redirection_test':a.public_ngx_redirect,
           'queued_presents':a.queued_presents,
+          'consumed_input_capture_control':capture_observation,
           'synthetic_scheduler_verified':bool(a.present_control and passed and scheduler_summary),
           'scheduler_observation':dict(zip(('callbacks','dispatches','native_pairs','errors','ui_errors','original_errors'),
                                           map(int,scheduler_summary.groups()))) if scheduler_summary else None,

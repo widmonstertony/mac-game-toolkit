@@ -173,6 +173,15 @@ int wmain(int argc,wchar_t **argv){
  const bool gapControl=GetEnvironmentVariableW(L"FH6_APPLE_GAP_CONTROL",nullptr,0)!=0;
  const bool presentControl=GetEnvironmentVariableW(L"FH6_APPLE_PRESENT_CONTROL",nullptr,0)!=0;
  const bool queuedPresents=GetEnvironmentVariableW(L"FH6_APPLE_QUEUED_PRESENTS",nullptr,0)!=0;
+ const bool inputControl=GetEnvironmentVariableW(L"FH6_APPLE_CAPTURE_INPUT_CONTROL",nullptr,0)!=0;
+ Texture sentinelDepth,sentinelMotion;
+ if(inputControl){
+  CHECK(sentinelDepth.init(g.d,depth.gpu->GetDesc().Format,depth.gpu->GetDesc().Flags));
+  CHECK(sentinelMotion.init(g.d,DXGI_FORMAT_R16G16_FLOAT));
+  for(UINT i=0;i<W*H;++i){z[i]=.99f;mv[i*2]=mv[i*2+1]=0x3c00;}
+  CHECK(g.begin());CHECK(sentinelDepth.write(g.l,(BYTE*)z,W*4,D3D12_RESOURCE_STATE_COPY_SOURCE));
+  CHECK(sentinelMotion.write(g.l,(BYTE*)mv,W*4,D3D12_RESOURCE_STATE_COPY_SOURCE));CHECK(g.end());
+ }
  CHECK(!queuedPresents||presentControl);
  auto middleCount=(unsigned(*)())resolve(candidate,"FH6AppleMiddleFrames");
  auto warmupCount=(unsigned(*)())resolve(candidate,"FH6AppleWarmupFrames");CHECK(middleCount&&warmupCount);
@@ -243,6 +252,19 @@ int wmain(int argc,wchar_t **argv){
    }else
 #endif
    CHECK((k==2?candidateDispatch:dispatch)(&contexts[k],&prep.header)==0);
+#ifdef APPLE_FG_TEST
+   if(inputControl&&k==2){
+    // The captured consumed inputs must retain the Prepare epoch even after
+    // these original game textures are deliberately overwritten on the GPU.
+    Texture *sources[]={&sentinelDepth,&sentinelMotion},*targets[]={&depth,&motion};
+    for(unsigned n=0;n<2;++n){
+     targets[n]->transition(g.l,D3D12_RESOURCE_STATE_COPY_DEST);
+     D3D12_TEXTURE_COPY_LOCATION from{},to{};from.pResource=sources[n]->gpu;to.pResource=targets[n]->gpu;
+     from.Type=to.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;g.l->CopyTextureRegion(&to,0,0,0,&from,nullptr);
+     targets[n]->transition(g.l,read);
+    }
+   }
+#endif
    if(missingUi && k==2){CHECK(g.end());CHECK(g.begin());}
    ffxDispatchDescFrameGeneration p{};p.header.type=FFX_API_DISPATCH_DESC_TYPE_FRAMEGENERATION;p.commandList=g.l;p.frameID=id;p.numGeneratedFrames=1;p.reset=id==0;p.presentColor=res(k==1?scene:present);p.outputs[0]=ffxApiGetResourceDX12(outputs[k].gpu,FFX_API_RESOURCE_STATE_UNORDERED_ACCESS);p.generationRect={0,0,W,H};p.backbufferTransferFunction=FFX_API_BACKBUFFER_TRANSFER_FUNCTION_SRGB;p.minMaxLuminance[1]=100;
    auto f=frame(id,scene,ui);NativeUiCompositor::Binding *binding=nullptr;
