@@ -77,6 +77,27 @@ This changed the recorder only. Rear ghosting remains open.
 buffer padding. `prepare_replay.py` consumes the retained snapshots and
 pre-evaluate color for captures that carry that provenance.
 
+### Live captured input comparison
+
+Frames 6920 and 6921 ran through the installed native FG path. Both completed
+their GPU fences and selected MetalFX midpoints. The retained Prepare depth and
+motion match the tagged originals byte-for-byte on both frames, excluding pitch
+padding. HUDless color is identical before and after evaluation. The second
+frame retains a duplicated exhaust edge before UI composition. These two
+samples rule out a difference between the retained and original resource
+contents and a write to the source color by FG during those captures.
+
+Direct MetalFX replay with the same input captures, using frozen initialization,
+reproduces the repeated exhaust edge. In the sampled rear region, the replay
+differs from live output by a mean 0.41 RGB code values, while the incoming
+scene differs from live output by 6.00. Zeroed, inverted and output-grid
+jitter controls are pixel-identical to the replay in this region. The existing
+visibility post-pass reduces the duplicated exhaust detail but adds speckles
+under the bumper and leaves a horizontal seam on the earlier faster frame.
+That post-pass remains an offline control. The remaining suspect is the
+interpolation behavior around newly visible surfaces, including input
+representation details not covered by the snapshot comparison.
+
 Additional offline controls on the current captured pair reject full-resolution
 nearest depth/MV and output-grid motion scaling: duplicated rear detail remains
 or worsens. Making the zero-alpha source opaque changes no RGB output values.
